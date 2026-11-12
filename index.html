@@ -92,6 +92,11 @@ h3.money .coin.c2{width:18px;height:18px;margin-left:-10px;margin-top:10px}
 .feat{background:var(--panel);border:1px solid var(--line);border-top:2px solid var(--gold);border-radius:8px;padding:16px}
 .feat b{display:block;color:var(--gold2);font-size:16px;margin-bottom:6px}
 .feat span{color:var(--text);font-size:15px;opacity:.9}
+.vram{margin:16px 0;background:rgba(240,200,80,.07);border:1px solid rgba(240,200,80,.45);border-radius:8px;padding:14px 16px;color:#f3d77a}
+.vram b{color:#ffd84d;font-size:16px}
+.vram p{margin:6px 0 0;color:#f3d77a}
+.vram ul{margin:8px 0 0;color:#f3d77a}
+.vram ul b{font-size:inherit}
 footer{padding:32px 0 56px;color:var(--dim);font-size:14px}
 </style>
 </head>
@@ -145,6 +150,16 @@ footer{padding:32px 0 56px;color:var(--dim);font-size:14px}
     <li>오른쪽의 <b>전용 GPU 메모리</b> 숫자 (예: 12.0GB)</li>
   </ol>
   <p>숫자가 16GB 이상이면 고급, 10~12GB면 중간, 그보다 작으면 최저를 받으세요. AMD 그래픽카드는 최저 단계를 권합니다. 설치할 때도 설치 파일이 한 번 더 확인해 줍니다.</p>
+  <div class="vram">
+    <b>⚠ 번역기도 그래픽 메모리를 씁니다</b>
+    <p>고급·중간 단계는 번역 모델이 와우와 같은 그래픽카드 메모리를 나눠 씁니다. (고급 약 5GB · 중간 약 3GB)</p>
+    <p>게임이 끊기거나 번역이 갑자기 느려지면, 그래픽 메모리가 모자란 경우가 대부분입니다. 이렇게 해 보세요.</p>
+    <ul>
+      <li>와우 그래픽 설정에서 <b>텍스처 품질</b>을 한 단계 낮추기 (효과가 가장 큼)</li>
+      <li><b>시야 거리</b>를 조금 줄이기 · 먼 풍경이 보이는 곳과 대도시에서 메모리를 특히 많이 씁니다</li>
+      <li>게임 중에 그래픽카드를 쓰는 다른 프로그램(방송 프로그램, 브라우저 영상 등)은 줄이기</li>
+    </ul>
+  </div>
 </section>
 
 <section id="install">
