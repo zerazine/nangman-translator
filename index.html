@@ -189,8 +189,9 @@ footer{padding:32px 0 56px;color:var(--dim);font-size:14px}
     <a class="card" data-tier="Gemma" target="_blank" rel="noopener"><i class="badge">추천</i><b>Gemma 버전</b><span>zip 약 2MB (설치 중 약 5GB 받음) · 그래픽 메모리 8GB 이상</span><span class="warn">8GB는 와우 그래픽 설정 조정이 필요할 수 있습니다 (1번 안내 참고).</span><em>받기</em></a>
     <a class="card" data-tier="Gemini" target="_blank" rel="noopener"><i class="badge">추천</i><b>Gemini 버전</b><span>zip 약 2MB · 그래픽카드 상관없음</span><span class="warn">Google AI Studio API 키 발급 필요</span><em>받기</em></a>
   </div>
+  <div class="note warn"><b>받을 때·설치할 때 경고가 떠도 정상입니다.</b> 아직 받은 사람이 적은 새 프로그램이라 크롬과 윈도우가 "처음 보는 파일"이라고 한 번 묻는 것입니다. 바이러스가 있다는 뜻이 아니며, 받는 사람이 늘어나면 경고는 점점 줄어듭니다. 이 페이지(zerazine.github.io)에서 받은 파일만 쓰세요.</div>
   <ol class="steps">
-    <li><b>zip 받기</b> — 위에서 내 버전 카드의 [받기]를 눌러 구글 드라이브에서 받습니다.</li>
+    <li><b>zip 받기</b> — 위에서 내 버전 카드의 [받기]를 누릅니다. 크롬에서 <b>"이 파일은 일반적으로 다운로드되지 않으며 위험할 수 있습니다"</b>가 뜨면 <b>[의심스러운 파일 다운로드]</b>를 누르세요. 엣지에서는 다운로드 목록의 <b>… → 유지 → 자세히 표시 → 그래도 유지</b>를 누르면 됩니다.</li>
     <li><b>압축 끝까지 풀기</b> — zip을 오른쪽 클릭 → <b>모두 압축 풀기</b>. zip 안에서 바로 실행하면 안 됩니다.</li>
     <li><b>설치 파일 열기</b> — <code>낭만타우렌_와우포에버번역기_설치.exe</code>를 두 번 누릅니다. 파란 <b>"Windows의 PC 보호"</b> 창이 뜨면 <b>추가 정보 → 실행</b>을 누르세요. (처음 보는 프로그램이라 윈도우가 한 번 묻는 것입니다)</li>
     <li><b>[설치] 누르기</b> — 큰 [설치] 버튼 하나면 됩니다. 와우 폴더 찾기, 번역 엔진(Ollama) 받기, 번역 모델 받기, 게임 애드온까지 알아서 설치합니다. Gemma 버전은 이때 약 5GB를 인터넷에서 받아서, 인터넷 속도에 따라 5~20분쯤 걸립니다. 창에 받는 양과 남은 시간이 나오니 그대로 두세요. 중간에 끊겨도 알아서 이어 받습니다. <b>Gemini 버전</b>은 이때 Gemini 키를 넣는 창이 뜹니다 (<a href="#gemini">키 받는 법</a>).</li>
@@ -373,7 +374,7 @@ footer{padding:32px 0 56px;color:var(--dim);font-size:14px}
   World of Warcraft는 Blizzard Entertainment의 상표이며, 이 프로그램은 Blizzard와 관련이 없습니다.<br>번역 모델은 Gemma 4 E2B(Google, Apache 2.0)를 와우 채팅용으로 추가 학습한 것입니다. 함께 들어 있는 공개 부품(번역 엔진 Ollama 등)은 각자의 라이선스를 따르며, 목록은 설치 폴더 docs\라이선스 에 있습니다.
 </div></footer>
 <script>
-// ▼ 구글 드라이브 다운로드 링크 (비어 있으면 '링크 준비 중')
+// ▼ 다운로드 링크 (비어 있으면 '링크 준비 중')
 const LINKS = { 'Gemma': 'download/NangmanTranslator_Gemma.zip', 'Gemini': 'download/NangmanTranslator_Gemini.zip' };
 document.querySelectorAll('.dl .card').forEach(c => { const u = LINKS[c.dataset.tier]; if (u) c.href = u; else c.querySelector('em').textContent = '링크 준비 중'; });
 function pick(tiers){
