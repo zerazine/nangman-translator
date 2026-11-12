@@ -1,0 +1,1 @@
+# nangman-translator
