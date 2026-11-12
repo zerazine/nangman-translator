@@ -57,10 +57,12 @@ details{background:var(--panel);border:1px solid var(--line);border-radius:8px;m
 summary{cursor:pointer;padding:14px 0;font-weight:500}
 details[open] summary{color:var(--gold2)}
 .dl{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
-.dl .card{position:relative;flex:1 1 220px;display:block;text-decoration:none;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;transition:opacity .25s,border-color .25s,box-shadow .25s}
+.dl .card{position:relative;flex:1 1 220px;display:flex;flex-direction:column;align-items:flex-start;text-decoration:none;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;transition:opacity .25s,border-color .25s,box-shadow .25s}
 .dl .card b{display:block;color:var(--gold2);font-size:17px}
 .dl .card span{display:block;color:var(--dim);font-size:14px}
-.dl .card em{display:inline-block;margin-top:10px;font-style:normal;font-weight:700;font-size:14px;padding:6px 14px;border-radius:6px;border:1px solid var(--gold);color:var(--gold2)}
+.dl .card .warn{color:#f3d77a;font-size:13px;margin:2px 0 12px}
+.dl .card b{margin-bottom:2px}
+.dl .card em{display:inline-block;margin-top:auto;font-style:normal;font-weight:700;font-size:14px;padding:6px 14px;border-radius:6px;border:1px solid var(--gold);color:var(--gold2)}
 .dl .card[href]:hover{border-color:var(--gold)}
 .dl .card:not([href]) em{border-color:var(--line);color:var(--dim)}
 .dl .card .badge{display:none;position:absolute;top:-10px;right:12px;font-style:normal;font-size:12px;font-weight:700;background:var(--gold);color:#1a1405;padding:2px 10px;border-radius:10px}
@@ -184,8 +186,8 @@ footer{padding:32px 0 56px;color:var(--dim);font-size:14px}
 <section id="install">
   <h2><span class="n">2</span>설치하기</h2>
   <div class="dl">
-    <a class="card" data-tier="Gemma" target="_blank" rel="noopener"><i class="badge">추천</i><b>Gemma 버전</b><span>zip 수 MB (설치 중 약 5GB 받음) · 그래픽 메모리 8GB 이상</span><span style="color:#f3d77a;font-size:13px;margin-top:2px">8GB는 와우 그래픽 설정 조정이 필요할 수 있습니다 (1번 안내 참고).</span><em>받기</em></a>
-    <a class="card" data-tier="Gemini" target="_blank" rel="noopener"><i class="badge">추천</i><b>Gemini 버전</b><span>수십 MB · 그래픽카드 상관없음</span><em>받기</em></a>
+    <a class="card" data-tier="Gemma" target="_blank" rel="noopener"><i class="badge">추천</i><b>Gemma 버전</b><span>zip 수 MB (설치 중 약 5GB 받음) · 그래픽 메모리 8GB 이상</span><span class="warn">8GB는 와우 그래픽 설정 조정이 필요할 수 있습니다 (1번 안내 참고).</span><em>받기</em></a>
+    <a class="card" data-tier="Gemini" target="_blank" rel="noopener"><i class="badge">추천</i><b>Gemini 버전</b><span>수십 MB · 그래픽카드 상관없음</span><span class="warn">Google AI Studio API 키 발급 필요</span><em>받기</em></a>
   </div>
   <ol class="steps">
     <li><b>zip 받기</b> — 위에서 내 버전 카드의 [받기]를 눌러 구글 드라이브에서 받습니다.</li>
