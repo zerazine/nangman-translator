@@ -147,8 +147,8 @@ footer{padding:32px 0 56px;color:var(--dim);font-size:14px}
   <p>두 가지 버전 중 하나를 받습니다. 기준은 <b>와우를 켜 둔 채로</b> 번역이 돌아가는가입니다. <b>그래픽 메모리 8GB 이상이면 Gemma 버전을 추천</b>합니다.</p>
   <div class="tbl"><table>
     <tr><th>버전</th><th>번역 엔진</th><th>그래픽 메모리</th><th>받는 크기</th><th>특징</th></tr>
-    <tr><td><b>Gemma 버전</b><br><span style="color:#f3d77a;font-size:13px">추천</span></td><td>Gemma 4 E2B (와우 학습판)</td><td>8GB 이상<br><span style="color:#f3d77a;font-size:13px">8GB는 아래 그래픽 설정 안내 꼭 보기</span></td><td>zip 수 MB<br><span style="color:var(--dim);font-size:13px">설치 중 약 5GB 자동으로 받음</span></td><td>무료 · 빠름 · 번역 품질 가장 좋음 · 채팅이 바깥으로 안 나감</td></tr>
-    <tr><td><b>Gemini 버전</b></td><td>Gemini (본인 키)</td><td>상관없음</td><td>수십 MB</td><td>설치 가벼움 · 품질 좋음 · 구글 키 필요 · 쓴 만큼 비용</td></tr>
+    <tr><td><b>Gemma 버전</b><br><span style="color:#f3d77a;font-size:13px">추천</span></td><td>Gemma 4 E2B (와우 학습판)</td><td>8GB 이상<br><span style="color:#f3d77a;font-size:13px">8GB는 아래 그래픽 설정 안내 꼭 보기</span></td><td>zip 약 2MB<br><span style="color:var(--dim);font-size:13px">설치 중 약 5GB 자동으로 받음</span></td><td>무료 · 빠름 · 번역 품질 가장 좋음 · 채팅이 바깥으로 안 나감</td></tr>
+    <tr><td><b>Gemini 버전</b></td><td>Gemini (본인 키)</td><td>상관없음</td><td>zip 약 2MB</td><td>설치 가벼움 · 품질 좋음 · 구글 키 필요 · 쓴 만큼 비용</td></tr>
   </table></div>
   <h3>버튼 한 번으로 확인</h3>
   <p>받기 전에 눌러 보세요. 브라우저가 알려 주는 그래픽카드 이름으로 버전을 추천합니다. 아무것도 받거나 설치하지 않습니다.</p>
@@ -186,8 +186,8 @@ footer{padding:32px 0 56px;color:var(--dim);font-size:14px}
 <section id="install">
   <h2><span class="n">2</span>설치하기</h2>
   <div class="dl">
-    <a class="card" data-tier="Gemma" target="_blank" rel="noopener"><i class="badge">추천</i><b>Gemma 버전</b><span>zip 수 MB (설치 중 약 5GB 받음) · 그래픽 메모리 8GB 이상</span><span class="warn">8GB는 와우 그래픽 설정 조정이 필요할 수 있습니다 (1번 안내 참고).</span><em>받기</em></a>
-    <a class="card" data-tier="Gemini" target="_blank" rel="noopener"><i class="badge">추천</i><b>Gemini 버전</b><span>수십 MB · 그래픽카드 상관없음</span><span class="warn">Google AI Studio API 키 발급 필요</span><em>받기</em></a>
+    <a class="card" data-tier="Gemma" target="_blank" rel="noopener"><i class="badge">추천</i><b>Gemma 버전</b><span>zip 약 2MB (설치 중 약 5GB 받음) · 그래픽 메모리 8GB 이상</span><span class="warn">8GB는 와우 그래픽 설정 조정이 필요할 수 있습니다 (1번 안내 참고).</span><em>받기</em></a>
+    <a class="card" data-tier="Gemini" target="_blank" rel="noopener"><i class="badge">추천</i><b>Gemini 버전</b><span>zip 약 2MB · 그래픽카드 상관없음</span><span class="warn">Google AI Studio API 키 발급 필요</span><em>받기</em></a>
   </div>
   <ol class="steps">
     <li><b>zip 받기</b> — 위에서 내 버전 카드의 [받기]를 눌러 구글 드라이브에서 받습니다.</li>
@@ -374,7 +374,7 @@ footer{padding:32px 0 56px;color:var(--dim);font-size:14px}
 </div></footer>
 <script>
 // ▼ 구글 드라이브 다운로드 링크 (비어 있으면 '링크 준비 중')
-const LINKS = { 'Gemma': '', 'Gemini': '' };
+const LINKS = { 'Gemma': 'download/NangmanTranslator_Gemma.zip', 'Gemini': 'download/NangmanTranslator_Gemini.zip' };
 document.querySelectorAll('.dl .card').forEach(c => { const u = LINKS[c.dataset.tier]; if (u) c.href = u; else c.querySelector('em').textContent = '링크 준비 중'; });
 function pick(tiers){
   const dl = document.querySelector('.dl'); dl.classList.add('picked');
