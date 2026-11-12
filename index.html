@@ -136,7 +136,7 @@ footer{padding:32px 0 56px;color:var(--dim);font-size:14px}
   <div class="tbl"><table>
     <tr><th>단계</th><th>번역 엔진</th><th>그래픽 메모리</th><th>받는 크기</th><th>특징</th></tr>
     <tr><td><b>고급</b></td><td>Gemma 4 E4B (와우 학습판)</td><td>16GB 이상</td><td>약 6.5GB</td><td>문장 이해력 최고 · 무료</td></tr>
-    <tr><td><b>중간</b></td><td>Qwen3 4B (와우 학습판)</td><td>10~12GB</td><td>약 4.1GB</td><td>가장 빠름 · 무료 · 관용구·농담엔 조금 약함</td></tr>
+    <tr><td><b>중간</b></td><td>Qwen3 4B (와우 학습판)</td><td>10~12GB<br><span style="color:var(--dim);font-size:13px">8GB는 그래픽 낮추면 가능</span></td><td>약 4.1GB</td><td>가장 빠름 · 무료 · 관용구·농담엔 조금 약함</td></tr>
     <tr><td><b>최저</b></td><td>Gemini (본인 키)</td><td>상관없음</td><td>수십 MB</td><td>설치 가벼움 · 품질 좋음 · 구글 키 필요</td></tr>
   </table></div>
   <h3>버튼 한 번으로 확인</h3>
@@ -149,7 +149,7 @@ footer{padding:32px 0 56px;color:var(--dim);font-size:14px}
     <li>위쪽 <b>성능</b> 탭 → 왼쪽 아래 <b>GPU</b></li>
     <li>오른쪽의 <b>전용 GPU 메모리</b> 숫자 (예: 12.0GB)</li>
   </ol>
-  <p>숫자가 16GB 이상이면 고급, 10~12GB면 중간, 그보다 작으면 최저를 받으세요. AMD 그래픽카드는 최저 단계를 권합니다. 설치할 때도 설치 파일이 한 번 더 확인해 줍니다.</p>
+  <p>숫자가 16GB 이상이면 고급, 10~12GB면 중간을 받으세요. <b>8GB면 와우 그래픽을 낮춰서 중간</b>을 쓸 수 있고, 끊기면 최저로 바꾸면 됩니다. 그보다 작으면 최저를 받으세요. AMD 그래픽카드는 최저 단계를 권합니다. 설치할 때도 설치 파일이 한 번 더 확인해 줍니다.</p>
   <div class="vram">
     <b>⚠ 번역기도 그래픽 메모리를 씁니다</b>
     <p>고급·중간 단계는 번역 모델이 와우와 같은 그래픽카드 메모리를 나눠 씁니다. (고급 약 5GB · 중간 약 3GB)</p>
@@ -166,7 +166,7 @@ footer{padding:32px 0 56px;color:var(--dim);font-size:14px}
   <h2><span class="n">2</span>설치하기</h2>
   <div class="dl">
     <a class="card" data-tier="고급" target="_blank" rel="noopener"><i class="badge">추천</i><b>고급 · Gemma 4</b><span>약 6.5GB · 그래픽 메모리 16GB 이상</span><em>받기</em></a>
-    <a class="card" data-tier="중간" target="_blank" rel="noopener"><i class="badge">추천</i><b>중간 · Qwen3</b><span>약 4.1GB · 그래픽 메모리 10~12GB</span><em>받기</em></a>
+    <a class="card" data-tier="중간" target="_blank" rel="noopener"><i class="badge">추천</i><b>중간 · Qwen3</b><span>약 4.1GB · 그래픽 메모리 8~12GB</span><span style="color:#f3d77a;font-size:13px;margin-top:2px">단, 8GB일 경우 와우 그래픽 설정 조정이 필요합니다.</span><em>받기</em></a>
     <a class="card" data-tier="최저" target="_blank" rel="noopener"><i class="badge">추천</i><b>최저 · Gemini</b><span>수십 MB · 그래픽카드 상관없음</span><em>받기</em></a>
   </div>
   <ol class="steps">
@@ -331,7 +331,7 @@ const VRAM = {
   'L RTX 4050':[6],'L RTX 4060':[8],'L RTX 4070':[8],'L RTX 4080':[12],'L RTX 4090':[16],
   'L RTX 5060':[8],'L RTX 5070':[8],'L RTX 5070 TI':[12],'L RTX 5080':[16],'L RTX 5090':[24]
 };
-function tierOf(gb){ return gb >= 16 ? '고급' : gb >= 10 ? '중간' : '최저'; }
+function tierOf(gb){ return gb >= 16 ? '고급' : gb >= 8 ? '중간' : '최저'; }
 function readGpu(){
   try {
     const c = document.createElement('canvas');
@@ -369,7 +369,7 @@ function showGpu(){
       h = `<b>${r.name}</b> · 같은 이름에 메모리가 ${r.vram.join('GB / ')}GB인 제품이 있습니다.<div class="rec">` +
           r.vram.map(g => `${g}GB면 <span>${tierOf(g)}</span>`).join(' · ') + `</div><small>아래 작업 관리자 방법으로 메모리 숫자를 한 번 확인해 주세요.</small>`;
     }
-    if (r.vram.every(g => g < 10)) h += `<small>8GB 카드는 와우와 같이 돌리면 메모리가 모자라서, 확인될 때까지 최저 단계를 권합니다.</small>`;
+    if (r.vram.includes(8)) h += `<small>8GB 카드는 와우 그래픽 품질을 낮추면(예: 3~5단계) 중간 단계를 쓸 수 있습니다. 게임이 끊기거나 번역이 느리면 최저 단계로 바꾸세요.</small>`;
   } else if (r.kind === 'amd') {
     h = `<b>${r.name}</b><div class="rec">추천: <span>최저 단계</span></div><small>AMD 그래픽카드는 내 PC 번역 엔진이 일부만 지원돼서 최저 단계를 권합니다.</small>`;
   } else if (r.kind === 'intel') {
