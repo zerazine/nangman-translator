@@ -1,0 +1,112 @@
+{
+ "v": 16,
+ "ver": "1.16",
+ "date": "2026-11-13",
+ "files": [
+  {
+   "p": "app/NangmanTranslator.ps1",
+   "sha256": "7b1a3e5f7a4a72bc5fa8df7293863cd574d884e0d381fe0122b05ab7b7e6c103",
+   "size": 310372
+  },
+  {
+   "p": "app/app.ico",
+   "sha256": "dbb1ec75a07f02aa9a1aafbcfaf7b1efd0fb1df231593692be33e729eaee6566",
+   "size": 47440
+  },
+  {
+   "p": "app/ftr/kakao_qr.png",
+   "sha256": "a27a758bca5256cf3a9a2dc0c18a617ae0d2064b8d3480e22dfa69d266900715",
+   "size": 139972
+  },
+  {
+   "p": "app/ftr/FTR.cs",
+   "sha256": "534f5113fe21c057d729d96ec3b94d400a87585fd99699c70adaab5bd73338d3",
+   "size": 18085
+  },
+  {
+   "p": "app/ftr/naver_qr.png",
+   "sha256": "2f976c7651b6f157b25d5b011caba759b3cd5c1c6967b984cb247bb64e5032b0",
+   "size": 13871
+  },
+  {
+   "p": "app/ftr/GJ_MapleBold.ttf",
+   "sha256": "d57eaff48a793ff872a0f33bba2943d058d07c81ed64c68054858a287b85811a",
+   "size": 1394116
+  },
+  {
+   "p": "app/ftr/GJ_UI.ttf",
+   "sha256": "29929fef65820f1e1b1224478b59310e7f4cba85738a7203a939a99b32d7dd9a",
+   "size": 2124184
+  },
+  {
+   "p": "addon/NangmanTranslator/NangmanTranslator.toc",
+   "sha256": "b6d5bd5ecae0f7347428cc44f5b4c19e908caf7baba83a76e40bcb10a6f328f1",
+   "size": 404
+  },
+  {
+   "p": "addon/NangmanTranslator/Buttons.lua",
+   "sha256": "d152bee882fcc743d5401da6b84176b2b96424fe79b27a5b000021aae8bba9c3",
+   "size": 4681
+  },
+  {
+   "p": "addon/NangmanTranslator/Chat.lua",
+   "sha256": "863498c068e8e588ec3609e60318a7e496c80076521eac4a62b89a2ffb890010",
+   "size": 84699
+  },
+  {
+   "p": "addon/NangmanTranslator/Feed.lua",
+   "sha256": "e0c45135e5e7760cc679648a7c4ed21e277074c7786fd92e6ac615b206379b5d",
+   "size": 21683
+  },
+  {
+   "p": "addon/NangmanTranslator/Core.lua",
+   "sha256": "0cdaf2d1d8bc34a8ca09602905120ca0c03b20ffdc5a0442e6d9e582379d547e",
+   "size": 1793
+  },
+  {
+   "p": "addon/NangmanTranslator/NangmanTranslator_Camelot.toc",
+   "sha256": "e2faae9914ec31968f5d1863443925ab329777f5410fa4b38e275518a0f6fcaf",
+   "size": 404
+  },
+  {
+   "p": "addon/NangmanTranslator/Translate.lua",
+   "sha256": "922cd31a9bd8337870c509faa9356d5065c2e3bffe69f4f3192fdd85979cc453",
+   "size": 33013
+  },
+  {
+   "p": "addon/NangmanTranslator/media/mask.tga",
+   "sha256": "6173e850fdd6252d5a5446cc38b00d01cbbc34e342bb425b2d2c592de6d2a6fc",
+   "size": 65580
+  },
+  {
+   "p": "addon/NangmanTranslator/media/fk_people.tga",
+   "sha256": "e7b5d510ca1ea82e061e14450e4b365c1f2dffd463a522bc1feefe35eb61b607",
+   "size": 262188
+  },
+  {
+   "p": "addon/NangmanTranslator/media/medal_ring_aa.tga",
+   "sha256": "478d7adb09f6510172ef2439cc99589bd1cc2a972282aeaec5fbcaf00eecdb7a",
+   "size": 16428
+  },
+  {
+   "p": "addon/NangmanTranslator/media/hb_disc.tga",
+   "sha256": "f725ab39565b08e0c25e6df8f42e495a0670e1a6d0aca11f5803e1487aecb759",
+   "size": 65580
+  },
+  {
+   "p": "addon/NangmanTranslator/media/fk_trans.tga",
+   "sha256": "ee6d6f7590a2afeb86ae69a40302184bd5732d34b30bd805f32201c2d472ac46",
+   "size": 262188
+  },
+  {
+   "p": "addon/NangmanTranslator/media/gear.tga",
+   "sha256": "dbd50b56a79f011c072da816ecf7728fb4832b0a4209e0d2678e7ea2076ea396",
+   "size": 16428
+  },
+  {
+   "p": "addon/NangmanTranslator/media/glow.tga",
+   "sha256": "e10b3bf0c3f3eda141a3ff3bfb3fc46b297ee47a5e2c099ae1cac16a311ef09f",
+   "size": 65580
+  }
+ ]
+}
