@@ -1,11 +1,11 @@
 {
- "v": 16,
- "ver": "1.16",
+ "v": 17,
+ "ver": "1.17",
  "date": "2026-11-13",
  "files": [
   {
    "p": "app/NangmanTranslator.ps1",
-   "sha256": "7b1a3e5f7a4a72bc5fa8df7293863cd574d884e0d381fe0122b05ab7b7e6c103",
+   "sha256": "0c51612818029aa8a1c9a5950f4348998748e80c24a1c1fb104fd31ed269087d",
    "size": 310372
   },
   {
@@ -50,8 +50,8 @@
   },
   {
    "p": "addon/NangmanTranslator/Chat.lua",
-   "sha256": "863498c068e8e588ec3609e60318a7e496c80076521eac4a62b89a2ffb890010",
-   "size": 84699
+   "sha256": "edcd22a51c3009bd4809d6ead71be15c41b65d5c65b94811630decb7b4264707",
+   "size": 86149
   },
   {
    "p": "addon/NangmanTranslator/Feed.lua",
