@@ -1,12 +1,12 @@
 {
- "v": 27,
- "ver": "1.27",
+ "v": 28,
+ "ver": "1.28",
  "date": "2026-11-14",
  "files": [
   {
    "p": "app/NangmanTranslator.ps1",
-   "sha256": "89cd184b4c1fc263c548661448c5752906601f25b7e6fce6f8258415cd344343",
-   "size": 325369
+   "sha256": "f1d86564193f815be4b7c0a3229593e3939947dab86fdecb2912a715e0ebb546",
+   "size": 340092
   },
   {
    "p": "app/app.ico",
@@ -50,8 +50,8 @@
   },
   {
    "p": "addon/NangmanTranslator/Chat.lua",
-   "sha256": "edcd22a51c3009bd4809d6ead71be15c41b65d5c65b94811630decb7b4264707",
-   "size": 86149
+   "sha256": "b7d04969190ccab19f573a5ef91a7597a8875498cd5f6e32ed116328844fa0bd",
+   "size": 86468
   },
   {
    "p": "addon/NangmanTranslator/Feed.lua",
@@ -107,6 +107,16 @@
    "p": "addon/NangmanTranslator/media/glow.tga",
    "sha256": "e10b3bf0c3f3eda141a3ff3bfb3fc46b297ee47a5e2c099ae1cac16a311ef09f",
    "size": 65580
+  },
+  {
+   "p": "app/ftr/GJ_UILight.ttf",
+   "sha256": "aa294b6b0cc4907cbc50b9c0fd1ba69b138a01bb25da63e27371bd9452844ed9",
+   "size": 2168048
+  },
+  {
+   "p": "app/ftr/GJ_Binggrae.ttf",
+   "sha256": "ac8ce15f3f0b0498889c9e8dd723d5ce2c9b3ac1ac358e6ffe4713fb172ea08f",
+   "size": 6860284
   }
  ]
 }

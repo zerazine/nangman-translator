@@ -1,0 +1,12 @@
+{
+ "v": 1,
+ "_설명": "제작자 알림판 · minVer: 이 번호보다 낮은 버전은 번역 멈춤+안내 · off: true면 전체 중단 · blockIds: 멈출 ID(NT-XXXX-XXXX) 목록 · 비워 두면 아무 영향 없음 · notice: 대화창에 한 번 띄울 공지(줄바꿈 \\n) · noticeId: 공지 번호(바꾸면 다시 띄움) — 1.28부터",
+ "minVer": 0,
+ "minMsg": "",
+ "off": false,
+ "offMsg": "",
+ "blockIds": [],
+ "blockMsg": "",
+ "notice": "",
+ "noticeId": ""
+}
