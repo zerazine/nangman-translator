@@ -1,12 +1,13 @@
 {
  "v": 1,
- "_설명": "제작자 알림판 · minVer: 이 번호보다 낮은 버전은 번역 멈춤+안내 · off: true면 전체 중단 · blockIds: 멈출 ID(NT-XXXX-XXXX) 목록 · 비워 두면 아무 영향 없음 · notice: 대화창에 한 번 띄울 공지(줄바꿈 \\n) · noticeId: 공지 번호(바꾸면 다시 띄움) — 1.28부터",
+ "_설명": "제작자 알림판 · minVer: 이 번호보다 낮은 버전은 번역 멈춤+안내 · off: true면 전체 중단 · blockIds: 멈출 ID(NT-XXXX-XXXX) 목록 · 비워 두면 아무 영향 없음 · notice: 대화창에 한 번 띄울 공지(줄바꿈 \\n) · noticeId: 공지 번호(바꾸면 다시 띄움) — 1.28부터 · noticeMax: 이 번호 이상 버전에는 공지 안 띄움 (1.30부터 · 그 전 버전은 무시하고 띄움)",
  "minVer": 0,
  "minMsg": "",
  "off": false,
  "offMsg": "",
  "blockIds": [],
  "blockMsg": "",
- "notice": "",
- "noticeId": ""
+ "notice": "[낭만타우렌 번역기] 중요 업데이트 안내 (1.30)\n상단 도우미 바의 [설정] → [업데이트 지금 확인]을 눌러 최신 버전으로 업데이트해 주세요.\n업데이트하지 않으면 앞으로 나오는 사전·기능 업데이트를 제대로 받지 못할 수 있어요.",
+ "noticeId": "upd130",
+ "noticeMax": 30
 }
