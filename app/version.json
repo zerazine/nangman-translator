@@ -5,8 +5,8 @@
  "files": [
   {
    "p": "app/NangmanTranslator.ps1",
-   "sha256": "9a49326402f9da2c76a92ff57fe694e6c1eacdf04374dfa002c72e23ef31ae38",
-   "size": 342960
+   "sha256": "b7ad06a9f1d455e98b059ca5daac06e4a5f77fb33699a30df24dc6ce518cb3f4",
+   "size": 343045
   },
   {
    "p": "app/app.ico",

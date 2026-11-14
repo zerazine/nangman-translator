@@ -3876,7 +3876,7 @@ $DictT.Start()
 #  하나라도 받기 실패·검사값 틀림이면 아무것도 안 바꾸고 다음 확인(6시간 뒤) 때 다시
 $APPV = 31
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
-$Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-6).AddSeconds(5); waitLog = $false }   # (2026-11-14 대표) 켜자마자(5초) 확인 → 보통 와우 켜기 전에 받아서 바로 바꿈
+$Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }   # (2026-11-14 대표) 켜자마자(5초) 확인 → 보통 와우 켜기 전에 받아서 바로 바꿈
 function Upd-AddonDir {
   try { foreach ($l in [IO.File]::ReadAllLines((Join-Path $env:LOCALAPPDATA 'NangmanTranslator\installed.txt'))) { if ($l -match '^\W*addon=(.+)$') { $d = $Matches[1].Trim(); if ($d -and (Test-Path -LiteralPath $d)) { return $d } } } } catch {}
   return $null
@@ -3937,7 +3937,7 @@ $UpdT.Add_Tick({
       try { Upd-Apply } catch { Log ('프로그램 업데이트 실패 (그대로 씀): ' + $_) }
       Upd-Reset; return
     }
-    if (-not $Upd.task) { if ($Upd.queue.Count -eq 0 -and ([DateTime]::Now - $Upd.checkAt).TotalHours -ge 6) { Upd-Check }; return }
+    if (-not $Upd.task) { if ($Upd.queue.Count -eq 0 -and ([DateTime]::Now - $Upd.checkAt).TotalHours -ge 3) { Upd-Check }; return }   # (2026-11-14 대표) 새 버전 확인 = 켤 때 + 3시간마다 (예전 6시간)
     if (-not $Upd.task.IsCompleted) { return }
     $t = $Upd.task; $Upd.task = $null
     if ($t.Status -ne [System.Threading.Tasks.TaskStatus]::RanToCompletion) { $why = ''; try { $why = [string]$t.Exception.InnerException.Message } catch {}; Log ('프로그램 업데이트 ' + $Upd.kind + ' 받기 실패: ' + $why); Upd-Reset; return }
