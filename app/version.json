@@ -1,12 +1,12 @@
 {
- "v": 25,
- "ver": "1.25",
+ "v": 26,
+ "ver": "1.26",
  "date": "2026-11-14",
  "files": [
   {
    "p": "app/NangmanTranslator.ps1",
-   "sha256": "a345a35444a87741c3c268b3816d90586ff1c78c27b469f756754044785fea9c",
-   "size": 322561
+   "sha256": "77dbb933b7b03fe069007508404e55323fde22d970cf76a11e3fab1aed1ccec9",
+   "size": 323745
   },
   {
    "p": "app/app.ico",
@@ -20,8 +20,8 @@
   },
   {
    "p": "app/ftr/FTR.cs",
-   "sha256": "534f5113fe21c057d729d96ec3b94d400a87585fd99699c70adaab5bd73338d3",
-   "size": 18085
+   "sha256": "946c2c05324ff8626f13a71d5e8c67dd1206951322cc69a886334cbcc9231a23",
+   "size": 20751
   },
   {
    "p": "app/ftr/naver_qr.png",
