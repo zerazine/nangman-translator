@@ -1,0 +1,222 @@
+{
+ "v": 228,
+ "ver": "2.28",
+ "date": "2026-11-21",
+ "files": [
+  {
+   "p": "app/NangmanTranslator.ps1",
+   "sha256": "8fe0b737a3abf856ddd7102b8be3e16fe79d979ed6ba8eb4ae51a8a204d13962",
+   "size": 421352
+  },
+  {
+   "p": "app/NangmanTranslator.exe",
+   "sha256": "5932f895736ee3fb1aa255381cbbd71e92f2cca48d638aad8134ca46afce1511",
+   "size": 108032
+  },
+  {
+   "p": "app/Uninstall.exe",
+   "sha256": "5932f895736ee3fb1aa255381cbbd71e92f2cca48d638aad8134ca46afce1511",
+   "size": 108032
+  },
+  {
+   "p": "app/app.ico",
+   "sha256": "dbb1ec75a07f02aa9a1aafbcfaf7b1efd0fb1df231593692be33e729eaee6566",
+   "size": 47440
+  },
+  {
+   "p": "app/ftr/FTR.cs",
+   "sha256": "4f4ae4cc682cf63d5f02b419db048a6498865724d4b5177520b4680ff8579da0",
+   "size": 18210
+  },
+  {
+   "p": "app/ftr/FTRVoice.cs",
+   "sha256": "5d9d2a3995bdef1fc58b29c061dcbe2ad66f4e958303c4e64a1400959698d987",
+   "size": 23117
+  },
+  {
+   "p": "app/ftr/GJ_Binggrae.ttf",
+   "sha256": "ac8ce15f3f0b0498889c9e8dd723d5ce2c9b3ac1ac358e6ffe4713fb172ea08f",
+   "size": 6860284
+  },
+  {
+   "p": "app/ftr/GJ_MapleBold.ttf",
+   "sha256": "d57eaff48a793ff872a0f33bba2943d058d07c81ed64c68054858a287b85811a",
+   "size": 1394116
+  },
+  {
+   "p": "app/ftr/GJ_MapleLight.ttf",
+   "sha256": "6d51d8e576f77b01914095aa1f69f9d37c16d93fe940d748962867f218442ba9",
+   "size": 1357656
+  },
+  {
+   "p": "app/ftr/GJ_UI.ttf",
+   "sha256": "29929fef65820f1e1b1224478b59310e7f4cba85738a7203a939a99b32d7dd9a",
+   "size": 2124184
+  },
+  {
+   "p": "app/ftr/GJ_UILight.ttf",
+   "sha256": "aa294b6b0cc4907cbc50b9c0fd1ba69b138a01bb25da63e27371bd9452844ed9",
+   "size": 2168048
+  },
+  {
+   "p": "addon/NangmanTranslator/Buttons.lua",
+   "sha256": "b4c90625f6b40548424228a0c5cf0ac6aea6921df9311c54265c2dfce27ac647",
+   "size": 4011
+  },
+  {
+   "p": "addon/NangmanTranslator/Chat.lua",
+   "sha256": "2a531110f03b779c44038b7f257fa9522c259cd92429f0e6631410984871df70",
+   "size": 131413
+  },
+  {
+   "p": "addon/NangmanTranslator/Core.lua",
+   "sha256": "00600743be809a82d85a186511c760a71171abed930b08053ed3f8cb02f04774",
+   "size": 1874
+  },
+  {
+   "p": "addon/NangmanTranslator/LinkNamesData.lua",
+   "sha256": "9d5e0ea0d4dda167c89ca0898b0f3e28e436e2b3a08135ece71b5c0602d43517",
+   "size": 1674230
+  },
+  {
+   "p": "addon/NangmanTranslator/LinkNames.lua",
+   "sha256": "93fc402c45df99478cca7a45015a8a6565e2ee6a244d89cecb94b4ecd28e59ed",
+   "size": 5836
+  },
+  {
+   "p": "addon/NangmanTranslator/Feed.lua",
+   "sha256": "d8e62d86d00e8818948a8a222e57f88098dbe823f0116a647be951218237d9a5",
+   "size": 18248
+  },
+  {
+   "p": "addon/NangmanTranslator/NangmanTranslator.toc",
+   "sha256": "6d07c67017f04dc88e0461bcb5bf7777692af10aa32698904c62966e2acfa962",
+   "size": 520
+  },
+  {
+   "p": "addon/NangmanTranslator/NangmanTranslator_Camelot.toc",
+   "sha256": "1995f37871aad276614d56b4d229c757c798c088665cd29ddec482a62a9359b7",
+   "size": 520
+  },
+  {
+   "p": "addon/NangmanTranslator/Translate.lua",
+   "sha256": "3a864d7b381bce610f89b21383b2e0aa2988d0b39a5a23f19f0ba639fe4fe794",
+   "size": 34373
+  },
+  {
+   "p": "addon/NangmanTranslator/media/GJ_Binggrae.ttf",
+   "sha256": "ac8ce15f3f0b0498889c9e8dd723d5ce2c9b3ac1ac358e6ffe4713fb172ea08f",
+   "size": 6860284
+  },
+  {
+   "p": "addon/NangmanTranslator/media/GJ_MapleBold.ttf",
+   "sha256": "d57eaff48a793ff872a0f33bba2943d058d07c81ed64c68054858a287b85811a",
+   "size": 1394116
+  },
+  {
+   "p": "addon/NangmanTranslator/media/GJ_MapleLight.ttf",
+   "sha256": "6d51d8e576f77b01914095aa1f69f9d37c16d93fe940d748962867f218442ba9",
+   "size": 1357656
+  },
+  {
+   "p": "addon/NangmanTranslator/media/GJ_UI.ttf",
+   "sha256": "29929fef65820f1e1b1224478b59310e7f4cba85738a7203a939a99b32d7dd9a",
+   "size": 2124184
+  },
+  {
+   "p": "addon/NangmanTranslator/media/GJ_UILight.ttf",
+   "sha256": "aa294b6b0cc4907cbc50b9c0fd1ba69b138a01bb25da63e27371bd9452844ed9",
+   "size": 2168048
+  },
+  {
+   "p": "addon/NangmanTranslator/media/fk_people.tga",
+   "sha256": "e7b5d510ca1ea82e061e14450e4b365c1f2dffd463a522bc1feefe35eb61b607",
+   "size": 262188
+  },
+  {
+   "p": "addon/NangmanTranslator/media/fk_trans.tga",
+   "sha256": "ee6d6f7590a2afeb86ae69a40302184bd5732d34b30bd805f32201c2d472ac46",
+   "size": 262188
+  },
+  {
+   "p": "addon/NangmanTranslator/media/friends.tga",
+   "sha256": "a66d7005b56a4763946e4b4a03e9c183239a4d89ff17c9a3562ff54fa8a3623e",
+   "size": 16428
+  },
+  {
+   "p": "addon/NangmanTranslator/media/gear.tga",
+   "sha256": "95c02db7bac2634f01c2c45c085e3652adc4ff1cc3946b648eafad9c3eab207e",
+   "size": 16428
+  },
+  {
+   "p": "addon/NangmanTranslator/media/glow.tga",
+   "sha256": "e10b3bf0c3f3eda141a3ff3bfb3fc46b297ee47a5e2c099ae1cac16a311ef09f",
+   "size": 65580
+  },
+  {
+   "p": "addon/NangmanTranslator/media/hb_disc.tga",
+   "sha256": "f725ab39565b08e0c25e6df8f42e495a0670e1a6d0aca11f5803e1487aecb759",
+   "size": 65580
+  },
+  {
+   "p": "addon/NangmanTranslator/media/mask.tga",
+   "sha256": "6173e850fdd6252d5a5446cc38b00d01cbbc34e342bb425b2d2c592de6d2a6fc",
+   "size": 65580
+  },
+  {
+   "p": "addon/NangmanTranslator/media/medal_ring_aa.tga",
+   "sha256": "478d7adb09f6510172ef2439cc99589bd1cc2a972282aeaec5fbcaf00eecdb7a",
+   "size": 16428
+  },
+  {
+   "p": "addon/NangmanTranslator/media/grip2.tga",
+   "sha256": "eb084c48c6b182f1c1ff6c08c9e9e9222f0333401e4d346313268d157863f997",
+   "size": 16428
+  },
+  {
+   "p": "addon/NangmanTranslator/media/cen_icon.tga",
+   "sha256": "6309f64f45a957317dc57f03d53401b08eac55d28cacf93efd82c05a9dbf226f",
+   "size": 65580
+  },
+  {
+   "p": "addon/NangmanTranslator/media/tip_x.tga",
+   "sha256": "f0935ab80766f3f3123dec7f29317ec3ff28d181295aeb2d4d35fbe708f1adb9",
+   "size": 16428
+  },
+  {
+   "p": "addon/NangmanTranslator/media/cen_fill.tga",
+   "sha256": "588b0b5f5e0f9b3071bba472a76a1e0d521853696648844e8fecd9e658a45f44",
+   "size": 262188
+  },
+  {
+   "p": "addon/NangmanTranslator/media/ring6.tga",
+   "sha256": "581e66f9a71b0fa2c17ad4b633e930c7d9fd45bed1aeb6c761c7d12d9d00698b",
+   "size": 16428
+  },
+  {
+   "p": "addon/NangmanTranslator/media/tip_bubble.tga",
+   "sha256": "be90791422440f6de40ae61bd5debd4a22007c588d79a761b34f75a10c422c4f",
+   "size": 41502
+  },
+  {
+   "p": "addon/NangmanTranslator/media/pill_cap.tga",
+   "sha256": "c91e85cc83dd1f5db16114ddc8064ab1ef750b73601558d5c066fba2f880af75",
+   "size": 32812
+  },
+  {
+   "p": "addon/NangmanTranslator/media/tri_down.tga",
+   "sha256": "29f1287d086ef283e8a81b811e353e90d78dd2cdb4c59e5f52decb74bcbfa8f9",
+   "size": 4140
+  },
+  {
+   "p": "addon/NangmanTranslator/media/cen_rim.tga",
+   "sha256": "02c66db9c88ab1cd06eca1a5b9ef3c9de1cf0dcfa13622e8f737c76c1918f232",
+   "size": 262188
+  },
+  {
+   "p": "addon/NangmanTranslator/media/pill_rim.tga",
+   "sha256": "8b75a8fb1af566c7ae36b23dcf30791287bb87c95a208fc9f92998ee475f306c",
+   "size": 32812
+  }
+ ]
+}

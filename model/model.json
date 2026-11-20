@@ -1,0 +1,11 @@
+{
+    "model":  "nangman-gemma",
+    "source":  "gemma2b-wow-1113-0051-afull:e2b",
+    "size":  3416114688,
+    "sha256":  "b56907fa8b52e5254eca67d6e39f52bf55dc3ff7f71f4ee90ae8f521e32c25cc",
+    "parts":  [
+                  "https://github.com/zerazine/nangman-translator/releases/download/model-v1/nangman-gemma.gguf.part1",
+                  "https://github.com/zerazine/nangman-translator/releases/download/model-v1/nangman-gemma.gguf.part2"
+              ],
+    "date":  "2026-11-13"
+}

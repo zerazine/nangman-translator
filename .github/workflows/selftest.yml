@@ -1,0 +1,72 @@
+name: selftest
+on:
+  push:
+    branches: [rel-1.35-pending]
+  workflow_dispatch:
+jobs:
+  install:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [Gemini, Gemma]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ollama
+        if: matrix.kind == 'Gemma'
+        shell: pwsh
+        run: |
+          $o = Join-Path $env:RUNNER_TEMP 'OllamaSetup.exe'
+          Invoke-WebRequest -Uri 'https://github.com/ollama/ollama/releases/latest/download/OllamaSetup.exe' -OutFile $o
+          $p = Start-Process $o -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru
+          if (-not $p.WaitForExit(600000)) { throw 'Ollama 설치가 10분 넘게 안 끝남' }
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe'
+          if (-not (Test-Path $exe)) { throw 'Ollama 설치 안 됨' }
+          for ($i = 0; $i -lt 30; $i++) { try { Invoke-RestMethod http://127.0.0.1:11434/api/tags -TimeoutSec 2 | Out-Null; break } catch { Start-Sleep 2 } }
+          New-Item -ItemType Directory -Force (Join-Path $env:USERPROFILE '.ollama\models') | Out-Null
+          Write-Host 'Ollama 준비됨'
+      - name: install
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'pkg'
+          Expand-Archive "download/NangmanTranslator_${{ matrix.kind }}.zip" -DestinationPath $out -Force
+          $exe = Get-ChildItem $out -Recurse -Filter *.exe | Where-Object { $_.Name -notlike 'Uninstall*' } | Select-Object -First 1
+          $fv = Join-Path $env:RUNNER_TEMP 'wow\_forever_'
+          $p = Start-Process $exe.FullName -ArgumentList '/selftest', "/forever=$fv", '/noengine' -PassThru -Wait
+          Get-Content (Join-Path $exe.DirectoryName 'selftest-result.txt') -Encoding UTF8
+          if ($p.ExitCode -ne 0) { throw '설치 시험 실패' }
+      - name: install (korean user)
+        shell: pwsh
+        run: |
+          $u = '낭만시험'
+          $pw = ConvertTo-SecureString ('Nt!' + [guid]::NewGuid().ToString('N')) -AsPlainText -Force
+          New-LocalUser -Name $u -Password $pw -PasswordNeverExpires | Out-Null
+          Add-LocalGroupMember -Group 'Users' -Member $u
+          $dir = 'C:\st-ko'; New-Item -ItemType Directory -Path $dir -Force | Out-Null
+          Expand-Archive "download/NangmanTranslator_${{ matrix.kind }}.zip" -DestinationPath $dir -Force
+          icacls $dir /grant 'Everyone:(OI)(CI)F' /T | Out-Null
+          $exe = Get-ChildItem $dir -Recurse -Filter *.exe | Where-Object { $_.Name -notlike 'Uninstall*' } | Select-Object -First 1
+          $fv = 'C:\st-ko\wow\_forever_'
+          $cred = New-Object System.Management.Automation.PSCredential($u, $pw)
+          $run = @(
+            '$la = [Environment]::GetFolderPath(''LocalApplicationData''); $tp = Join-Path $la ''Temp''; New-Item -ItemType Directory -Path $tp -Force | Out-Null',
+            '$env:TEMP = $tp; $env:TMP = $tp; $env:LOCALAPPDATA = $la; $env:USERPROFILE = [Environment]::GetFolderPath(''UserProfile''); $env:APPDATA = [Environment]::GetFolderPath(''ApplicationData'')',
+            ('$p = Start-Process ''' + $exe.FullName + ''' -ArgumentList ''/selftest'',''/forever=' + $fv + ''',''/noengine'' -PassThru -Wait; exit $p.ExitCode')
+          )
+          [IO.File]::WriteAllLines("$dir\run.ps1", [string[]]$run, (New-Object Text.UTF8Encoding($true)))
+          $p = Start-Process powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$dir\run.ps1" -Credential $cred -LoadUserProfile -WorkingDirectory $dir -PassThru -Wait
+          Get-Content (Join-Path $exe.DirectoryName 'selftest-result.txt') -Encoding UTF8
+          if (-not (Select-String -Path (Join-Path $exe.DirectoryName 'selftest-result.txt') -Pattern ('Users\\' + $u) -Quiet)) { throw '한글 사용자 폴더로 설치되지 않음' }
+          if ($p.ExitCode -ne 0) { throw '한글 이름 사용자 설치 시험 실패' }
+      - name: syntax
+        if: always() && matrix.kind == 'Gemma'
+        shell: powershell
+        run: ./.github/selftest-app.ps1
+      - name: dict
+        if: always()
+        shell: powershell
+        run: ./.github/selftest-dict.ps1 -Zip "download/NangmanTranslator_${{ matrix.kind }}.zip"
+      - name: update
+        if: always() && matrix.kind == 'Gemma'
+        shell: powershell
+        run: ./.github/selftest-update.ps1 -Branch "${{ github.ref_name }}"
