@@ -503,7 +503,8 @@ do
   end
   local UD = {}
   local fillTex
-  local function applyBg() if fillTex then for _, t in ipairs(fillTex) do t:SetVertexColor(0.067, 0.067, 0.071, cfg().bg * 0.94) end end if UD.win then for _, U in pairs(UD.win) do for _, t in ipairs(U.fill) do t:SetVertexColor(0.067, 0.067, 0.071, cfg().bg * 0.94) end end end end
+  local function bgAlpha() local v = cfg().bg if NT.tr().bgOff then v = math.max(v, 0.9) end return v * 0.94 end
+  local function applyBg() local a = bgAlpha() if fillTex then for _, t in ipairs(fillTex) do t:SetVertexColor(0.067, 0.067, 0.071, a) end end if UD.win then for _, U in pairs(UD.win) do for _, t in ipairs(U.fill) do t:SetVertexColor(0.067, 0.067, 0.071, a) end end end end
 
   local function selTab(key)
     local uw = UD.of and UD.of(key)
@@ -1315,8 +1316,8 @@ do
         end)
         card.bg({ 0.878, 0.725, 0.353 }, 13 / 255)
         card:SetPoint("TOPLEFT", C, "TOPLEFT", 0, -y) card:SetWidth(SXW)
-        card.t:SetFont(fontFile(), 13.5, "") card.t:SetText("가운데 파티글") col(card.t, SX.gold)
-        card.s:SetFont(fontFile(), 10, "") card.s:SetText(fon and "화면 가운데(캐릭터 머리 위)에 파티 대화를 크게" or "와이드 모니터처럼 화면이 넓으면 켜 보세요") col(card.s, { 0.749, 0.682, 0.525 })
+        card.t:SetFont(fontFile(), 13.5, "") card.t:SetText("집중 대화창") col(card.t, SX.gold)
+        card.s:SetFont(fontFile(), 10, "") card.s:SetText(fon and "화면 가운데(캐릭터 머리 위)에 대화와 번역을 크게 · 전장에서도 여기서 번역" or "켜 두면 전장에서도 이 창으로 번역을 볼 수 있어요") col(card.s, { 0.749, 0.682, 0.525 })
         local tg = toggle(card.hd, fon) tg:ClearAllPoints() tg:SetPoint("RIGHT", 0, 0)
         card.hd:SetScript("OnClick", function()
           local D = NT.db() D.partyFeedOn = not (D.partyFeedOn == true)
@@ -1921,8 +1922,34 @@ do
         else tr.pl.set({ 1, 1, 1, 10 / 255 }, { 1, 1, 1, 38 / 255 }) tr.t:SetTextColor(0.416, 0.416, 0.416) end
       end
       cen:SetScript("OnClick", function() local D = NT.db() D.partyFeedOn = not (D.partyFeedOn == true) if not D.partyFeedOn and NT.feedClear then pcall(NT.feedClear) end paint() feedChanged() if NT.chatSettingsRefresh then NT.chatSettingsRefresh() end end)
-      cen:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_TOP") GameTooltip:AddLine("가운데 파티글", 1, 0.84, 0.42) GameTooltip:AddLine((NT.feedEnabled and NT.feedEnabled()) and "켜짐 (클릭 = 끄기)" or "꺼짐 (클릭 = 켜기)", 0.9, 0.9, 0.9) GameTooltip:Show() end)
+      cen:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_TOP") GameTooltip:AddLine("집중 대화창", 1, 0.84, 0.42) GameTooltip:AddLine((NT.feedEnabled and NT.feedEnabled()) and "켜짐 (클릭 = 끄기)" or "꺼짐 (클릭 = 켜기)", 0.9, 0.9, 0.9) GameTooltip:Show() end)
       cen:SetScript("OnLeave", function() GameTooltip:Hide() end)
+      do
+        local tip
+        local function done() NT.db().tipFocus = true if tip then tip:Hide() end end
+        local tk, acc, shown = CreateFrame("Frame"), 0, 0
+        NT.onUpdate(tk, function(self, el)
+          acc = acc + el if acc < 0.25 then return end
+          if NT.db().tipFocus then if tip then tip:Hide() end self:SetScript("OnUpdate", nil) return end
+          if not (P and P:IsVisible() and cen:IsVisible()) then acc = 0 if tip then tip:Hide() end return end
+          if tip and tip:IsShown() then shown = shown + acc if shown > 15 then done() end acc = 0 return end
+          acc = 0
+          if not tip then
+            tip = CreateFrame("Frame", nil, UIParent) tip:SetFrameStrata("DIALOG") tip:EnableMouse(true)
+            local bg = tip:CreateTexture(nil, "BACKGROUND") bg:SetTexture(MEDIA .. "tip_bubble", "CLAMP", "CLAMP", "TRILINEAR") bg:SetTexCoord(0, 1200 / 2048, 0, 204 / 256) bg:SetAllPoints()
+            local t1 = tip:CreateFontString(nil, "OVERLAY") t1:SetFont(UIFONT, 12.5, "") t1:SetTextColor(TABON[1], TABON[2], TABON[3]) t1:SetPoint("TOPLEFT", 47, -9) t1:SetText("집중 대화창")
+            local t2 = tip:CreateFontString(nil, "OVERLAY") t2:SetFont(UIFONT, 10.5, "") t2:SetTextColor(TABOFF[1], TABOFF[2], TABOFF[3]) t2:SetPoint("TOPLEFT", t1, "BOTTOMLEFT", 0, -3) t2:SetText("전장 입장 시에는 집중 대화창에서 번역을 보실 수 있어요")
+            tip:SetSize(math.max(300, math.ceil(t2:GetStringWidth() + 84)), 51)
+            local x = CreateFrame("Button", nil, tip) x:SetSize(22, 22) x:SetPoint("CENTER", tip, "TOPRIGHT", -18, -22)
+            x.t = x:CreateTexture(nil, "OVERLAY") x.t:SetTexture(MEDIA .. "tip_x", "CLAMP", "CLAMP", "TRILINEAR") x.t:SetSize(12, 12) x.t:SetPoint("CENTER") x.t:SetVertexColor(0.56, 0.525, 0.435)
+            x:SetScript("OnEnter", function(b) b.t:SetVertexColor(TABON[1], TABON[2], TABON[3]) end)
+            x:SetScript("OnLeave", function(b) b.t:SetVertexColor(0.56, 0.525, 0.435) end)
+            x:SetScript("OnClick", done)
+          end
+          tip:ClearAllPoints() tip:SetPoint("BOTTOMLEFT", cen, "TOP", -42, 2)
+          tip:Show()
+        end)
+      end
       tr:SetScript("OnClick", function() if NT.setTranslate then NT.setTranslate(not (NT.trOn and NT.trOn())) end paint() end)
       tr:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_TOP") GameTooltip:AddLine("번역", 1, 0.84, 0.42) GameTooltip:AddLine("클릭 = 번역창으로 (번역 프로그램이 켜져 있어야 해요)", 0.9, 0.9, 0.9) GameTooltip:Show() end)
       tr:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -2060,7 +2087,7 @@ do
       local typing = eb and eb:HasFocus()
       local want = (typing or self:IsMouseOver(6, -4, -4, 4) or (settings and settings:IsShown()) or (fpop and fpop:IsShown()) or sizing or self.gripping or UD.tdrag or UD.mv) and 1 or nil
       if want then idle = 0 else idle = idle + el end
-      local target = want or ((cfg().keep or idle <= 4) and 1 or 0)
+      local target = want or ((cfg().keep or idle <= 4 or NT.tr().bgOff) and 1 or 0)
       if a ~= target then
         a = target > a and math.min(target, a + el * 6) or math.max(target, a - el * 1.5)
         if not NT.trOn() then chrome:SetAlpha(a) end
@@ -2095,6 +2122,11 @@ do
       if not nat then pcall(applyBg) end
     end
     NT.syncNative = function() lastNat = nil pcall(syncNative) end
+    local lastBgOff
+    C_Timer.NewTicker(1, function()
+      local v = NT.tr().bgOff and true or false
+      if v ~= lastBgOff then lastBgOff = v pcall(applyBg) end
+    end)
     C_Timer.NewTicker(0.3, function() pcall(syncNative) end)
     syncNative()
   end

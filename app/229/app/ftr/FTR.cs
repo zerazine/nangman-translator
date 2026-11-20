@@ -33,6 +33,8 @@ public static class FTR {
   [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
   [DllImport("user32.dll")] static extern bool AttachThreadInput(uint a, uint b, bool attach);
+  [DllImport("user32.dll")] static extern short GetAsyncKeyState(int v);
+  static bool ModsDown() { foreach (int k in new[] { 0x09, 0x10, 0x11, 0x12, 0x5B, 0x5C }) if ((GetAsyncKeyState(k) & 0x8000) != 0) return true; return false; }
   [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
   [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int i);
   [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr h, int i, int v);
@@ -101,7 +103,7 @@ public static class FTR {
     IntPtr fg = GetForegroundWindow();
     uint pid;
     uint a = GetCurrentThreadId(), b = GetWindowThreadProcessId(fg, out pid);
-    bool att = (b != 0 && a != b) && AttachThreadInput(a, b, true);
+    bool att = (b != 0 && a != b) && !ModsDown() && AttachThreadInput(a, b, true);
     BringWindowToTop(h); SetForegroundWindow(h);
     if (att) AttachThreadInput(a, b, false);
   }

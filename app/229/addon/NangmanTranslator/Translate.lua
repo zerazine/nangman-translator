@@ -331,7 +331,7 @@ local function info()
   else
     local eb = chatEB()
     local ty = ((eb and eb:HasFocus()) or (GetCurrentKeyBoardFocus and GetCurrentKeyBoardFocus() ~= nil)) and 1 or 0
-    push("X", ty, (InCombatLockdown and InCombatLockdown()) and 1 or 0, T.userOff and 1 or 0)
+    push("X", ty, (InCombatLockdown and InCombatLockdown()) and 1 or 0, (T.userOff or db().bgOff) and 1 or 0, db().bgOff and 1 or 0)
   end
 end
 local lastChan = ""
@@ -406,7 +406,7 @@ NT.onUpdate(drv, function(_, el)
 end)
 
 local function look() if NT.btnLook then pcall(NT.btnLook) end end
-local function setOn(on)
+local function setOn(on, quiet)
   local d = db()
   d.on = on and true or false
   if d.on then
@@ -414,13 +414,13 @@ local function setOn(on)
     makeStrip() layout() hookCF()
     infoAt = 0 lastGeo = ""
     T.onAt = GetTime()
-    NT.say("번역창을 대화창으로 써요 (번역 프로그램이 켜져 있어야 해요)")
+    if not quiet then NT.say("번역창을 대화창으로 써요 (번역 프로그램이 켜져 있어야 해요)") end
     C_Timer.After(1.5, function() if NT.tabsPush then pcall(NT.tabsPush) end end)
   else
-    push("X")
+    push("X", 0, (InCombatLockdown and InCombatLockdown()) and 1 or 0, (T.userOff or d.bgOff) and 1 or 0, d.bgOff and 1 or 0)
     d.test = false
     infoAt = 0
-    NT.say("게임 대화창으로 돌아왔어요")
+    if not quiet then NT.say("게임 대화창으로 돌아왔어요") end
   end
   T.lastFeed = nil
   if NT.feedRefresh then pcall(NT.feedRefresh) end
@@ -807,4 +807,23 @@ do
   end
   if ChatEdit_ActivateChat then NT.hsf("ChatEdit_ActivateChat", onAct) end
   if ChatFrameUtil and type(ChatFrameUtil.ActivateChat) == "function" then NT.hsf(ChatFrameUtil, "ActivateChat", onAct) end
+end
+
+do
+  local bf = CreateFrame("Frame")
+  bf:RegisterEvent("PLAYER_ENTERING_WORLD") bf:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+  local function check()
+    local _, typ = IsInInstance()
+    local d = db()
+    if typ == "pvp" or typ == "arena" then
+      if d.on then
+        d.bgOff = true setOn(false, true)
+        C_Timer.After(2, function() if RaidNotice_AddMessage and RaidWarningFrame then pcall(RaidNotice_AddMessage, RaidWarningFrame, "전장에 계시는 동안에는 집중 대화창으로 번역을 보실 수 있어요", { r = 1, g = 0.82, b = 0.4 }, 5) end end)
+      end
+    elseif d.bgOff then
+      d.bgOff = nil
+      if not d.on and not T.userOff then setOn(true, true) end
+    end
+  end
+  NT.onEvent(bf, function() C_Timer.After(1, function() pcall(check) end) end)
 end

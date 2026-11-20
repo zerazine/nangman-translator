@@ -1006,7 +1006,7 @@ $ChM.root.Add_MouseLeftButtonUp({ param($snd, $e) Cycle-Target; $e.Handled = $tr
 $Gear = @{ root = (New-Object System.Windows.Controls.StackPanel) }; $Gear.root.Orientation = 'Horizontal'
 $Gear.root.HorizontalAlignment = 'Right'; $Gear.root.VerticalAlignment = 'Top'; $Gear.root.Margin = New-Object System.Windows.Thickness(0, 5, 5, 0)
 $TrP = New-Pill 0 '번역 ON'; $TrP.root.Visibility = 'Collapsed'; $TrP.root.Height = 19; $TrP.bg.CornerRadius = New-Object System.Windows.CornerRadius(9.5); $TrP.text.FontSize = 9.5; $TrP.root.ToolTip = '번역 켜기 / 끄기 (끄면 와우 기본 대화창 · 미니맵 버튼·위쪽 도우미 바와 같이 움직여요)'; [void]$Gear.root.Children.Add($TrP.root)
-$CenP = New-Pill 28 ''; $CenP.root.Height = 19; $CenP.bg.CornerRadius = New-Object System.Windows.CornerRadius(9.5); $CenP.root.Margin = New-Object System.Windows.Thickness(4, 0, 0, 0); $CenP.root.ToolTip = '가운데 파티글 켜기/끄기 · 오른쪽 클릭 = 띄울 대화 고르기'; [void]$Gear.root.Children.Add($CenP.root)
+$CenP = New-Pill 28 ''; $CenP.root.Height = 19; $CenP.bg.CornerRadius = New-Object System.Windows.CornerRadius(9.5); $CenP.root.Margin = New-Object System.Windows.Thickness(4, 0, 0, 0); $CenP.root.ToolTip = '집중 대화창 켜기/끄기 · 오른쪽 클릭 = 띄울 대화 고르기'; [void]$Gear.root.Children.Add($CenP.root)
 $CenIc = New-Object System.Windows.Controls.Canvas; $CenIc.Width = 14; $CenIc.Height = 14; $CenIc.IsHitTestVisible = $false; $CenIc.HorizontalAlignment = 'Center'; $CenIc.VerticalAlignment = 'Center'
 $cRect = New-Object System.Windows.Shapes.Rectangle; $cRect.Width = 12.5; $cRect.Height = 10; $cRect.RadiusX = 1.6; $cRect.RadiusY = 1.6; $cRect.StrokeThickness = 1.5
 [System.Windows.Controls.Canvas]::SetLeft($cRect, 0.75); [System.Windows.Controls.Canvas]::SetTop($cRect, 2); [void]$CenIc.Children.Add($cRect)
@@ -1020,7 +1020,7 @@ function Pills-Paint { Pill-PaintG $TrP (-not [bool]$S.pause); $TrP.text.Text = 
 $TrP.root.Add_MouseLeftButtonDown({ param($snd, $e) $e.Handled = $true })
 $TrP.root.Add_MouseLeftButtonUp({ param($snd, $e) try { Tr-Set ([bool]$S.pause) } catch { Log "번역 켜기/끄기 버튼: $_" }; $e.Handled = $true })
 $CenP.root.Add_MouseLeftButtonDown({ param($snd, $e) $e.Handled = $true })
-$CenP.root.Add_MouseLeftButtonUp({ param($snd, $e) try { $S.feedOff = -not [bool]$S.feedOff; Save-Cfg; Pills-Paint; Feed-GameSync; Cen-Moved } catch { Log "가운데 버튼: $_" }; $e.Handled = $true })
+$CenP.root.Add_MouseLeftButtonUp({ param($snd, $e) try { $S.feedOff = -not [bool]$S.feedOff; $S.bgFeedForced = $false; Save-Cfg; Pills-Paint; Feed-GameSync; Cen-Moved } catch { Log "가운데 버튼: $_" }; $e.Handled = $true })
 $script:feedSyncAt = [DateTime]::MinValue
 function Feed-GameSync { $script:feedSyncAt = [DateTime]::Now; Game-Cmd ('/ntchat feed ' + $(if ($S.feedOff) { '0' } else { '1' })) }
 function Cen-Moved {
@@ -1142,6 +1142,7 @@ $GcT.Add_Tick({
     foreach ($l in $GC.lines) { $ls += [string]$l }
     $GC.cfont = $null; $GC.nudge = @(0, 0, 0, 0); $GC.lines.Clear()
     if ($ls.Count -eq 0) { return }
+    if (Mods-Down) { foreach ($l in $ls) { if (-not $GC.lines.Contains($l)) { [void]$GC.lines.Add($l) } }; $GcT.Start(); return }
     if ((Keys-Busy) -and ([DateTime]::Now - $script:gcBusy0).TotalSeconds -lt 20) { foreach ($l in $ls) { if (-not $GC.lines.Contains($l)) { [void]$GC.lines.Add($l) } }; $GcT.Start(); return }
     if ($state.editing -and ([DateTime]::Now - $script:gcBusy0).TotalSeconds -lt 60) { foreach ($l in $ls) { if (-not $GC.lines.Contains($l)) { [void]$GC.lines.Add($l) } }; $GcT.Start(); return }
     if ([FTR]::FindWow() -eq [IntPtr]::Zero) { Set-Prev '게임이 안 켜져 있어요'; $PrevG.Visibility = 'Visible'; return }
@@ -1213,6 +1214,14 @@ function Tabs-Changed {
   $script:tabsMine = $true
   Save-Cfg; Tabs-Push
 }
+function Other-Mods {
+  foreach ($vk in @(0x09, 0x10, 0x12, 0x5B, 0x5C)) { if (([FTRK.Keys]::GetAsyncKeyState($vk) -band 0x8000) -ne 0) { return $true } }
+  return $false
+}
+function Mods-Down {
+  foreach ($vk in @(0x09, 0x10, 0x11, 0x12, 0x5B, 0x5C)) { if (([FTRK.Keys]::GetAsyncKeyState($vk) -band 0x8000) -ne 0) { return $true } }
+  return $false
+}
 function Keys-Busy {
   if ($script:uiDrag -or $script:tdrag) { return $true }
   foreach ($u in @($UW.Values)) { if ($u.drag) { return $true } }
@@ -1280,9 +1289,9 @@ function Sx-Do($t) {
   switch ([string]$t.kind) {
     'close' { $Pop.IsOpen = $false; return }
     'quit' { $Pop.IsOpen = $false; if (-not [bool]$S.pause) { Tr-Set $false }; return }
-    'help' { $Pop.IsOpen = $false; foreach ($hl in @('── 번역 대화창 사용법 ──', '· 답장: 와우 화면에서 Shift+Enter 또는 아래 입력칸 클릭 → 한국어로 쓰고 Enter = 번역해서 게임에 보냄', '· Tab = 보낼 곳(일반·파티·귓말 등) 바꾸기 · Esc = 입력 취소', '· 탭 오른쪽 클릭 = 그 탭에 보일 대화 고르기', '· 창 옮기기 = 위쪽 탭 줄 끌기 · 크기 = 맨 오른쪽 아래 구석의 금색 빗금 끌기 (마우스를 올리면 보여요)', '· Ctrl + 오른쪽 클릭 = 위치·크기 잠금 / 풀기 (잠겨 있으면 빗금이 안 보여요)', '· [번역 ON] = 받은 말 번역 켜기·끄기 · 톱니(설정) = 번역할 대화 · 가운데 파티글 · 글자 크기 등', '· 엉망이 되면 설정 맨 아래 [위치·크기 처음대로]')) { try { [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = $hl }) } catch {} }; return }
+    'help' { $Pop.IsOpen = $false; foreach ($hl in @('── 번역 대화창 사용법 ──', '· 답장: 와우 화면에서 Shift+Enter 또는 아래 입력칸 클릭 → 한국어로 쓰고 Enter = 번역해서 게임에 보냄', '· Tab = 보낼 곳(일반·파티·귓말 등) 바꾸기 · Esc = 입력 취소', '· 탭 오른쪽 클릭 = 그 탭에 보일 대화 고르기', '· 창 옮기기 = 위쪽 탭 줄 끌기 · 크기 = 맨 오른쪽 아래 구석의 금색 빗금 끌기 (마우스를 올리면 보여요)', '· Ctrl + 오른쪽 클릭 = 위치·크기 잠금 / 풀기 (잠겨 있으면 빗금이 안 보여요)', '· [번역 ON] = 받은 말 번역 켜기·끄기 · 톱니(설정) = 번역할 대화 · 집중 대화창 · 글자 크기 등', '· 엉망이 되면 설정 맨 아래 [위치·크기 처음대로]')) { try { [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = $hl }) } catch {} }; return }
     'pause' { Tr-Set ([bool]$S.pause) }
-    'feed' { $S.feedOff = -not [bool]$S.feedOff; Save-Cfg; Pills-Paint; Feed-GameSync; try { Cen-Moved } catch {} }
+    'feed' { $S.feedOff = -not [bool]$S.feedOff; $S.bgFeedForced = $false; Save-Cfg; Pills-Paint; Feed-GameSync; try { Cen-Moved } catch {} }
     'tr' { $S.tr[[string]$t.k] = -not [bool]$S.tr[[string]$t.k]; Save-Cfg }
     'trch' { $k = [string]$t.k; $cur = (Och-On $k $k.Substring(4)); $S.tr[$k] = -not $cur; Save-Cfg }
     'tab' { $ff = Tab-Filt ([string]$S.tab); $ff[[string]$t.k] = -not (Tab-On $ff ([string]$t.k)); Save-Cfg; Tabs-Changed; Apply-AllTabs }
@@ -1371,8 +1380,8 @@ function Sx-FeedCard([scriptblock]$body) {
   $kn = New-Object System.Windows.Shapes.Ellipse; $kn.Width = 14; $kn.Height = 14; $kn.Fill = $(if ($on) { Br '#FFFFFFFF' } else { Br '#FF9A9A9A' }); $kn.HorizontalAlignment = $(if ($on) { 'Right' } else { 'Left' }); $kn.Margin = New-Object System.Windows.Thickness(2, 0, 2, 0); [void]$tr.Children.Add($kn)
   [System.Windows.Controls.DockPanel]::SetDock($tr, 'Right'); [void]$hd.Children.Add($tr)
   $tsp = New-Object System.Windows.Controls.StackPanel; $tsp.VerticalAlignment = 'Center'
-  $tt = TB '가운데 파티글' 13.5 $GOLD; $tt.FontWeight = 'Bold'; [void]$tsp.Children.Add($tt)
-  [void]$tsp.Children.Add((TB $(if ($on) { '화면 가운데(캐릭터 머리 위)에 파티 대화를 크게' } else { '와이드 모니터처럼 화면이 넓으면 켜 보세요' }) 10 (Br '#FFBFAE86')))
+  $tt = TB '집중 대화창' 13.5 $GOLD; $tt.FontWeight = 'Bold'; [void]$tsp.Children.Add($tt)
+  [void]$tsp.Children.Add((TB $(if ($on) { '화면 가운데(캐릭터 머리 위)에 대화와 번역을 크게 · 전장에서도 여기서 번역' } else { '켜 두면 전장에서도 이 창으로 번역을 볼 수 있어요' }) 10 (Br '#FFBFAE86')))
   [System.Windows.Controls.DockPanel]::SetDock($tsp, 'Left'); [void]$hd.Children.Add($tsp)
   Sx-Click $hd @{ kind = 'feed' }
   [void]$st.Children.Add($hd); $card.Child = $st; [void]$popS.Children.Add($card)
@@ -1497,7 +1506,7 @@ function Build-Menu {
   $fbt = New-Object System.Windows.Controls.Border; $fbt.CornerRadius = New-Object System.Windows.CornerRadius(4); $fbt.Padding = New-Object System.Windows.Thickness(12, 3, 12, 4); $fbt.VerticalAlignment = 'Center'; $fbt.Background = Br '#E6B98E5F'
   $fbt.Child = (TB '조절하기' 11.5 (Br '#FF141414')); [System.Windows.Controls.DockPanel]::SetDock($fbt, 'Right'); [void]$fd0.Children.Add($fbt)
   $fsp = New-Object System.Windows.Controls.StackPanel; $fsp.VerticalAlignment = 'Center'
-  [void]$fsp.Children.Add((TB '위치 · 크기 · 줄 수 · 글자 · 사라짐' 12.5 $CREAM)); [void]$fsp.Children.Add((TB $(if ($S.feedBox -is [hashtable]) { '직접 맞춘 자리 · ' + [string](Feed-Max) + '줄 · 글자 ' + [string][int](FeedFz) + ' · ' + [string](Feed-Sec) + '초' } else { '처음 자리 · ' + [string](Feed-Max) + '줄 · 글자 ' + [string][int](FeedFz) + ' · ' + [string](Feed-Sec) + '초' }) 9.5 $MUTED))
+  [void]$fsp.Children.Add((TB '위치 · 크기 · 줄 수 · 글자 · 사라짐 · 배경' 12.5 $CREAM)); [void]$fsp.Children.Add((TB $(if ($S.feedBox -is [hashtable]) { '직접 맞춘 자리 · ' + [string](Feed-Max) + '줄 · 글자 ' + [string][int](FeedFz) + ' · ' + [string](Feed-Sec) + '초 · 배경 ' + [string](Feed-Bg) + '%' } else { '처음 자리 · ' + [string](Feed-Max) + '줄 · 글자 ' + [string][int](FeedFz) + ' · ' + [string](Feed-Sec) + '초' }) 9.5 $MUTED))
   [void]$fd0.Children.Add($fsp); $fb0.Child = $fd0; Sx-Click $fb0 @{ kind = 'fedit' }
   [void]$popS.Children.Add($fb0)
   }
@@ -2199,7 +2208,7 @@ $SYS_IN = "너는 월드 오브 워크래프트 게임 채팅 번역기다. 채�
 $SYS_OUT_T = "너는 월드 오브 워크래프트 게임 채팅 번역기다. 한국어 채팅 한 줄을 {lang}로, 그 언어권 와우 유저가 쓰는 짧은 말투로 옮긴다. 원문에 없는 내용은 덧붙이지 않는다.`nJSON으로만 답: {""text"":""번역문""}"
 $SYS_VOICE = "너는 월드 오브 워크래프트 디스코드 음성 통역기다. 영어 말을 짧고 자연스러운 한국어로 옮긴다. 원문에 없는 내용은 덧붙이지 않는다.`nJSON으로만 답: {""ko"":""번역문""}"
 $GLOSS_HEAD = '[던전·지역 이름 사전]'
-$GLOSS_E = @(); $SLANG_IN = @(); $SLANG_OUT = @(); $script:VCALLS = @()
+$GLOSS_E = @(); $SLANG_IN = @(); $SLANG_OUT = @(); $script:VCALLS = @(); $BG_IN = @()
 $script:cfgStamp = ''; $script:cfgErrAt = [DateTime]::MinValue
 function Cfg-Lines($v) { if ($null -eq $v) { return '' }; return ((@($v) | ForEach-Object { [string]$_ }) -join "`n").Trim() }
 function TrCfg-Apply($c) {
@@ -2256,6 +2265,13 @@ function TrCfg-Apply($c) {
   $script:VCALLS = $vc.ToArray()
   $script:WHISPER_PROMPT = Cfg-Lines $c.whisper_prompt
   if ($c.gloss_head) { $script:GLOSS_HEAD = [string]$c.gloss_head }
+  $bi = New-Object System.Collections.ArrayList
+  foreach ($e in @($c.bg_in)) {
+    if ($null -eq $e) { continue }
+    $a = @($e); if ($a.Count -lt 2) { continue }
+    try { [void]$bi.Add(@([string]$a[0], [string]$a[1], (New-Object Text.RegularExpressions.Regex(('(?<![\p{L}\p{N}])(' + [string]$a[0] + ')(?![\p{L}\p{N}])'), 'IgnoreCase')))) } catch {}
+  }
+  $script:BG_IN = $bi.ToArray()
   $script:GLOSS_E = $gl.ToArray(); $script:SLANG_IN = $sl.ToArray(); $script:SLANG_OUT = $sw.ToArray()
   $ne = @{}; $nk = @{}
   foreach ($e in @($c.names)) { if ($null -eq $e -or @($e).Count -lt 2) { continue }; $en = [string]$e[0]; $ko = [string]$e[1]; if (-not $en -or -not $ko) { continue }; $v = @($en, $ko); $ne[$en.ToLowerInvariant()] = $v; if (-not $nk.ContainsKey($ko)) { $nk[$ko] = $v } }
@@ -2812,7 +2828,7 @@ function Handle($line) {
   if ($f[0] -ne 'P' -and $f[0] -ne 'G' -and -not $isReplay) { Dbg ($line.Substring(0, [math]::Min(160, $line.Length))) }
   switch ($f[0]) {
     'P' {
-      $state.off = $false
+      $state.off = $false; $state.bgOcr = $false
       if ($state.me -and $f[1] -and (([string]$state.me + '-' + [string]$state.realm) -ne ([string]$f[1] + '-' + [string]$f[2]))) { try { Clear-CharChat } catch { Log "캐릭 바뀜 대화 지우기: $_" } }
       $ck0 = [string]$f[1] + '-' + [string]$f[2]
       if ($f[1] -and [string]$S.lastChar -ne $ck0) {
@@ -2820,6 +2836,7 @@ function Handle($line) {
         Save-Cfg; Log '캐릭 바뀜 → 채널 번호·보낼 곳 새로'
       }
       $state.me = $f[1]; $state.realm = $f[2]; if ($f[3]) { $state.myHex = $f[3] }
+      if ($f[1] -and [string]$S.lastMe -ne [string]$f[1]) { $S.lastMe = [string]$f[1]; Save-Cfg }
       try { Tr-Follow $true } catch { Log "번역 켜짐 맞추기: $_" }
       $t = ($f[4] -eq '1')
       if ($t -ne $state.test) { $state.test = $t; Paint-Status }
@@ -2858,7 +2875,7 @@ function Handle($line) {
         if ($Pop.IsOpen -and $script:popMode -in @('set', 'tr')) { try { Build-Menu } catch {} }
       } catch { Log "게임 설정 받기: $_" } finally { $script:fromGame = $false }
     }
-    'X' { if (-not $state.off) { try { if ($Feed.win) { $Feed.sp.Children.Clear(); $Feed.list.Clear(); $Feed.win.Hide() } } catch {} }; $state.off = $true; if ($state.inputOn) { Exit-Input $false }; try { Tr-OffRec $f } catch { Log "번역 꺼짐 맞추기: $_" } }
+    'X' { if (-not $state.off) { try { if ($Feed.win) { $Feed.sp.Children.Clear(); $Feed.list.Clear(); $Feed.win.Hide() } } catch {} }; $state.off = $true; $bgx = ($f.Count -gt 4 -and [string]$f[4] -eq '1'); if ($state.inputOn -and -not $bgx) { Exit-Input $false }; $state.bgOcr = $bgx; try { Tr-OffRec $f } catch { Log "번역 꺼짐 맞추기: $_" } }
     'I' { $state.wantInput = [DateTime]::Now }
     'Q' { $state.combat = ([string]$f[1] -eq '1'); $state.combatAt = [DateTime]::Now }
     'U' { $state.popup = ([string]$f[1] -eq '1') }
@@ -2870,7 +2887,7 @@ function Handle($line) {
       if ($f.Count -gt 7 -and $f[7] -and -not $fHold) { $Feed.mask = [string]$f[7] }
       if ($f.Count -gt 8 -and $f[8] -and -not $fHold) { $fz = 0.0; if ([double]::TryParse([string]$f[8], [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$fz) -and $fz -gt 0) { $Feed.font = $fz } }
       if ($Feed.geo.edit -and $Feed.win) { $Feed.sp.Children.Clear(); $Feed.list.Clear(); $Feed.win.Hide() }
-      if ($f.Count -gt 10 -and $f[10] -and -not $fHold) { $gOn = ([string]$f[10] -eq '1'); if ($gOn -ne (-not [bool]$S.feedOff) -and ([DateTime]::Now - $script:feedSyncAt).TotalSeconds -gt 30) { $S.feedOff = -not $gOn; Save-Cfg; Pills-Paint; try { Cen-Moved } catch {}; if ($Pop.IsOpen -and $script:popMode -eq 'tr') { try { Build-Menu } catch {} } } }
+      if ($f.Count -gt 10 -and $f[10] -and -not $fHold) { $gOn = ([string]$f[10] -eq '1'); if ($gOn -ne (-not [bool]$S.feedOff) -and ([DateTime]::Now - $script:feedSyncAt).TotalSeconds -gt 30) { $S.feedOff = -not $gOn; $S.bgFeedForced = $false; Save-Cfg; Pills-Paint; try { Cen-Moved } catch {}; if ($Pop.IsOpen -and $script:popMode -eq 'tr') { try { Build-Menu } catch {} } } }
       try { Feed-Sync $fHold } catch { Log "파티글 자리 맞추기: $_" }
       Feed-Make; Feed-Place
     }
@@ -3062,6 +3079,7 @@ function Enter-Input {
     elseif ($state.lastForeign -and ([DateTime]::Now - $state.lastForeignAt).TotalMinutes -lt 3) { $state.target = $state.lastForeign }
     else { $state.target = @{ t = 'PARTY' } }
   }
+  if ($state.bgOcr -and $state.target -and @('PARTY', 'PARTY_LEADER', 'RAID', 'RAID_LEADER', 'SAY') -contains [string]$state.target.t) { $state.target = @{ t = 'INSTANCE_CHAT' } }
   $state.inputOn = $true; $script:enterAt = [DateTime]::Now
   $ih = $script:hwnd; $iw = $win
   try { if (CIn-Open) { $ih = $CIn.hwnd; $iw = $CIn.win } } catch { Log "가운데 입력칸: $_" }
@@ -3153,7 +3171,7 @@ $PrevTimer.Interval = [TimeSpan]::FromMilliseconds(650)
 function Kick-Preview { $PrevTimer.Stop(); if ($Inp.Text.Trim() -and -not $Inp.Text.StartsWith('/') -and -not $script:noTr) { $PrevTimer.Start() } else { $PrevG.Visibility = 'Collapsed' } }
 $PrevTimer.Add_Tick({
   $PrevTimer.Stop()
-  $txt = $Inp.Text.Trim(); $tg = $state.target
+  $txt = Jamo-Fix $Inp.Text.Trim(); $tg = $state.target
   if ($txt -and $tg -and (Tr-Out $tg)) { $lq = Laugh-Out $txt; if ($lq) { Set-Prev ('→  ' + $lq); $PrevG.Visibility = 'Visible'; return } }
   if (-not $txt -or -not $tg -or -not (Tr-Out $tg) -or (((Link-Tok $txt) -replace '\{L\d+\}', '') -notmatch '[가-힣]')) { $PrevG.Visibility = 'Collapsed'; return }
   $lg = Out-Lang $tg
@@ -3232,6 +3250,10 @@ function Tr-Signal([bool]$on) {
     Dbg ("쓰는 중 신호 {0} · 와우 앞 {1}" -f $on, $front)
     if (-not $front) { return }
     $vk = [byte]$(if ($on) { 0x7A } else { 0x7B })
+    $t0 = [Environment]::TickCount
+    while ((Other-Mods) -and ([Environment]::TickCount - $t0) -lt 600) { Start-Sleep -Milliseconds 30 }
+    if (Other-Mods) { Dbg '쓰는 중 신호: 다른 키가 눌려 있어 건너뜀'; return }
+    if ([FTR]::Foreground() -ne $w) { return }
     $held = ([FTRK.Keys]::GetAsyncKeyState(0x11) -band 0x8000) -ne 0
     if (-not $held) { [FTRK.Kb]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 25 }
     [FTRK.Kb]::keybd_event($vk, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 35; [FTRK.Kb]::keybd_event($vk, 0, 2, [UIntPtr]::Zero)
@@ -3256,8 +3278,67 @@ function Msg-Bytes([string]$t) {
   foreach ($m in [regex]::Matches($t, '\{fkl(\d+)\}')) { $f = $LinkFull[$m.Groups[1].Value]; if ($f) { $n += [Text.Encoding]::UTF8.GetByteCount($f) - $m.Length } }
   return $n
 }
+try { Add-Type -TypeDefinition @'
+using System.Text;
+namespace FTRK { public static class Jamo {
+  const string CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+  const string JUNG = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ";
+  const string JONG = "\0ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";
+  static string V2(char a, char b) {
+    string p = "" + a + b;
+    switch (p) { case "ㅗㅏ": return "ㅘ"; case "ㅗㅐ": return "ㅙ"; case "ㅗㅣ": return "ㅚ"; case "ㅜㅓ": return "ㅝ"; case "ㅜㅔ": return "ㅞ"; case "ㅜㅣ": return "ㅟ"; case "ㅡㅣ": return "ㅢ"; }
+    return null;
+  }
+  static string F2(char a, char b) {
+    string p = "" + a + b;
+    switch (p) { case "ㄱㅅ": return "ㄳ"; case "ㄴㅈ": return "ㄵ"; case "ㄴㅎ": return "ㄶ"; case "ㄹㄱ": return "ㄺ"; case "ㄹㅁ": return "ㄻ"; case "ㄹㅂ": return "ㄼ"; case "ㄹㅅ": return "ㄽ"; case "ㄹㅌ": return "ㄾ"; case "ㄹㅍ": return "ㄿ"; case "ㄹㅎ": return "ㅀ"; case "ㅂㅅ": return "ㅄ"; }
+    return null;
+  }
+  public static string Join(string s) {
+    if (string.IsNullOrEmpty(s)) return s;
+    bool any = false;
+    foreach (char ch in s) if (JUNG.IndexOf(ch) >= 0) { any = true; break; }
+    if (!any) return s;
+    var o = new StringBuilder();
+    char c = '\0', v = '\0', j = '\0', j1 = '\0', j2 = '\0';
+    System.Action flush = () => {
+      if (c != '\0' && v != '\0') o.Append((char)(0xAC00 + (CHO.IndexOf(c) * 21 + JUNG.IndexOf(v)) * 28 + (j == '\0' ? 0 : JONG.IndexOf(j))));
+      else { if (c != '\0') o.Append(c); if (v != '\0') o.Append(v); }
+      c = v = j = j1 = j2 = '\0';
+    };
+    foreach (char ch in s) {
+      bool isC = CHO.IndexOf(ch) >= 0 || (JONG.IndexOf(ch) > 0 && ch != '\0');
+      bool isV = JUNG.IndexOf(ch) >= 0;
+      if (isC) {
+        if (c != '\0' && v != '\0') {
+          if (j == '\0' && JONG.IndexOf(ch) > 0) { j = ch; j1 = ch; continue; }
+          if (j != '\0' && j2 == '\0') { string f = F2(j, ch); if (f != null) { j2 = ch; j = f[0]; continue; } }
+          flush(); if (CHO.IndexOf(ch) >= 0) c = ch; else o.Append(ch); continue;
+        }
+        flush(); if (CHO.IndexOf(ch) >= 0) c = ch; else o.Append(ch); continue;
+      }
+      if (isV) {
+        if (c != '\0' && v == '\0') { v = ch; continue; }
+        if (c != '\0' && v != '\0' && j == '\0') { string w = V2(v, ch); if (w != null) { v = w[0]; continue; } flush(); o.Append(ch); continue; }
+        if (c != '\0' && v != '\0' && j != '\0') {
+          char nc;
+          if (j2 != '\0') { nc = j2; j = j1; } else { nc = j; j = '\0'; }
+          if (CHO.IndexOf(nc) < 0) { flush(); o.Append(ch); continue; }
+          flush(); c = nc; v = ch; continue;
+        }
+        flush(); o.Append(ch); continue;
+      }
+      flush(); o.Append(ch);
+    }
+    flush();
+    return o.ToString();
+  }
+}
+}
+'@ } catch { Log "한글 조합 준비: $_" }
+function Jamo-Fix([string]$t) { if ('FTRK.Jamo' -as [type]) { try { return [FTRK.Jamo]::Join($t) } catch {} }; return $t }
 function Do-Send {
-  $txt = $Inp.Text.Trim(); $tg = $state.target
+  $txt = Jamo-Fix $Inp.Text.Trim(); $tg = $state.target
   Fix-ChanTg $tg
   if ($script:chanGone -and $txt -and -not $txt.StartsWith('/')) { Paint-Target; Set-Prev ("이 캐릭은 '{0}' 채널에 안 들어가 있어서 일반 대화로 바꿨어요 · Enter = 일반 대화로 보내기" -f $script:chanGone); $PrevG.Visibility = 'Visible'; $script:chanGone = $null; return }
   if (-not $txt) { Exit-Input $true; return }
@@ -3297,8 +3378,9 @@ function Finish-Send($tg, $ko, $out) {
 $LocalEcho = @{}; $MyCol = @{}
 $EchoCol = @{ SAY = 'ffffff'; PARTY = 'aaaaff'; PARTY_LEADER = '76c8ff'; RAID = 'ff7f00'; RAID_LEADER = 'ff4809'; GUILD = '40ff40'; OFFICER = '40c040'; YELL = 'ff4040'; WHISPER_INFORM = 'ff80ff'; BN_WHISPER_INFORM = '00faf6'; CHANNEL = 'ffc0c0'; INSTANCE_CHAT = 'ff7f00' }
 function Local-Echo($tg, [string]$msg, [string]$ko) {
-  if (-not $tg -or -not $msg -or -not $state.me) { return }
-  $t = [string]$tg.t; $who = $state.me; $cls = $state.myHex
+  $me = $(if ($state.me) { [string]$state.me } elseif (-not $state.bgOcr) { '' } elseif ($S.lastMe) { [string]$S.lastMe } else { '나' })
+  if (-not $tg -or -not $msg -or -not $me) { return }
+  $t = [string]$tg.t; $who = $me; $cls = $state.myHex
   if ($t -eq 'WHISPER') { $t = 'WHISPER_INFORM'; $who = [string]$tg.name; $cls = '' }
   elseif ($t -eq 'BN_WHISPER') { $t = 'BN_WHISPER_INFORM'; $who = [string]$tg.name; $cls = '' }
   $col = $(if ($MyCol[$t]) { $MyCol[$t] } elseif ($EchoCol[$t]) { $EchoCol[$t] } else { 'ffffff' })
@@ -3308,6 +3390,7 @@ function Local-Echo($tg, [string]$msg, [string]$ko) {
   Set-Sub $L '보냄' $ko
   $LocalEcho[$msg] = $L
   if ($LocalEcho.Count -gt 30) { $LocalEcho.Clear() }
+  if ($state.bgOcr) { try { $FL = Feed-Add $rec; if ($FL -and $ko) { Feed-Tr $FL $ko $msg } } catch { Log "전장 내 글 표시: $_" } }
 }
 function Split-Msg($pre, $text) {
   $max = 244 - [Text.Encoding]::UTF8.GetByteCount($pre)
@@ -3354,7 +3437,7 @@ function Send-Wow($lines, [bool]$keepTab = $false, [bool]$echo = $false, [bool]$
 $script:echoW = $null
 function Await-Echo($lines) {
   $b = @(); foreach ($l in @($lines)) { $t = [string]$l; if ($t -match '\{fkl') { return }; $b += $t }
-  if ($b.Count -eq 0) { return }
+  if ($b.Count -eq 0 -or $state.bgOcr) { return }
   $script:echoW = @{ lines = $b; at = [DateTime]::Now; drops = [FTR]::Drops; tries = 0 }
 }
 function Echo-Seen([string]$p) {
@@ -3393,6 +3476,7 @@ function Tr-Set([bool]$on, [bool]$fromGame = $false) {
 }
 $script:autoOnAt = [DateTime]::MinValue
 function Tr-OffRec($f) {
+  if ($f.Count -gt 4 -and [string]$f[4] -eq '1') { return }
   if ($f.Count -gt 3 -and [string]$f[3] -eq '0') { if (-not [bool]$S.pause) { Auto-On $f }; return }
   Tr-Follow $false
 }
@@ -3450,7 +3534,7 @@ function Safe-Front($w) {
   return $false
 }
 function Release-Mods {
-  try { Start-Sleep -Milliseconds 30; foreach ($vk in @(0x11, 0xA2, 0xA3, 0x10, 0xA0, 0xA1, 0x12, 0xA4, 0xA5)) { if (([FTRK.Keys]::GetAsyncKeyState($vk) -band 0x8000) -ne 0) { [FTRK.Kb]::keybd_event([byte]$vk, 0, 2, [UIntPtr]::Zero) } } } catch {}
+  try { Start-Sleep -Milliseconds 30; foreach ($vk in @(0x11, 0xA2, 0xA3)) { if (([FTRK.Keys]::GetAsyncKeyState($vk) -band 0x8000) -ne 0) { [FTRK.Kb]::keybd_event([byte]$vk, 0, 2, [UIntPtr]::Zero) } } } catch {}
 }
 function Set-Clip([string]$t) {
   if ('FTRK.Clip' -as [type]) { try { return [FTRK.Clip]::Set($script:hwnd, $t) } catch { return $false } }
@@ -3482,12 +3566,15 @@ function Wait-Move {
   while (([Environment]::TickCount - $t0) -lt 5000) {
     $dn = $false
     foreach ($k in 0x57, 0x41, 0x53, 0x44, 0x51, 0x45, 0x20, 0x25, 0x26, 0x27, 0x28, 0x10, 0x11, 0x12, 0x5B, 0x5C) { if (([FTRK.Keys]::GetAsyncKeyState($k) -band 0x8000) -ne 0) { $dn = $true; break } }
-    if (-not $dn) { return }
+    if (-not $dn) { return $true }
     Start-Sleep -Milliseconds 30
   }
+  return (-not (Mods-Down))
 }
 function Send-WowNow($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
   $w = [FTR]::FindWow(); if ($w -eq [IntPtr]::Zero) { Dbg '보내기: 와우 창 없음'; return }
+  $t0 = [Environment]::TickCount; while ((Mods-Down) -and ([Environment]::TickCount - $t0) -lt 3000) { Start-Sleep -Milliseconds 30 }
+  if (Mods-Down) { Log '보내기: Ctrl·Alt·Shift·Win·Tab이 눌려 있어 보내지 않음'; return }
   $state.sentAt = [DateTime]::Now
   if ($state.hkE) { [void][FTR]::HotkeyEnter($script:hwnd, $false); $state.hkE = $false }
   foreach ($l0 in $lines) { Dbg ("보냄 → " + $l0) }
@@ -3511,7 +3598,7 @@ function Send-WowNow($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
             if (-not (Wow-Front $w)) { break }
             Dbg ('명령 다시 보냄: ' + $tx)
           }
-          Wait-Move
+          if (-not (Wait-Move)) { Log '보내기: 키가 눌려 있어 멈춤'; break }
           $script:lastE = [bool]$state.editing
           [FTR]::Tap(0x0D)
           if (-not (Wait-Edit $true 700)) { Dbg '보내기: 게임 입력줄이 안 열림'; continue }
@@ -3527,7 +3614,7 @@ function Send-WowNow($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
       }
       if (-not (Set-Clip $tx)) {
         if (-not (Wow-Front $w)) { Log '보내기: 와우가 앞으로 안 와서 멈춤 (다른 창에 글이 들어가지 않게)'; break }
-        Wait-Move
+        if (-not (Wait-Move)) { Log '보내기: 키가 눌려 있어 멈춤'; break }
         [FTR]::Tap(0x0D); Start-Sleep -Milliseconds 110
         if ([FTR]::Foreground() -ne $w) { Log '보내기: 입력 직전에 와우가 앞에서 사라져 멈춤'; break }
         $sent = 0; try { $sent = [FTRK.Uni]::Type($tx) } catch {}
@@ -3538,7 +3625,7 @@ function Send-WowNow($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
         continue
       }
       if (-not (Wow-Front $w)) { Log '보내기: 와우가 앞으로 안 와서 멈춤 (다른 창에 글이 들어가지 않게)'; break }
-      Wait-Move
+      if (-not (Wait-Move)) { Log '보내기: 키가 눌려 있어 멈춤'; break }
       $script:lastE = [bool]$state.editing
       [FTR]::Tap(0x0D)
       if (Wait-Edit $true 700) { Start-Sleep -Milliseconds 30 } else { Start-Sleep -Milliseconds 40 }
@@ -3553,7 +3640,7 @@ function Send-WowNow($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
   }
   if ($usedClip) { $script:clipPend = @{ old = $old; img = $oldImg; files = $oldFiles; ours = $lastTx; at = [DateTime]::Now.AddMilliseconds(1500) }; $ClipT.Start() }
   elseif ($pend) { $script:clipPend = $pend }
-  Release-Mods
+  if ($usedClip) { Release-Mods }
   $script:sendEndAt = [DateTime]::Now
 }
 $script:clipPend = $null
@@ -4176,8 +4263,25 @@ function FGeo {
   $ed0 = $false; $mv0 = $false; if (-not $script:fedit -and $g) { $ed0 = [bool]$g.edit; $mv0 = [bool]$g.mv }
   return @{ x = [int]$b.x; y = [int]$b.y; w = [int]$b.w; h = [int]$b.h; s = $s0; edit = $ed0; mv = $mv0 }
 }
+function Feed-Bg { $v = 40; if ($null -ne $S.feedBg) { try { $v = [int]$S.feedBg } catch {} }; return [math]::Max(0, [math]::Min(90, $v)) }
+function Feed-BgBrush { $a = [int][math]::Round((Feed-Bg) * 2.55); if ($a -le 0) { return $null }; $b = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromArgb([byte]$a, 17, 17, 18)); $b.Freeze(); return $b }
+function Feed-Box($k) {
+  $in = New-Object System.Windows.Controls.StackPanel
+  $b = New-Object System.Windows.Controls.Border; $b.Child = $in
+  $b.HorizontalAlignment = 'Center'; $b.Margin = New-Object System.Windows.Thickness(0, 0, 0, (7 * $k))
+  $b.CornerRadius = New-Object System.Windows.CornerRadius((4 * $k)); $b.Padding = New-Object System.Windows.Thickness((12 * $k), (3 * $k), (12 * $k), (4 * $k))
+  $b.Background = $script:feedBgBr
+  return $b
+}
+function Feed-BgApply {
+  $script:feedBgBr = Feed-BgBrush
+  foreach ($x in @($Feed.list) + @($Feed.hist)) { if ($x -and $x.box) { $x.box.Background = $script:feedBgBr } }
+  if ($script:fedit) { foreach ($c in @($Feed.sp.Children)) { if ($c -is [System.Windows.Controls.Border]) { $c.Background = $script:feedBgBr } } }
+}
+$script:feedBgBr = $null
 function Feed-Make {
   if ($Feed.win) { return }
+  $script:feedBgBr = Feed-BgBrush
   $w = New-Object System.Windows.Window
   $w.WindowStyle = 'None'; $w.AllowsTransparency = $true; $w.Background = [System.Windows.Media.Brushes]::Transparent
   $w.Topmost = $true; $w.ShowInTaskbar = $false; $w.ShowActivated = $false; $w.ResizeMode = 'NoResize'
@@ -4286,10 +4390,10 @@ function Feed-Add($rec) {
   $fg0 = FGeo; if (-not $fg0 -or $fg0.edit) { return $null }
   Feed-Make
   $k = $(if ($Feed.k) { $Feed.k } else { 1.2 })
-  $box = New-Object System.Windows.Controls.StackPanel; $box.Margin = New-Object System.Windows.Thickness(0, 0, 0, (10 * $k)); $box.Opacity = 0
+  $box = Feed-Box $k; $box.Opacity = 0
   $main = New-Object System.Windows.Controls.TextBlock; $main.FontFamily = $script:CFONT; $main.FontWeight = $script:CFW; $main.FontSize = (FeedFz) * $k; $main.TextWrapping = 'Wrap'; $main.TextAlignment = 'Center'
   $sub = New-Object System.Windows.Controls.TextBlock; $sub.FontFamily = $script:CFONT; $sub.FontWeight = $script:CFW; $sub.FontSize = (FeedFz) * 0.77 * $k; $sub.TextWrapping = 'Wrap'; $sub.TextAlignment = 'Center'; $sub.Foreground = HexBr 'c9c2b0'; $sub.Opacity = 0.85; $sub.Visibility = 'Collapsed'; $sub.Margin = New-Object System.Windows.Thickness(0, (3 * $k), 0, 0)
-  [void]$box.Children.Add($main); [void]$box.Children.Add($sub)
+  [void]$box.Child.Children.Add($main); [void]$box.Child.Children.Add($sub)
   $whisper = ($rec.t -match 'WHISPER'); $mine = $rec.me
   $who = ([string]$rec.sender) -replace '-.*$', ''
   if ($rec.t -like 'BN_*') { $who = Plain $rec.sender }
@@ -4390,7 +4494,7 @@ $script:fedit = $false; $script:fbox = $null; $script:fdrag = $null; $script:fdi
 $FEd = @{ ov = $null; lab = $null; bar = $null; barHwnd = [IntPtr]::Zero; nL = $null; nF = $null; escAt = [DateTime]::MinValue }
 function FEd-Start {
   if ($script:fedit) { return }
-  $wow = [FTR]::FindWow(); if ($wow -eq [IntPtr]::Zero) { [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = '가운데 파티글 조절은 와우가 켜져 있을 때 할 수 있어요' }); return }
+  $wow = [FTR]::FindWow(); if ($wow -eq [IntPtr]::Zero) { [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = '집중 대화창 조절은 와우가 켜져 있을 때 할 수 있어요' }); return }
   $cr = [FTR]::ClientRect($wow); if (-not $cr) { return }
   $g = FGeo
   if (-not $g) { $s0 = 1.0; if ($state.geo -and $state.geo.s) { $s0 = [double]$state.geo.s }; $w0 = [int](360 * $s0); $g = @{ x = [int](($cr[2] - $w0) / 2); y = [int]($cr[3] * 0.45); w = $w0; h = [int](140 * $s0); s = $s0 } }
@@ -4420,7 +4524,7 @@ function FEd-Start {
   $Feed.win.Opacity = 1
   Feed-Place; FEd-Paint
   $FEd.escAt = [DateTime]::Now
-  Log '가운데 파티글 조절 모드'
+  Log '집중 대화창 조절 모드'
 }
 function FEd-Samples {
   $Feed.sp.Children.Clear()
@@ -4428,18 +4532,18 @@ function FEd-Samples {
   $samp = @(@('Thrall', '탱 먼저 풀 할 거임, 기다리셈', 'wait, tank pulls first'), @('Jaina', '마나 없음, 잠깐만', 'oom, 1 sec'), @('나', 'ㅇㅋ 물 마시고 감', ''))
   for ($i = 0; $i -lt (Feed-Max); $i++) {
     $sm = $samp[$i % 3]
-    $box = New-Object System.Windows.Controls.StackPanel; $box.Margin = New-Object System.Windows.Thickness(0, 0, 0, (10 * $k)); $box.IsHitTestVisible = $false
+    $box = Feed-Box $k; $box.IsHitTestVisible = $false
     $main = New-Object System.Windows.Controls.TextBlock; $main.FontFamily = $script:CFONT; $main.FontWeight = $script:CFW; $main.FontSize = (FeedFz) * $k; $main.TextWrapping = 'Wrap'; $main.TextAlignment = 'Center'
     [void](Add-Run $main $sm[0] $(if ($sm[0] -eq '나') { 'ffe9b8' } else { 'ffd27a' }) $null); [void](Add-Run $main ('  ' + $sm[1]) 'aad4ff' $null)
-    [void]$box.Children.Add($main)
-    if ($sm[2]) { $sub = New-Object System.Windows.Controls.TextBlock; $sub.FontFamily = $script:CFONT; $sub.FontWeight = $script:CFW; $sub.FontSize = (FeedFz) * 0.77 * $k; $sub.TextWrapping = 'Wrap'; $sub.TextAlignment = 'Center'; $sub.Foreground = HexBr 'c9c2b0'; $sub.Opacity = 0.85; $sub.Margin = New-Object System.Windows.Thickness(0, (3 * $k), 0, 0); $sub.Text = $sm[2]; [void]$box.Children.Add($sub) }
+    [void]$box.Child.Children.Add($main)
+    if ($sm[2]) { $sub = New-Object System.Windows.Controls.TextBlock; $sub.FontFamily = $script:CFONT; $sub.FontWeight = $script:CFW; $sub.FontSize = (FeedFz) * 0.77 * $k; $sub.TextWrapping = 'Wrap'; $sub.TextAlignment = 'Center'; $sub.Foreground = HexBr 'c9c2b0'; $sub.Opacity = 0.85; $sub.Margin = New-Object System.Windows.Thickness(0, (3 * $k), 0, 0); $sub.Text = $sm[2]; [void]$box.Child.Children.Add($sub) }
     [void]$Feed.sp.Children.Add($box)
   }
 }
 function Feed-Sec { $v = [int]$S.feedSec; if ($v -lt 5) { $v = 15 }; return $v }
 function FEd-Paint {
   try { if ($FEd.lab) { $FEd.lab.Text = ('폭 {0} · {1}줄 · 글자 {2}' -f [int]$script:fbox.w, (Feed-Max), [int](FeedFz)) } } catch {}
-  try { if ($FEd.nL) { $FEd.nL.Text = [string](Feed-Max) }; if ($FEd.nF) { $FEd.nF.Text = [string][int](FeedFz) }; if ($FEd.nS) { $FEd.nS.Text = ([string](Feed-Sec) + '초') } } catch {}
+  try { if ($FEd.nL) { $FEd.nL.Text = [string](Feed-Max) }; if ($FEd.nF) { $FEd.nF.Text = [string][int](FeedFz) }; if ($FEd.nS) { $FEd.nS.Text = ([string](Feed-Sec) + '초') }; if ($FEd.nB) { $FEd.nB.Text = ([string](Feed-Bg) + '%') } } catch {}
   try {
     if ($FEd.bar -and $Feed.win) {
       $FEd.bar.UpdateLayout()
@@ -4480,6 +4584,10 @@ function FEd-Bar {
     [void](FEd-BtnMake $sp ([string][char]0x2212) 's-')
     $FEd.nS = TB '' 12 $GOLD; $FEd.nS.VerticalAlignment = 'Center'; $FEd.nS.MinWidth = 30; $FEd.nS.TextAlignment = 'Center'; [void]$sp.Children.Add($FEd.nS)
     [void](FEd-BtnMake $sp '+' 's+')
+    $l4 = TB '배경' 11.5 $SUBC; UIF $l4; $l4.VerticalAlignment = 'Center'; $l4.Margin = New-Object System.Windows.Thickness(12, 0, 2, 0); [void]$sp.Children.Add($l4)
+    [void](FEd-BtnMake $sp ([string][char]0x2212) 'b-')
+    $FEd.nB = TB '' 12 $GOLD; $FEd.nB.VerticalAlignment = 'Center'; $FEd.nB.MinWidth = 34; $FEd.nB.TextAlignment = 'Center'; [void]$sp.Children.Add($FEd.nB)
+    [void](FEd-BtnMake $sp '+' 'b+')
     $gap = New-Object System.Windows.Controls.Border; $gap.Width = 10; [void]$sp.Children.Add($gap)
     [void](FEd-BtnMake $sp '처음 자리로' 'reset')
     [void](FEd-BtnMake $sp '완료' 'done' $true)
@@ -4497,6 +4605,8 @@ function FEd-Btn([string]$t) {
     'f+' { $Feed.font = [math]::Min(24, [int](FeedFz) + 1); $GC.cfont = [int]$Feed.font; Game-Cmd ''; FEd-Samples }
     's-' { $S.feedSec = [math]::Max(5, (Feed-Sec) - 5); Save-Cfg }
     's+' { $S.feedSec = [math]::Min(60, (Feed-Sec) + 5); Save-Cfg }
+    'b-' { $S.feedBg = [math]::Max(0, (Feed-Bg) - 10); Save-Cfg; Feed-BgApply }
+    'b+' { $S.feedBg = [math]::Min(90, (Feed-Bg) + 10); Save-Cfg; Feed-BgApply }
     'reset' {
       if ($S.ContainsKey('feedBox')) { [void]$S.Remove('feedBox') }
       $S.feedLines = 7; Save-Cfg; $script:fdirty = $false
@@ -4541,7 +4651,7 @@ function FEd-Tick {
 }
 function FEd-End {
   if (-not $script:fedit) { return }
-  if ($script:fdirty -and $script:fbox) { $S.feedBox = $script:fbox.Clone(); Save-Cfg; Game-Cmd ('/ntchat feedpos {0} {1} {2} {3}' -f [int]$script:fbox.x, [int]$script:fbox.y, [int]$script:fbox.w, [int]$script:fbox.h); Log ('가운데 파티글 자리 저장: x {0} · y {1} · 폭 {2} · 높이 {3}' -f $script:fbox.x, $script:fbox.y, $script:fbox.w, $script:fbox.h) }
+  if ($script:fdirty -and $script:fbox) { $S.feedBox = $script:fbox.Clone(); Save-Cfg; Game-Cmd ('/ntchat feedpos {0} {1} {2} {3}' -f [int]$script:fbox.x, [int]$script:fbox.y, [int]$script:fbox.w, [int]$script:fbox.h); Log ('집중 대화창 자리 저장: x {0} · y {1} · 폭 {2} · 높이 {3}' -f $script:fbox.x, $script:fbox.y, $script:fbox.w, $script:fbox.h) }
   $script:fedit = $false; $script:fdrag = $null; $script:fbox = $null
   try { $Feed.win.ReleaseMouseCapture() } catch {}
   try { if ($FEd.ov -and $Feed.grid.Children.Contains($FEd.ov)) { [void]$Feed.grid.Children.Remove($FEd.ov) } } catch {}
@@ -5050,7 +5160,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 228
+$APPV = 229
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
@@ -5401,14 +5511,14 @@ function Voice-Show([string]$ko, [string]$en) {
   if ($state.off -or $S.voiceCen -eq $false -or -not $Feed.geo -or $Feed.geo.edit) { return }
   Feed-Make
   $k = $(if ($Feed.k) { $Feed.k } else { 1.2 })
-  $box = New-Object System.Windows.Controls.StackPanel; $box.Margin = New-Object System.Windows.Thickness(0, 0, 0, (10 * $k)); $box.Opacity = 1
+  $box = Feed-Box $k; $box.Opacity = 1
   $main = New-Object System.Windows.Controls.TextBlock; $main.FontFamily = $script:CFONT; $main.FontWeight = $script:CFW; $main.FontSize = (FeedFz) * $k; $main.TextWrapping = 'Wrap'; $main.TextAlignment = 'Center'
   $sub = New-Object System.Windows.Controls.TextBlock; $sub.FontFamily = $script:CFONT; $sub.FontWeight = $script:CFW; $sub.FontSize = (FeedFz) * 0.77 * $k; $sub.TextWrapping = 'Wrap'; $sub.TextAlignment = 'Center'; $sub.Foreground = HexBr 'c9c2b0'; $sub.Opacity = 0.85; $sub.Margin = New-Object System.Windows.Thickness(0, (3 * $k), 0, 0)
   $ic = New-Object System.Windows.Documents.InlineUIContainer((New-Mic (13 * $k))); $ic.BaselineAlignment = 'Center'
   [void]$main.Inlines.Add($ic)
   [void](Add-Run $main $ko 'ffe9b8' $null)
   $sub.Text = $en
-  [void]$box.Children.Add($main); [void]$box.Children.Add($sub)
+  [void]$box.Child.Children.Add($main); [void]$box.Child.Children.Add($sub)
   $FL = @{ box = $box; main = $main; sub = $sub; at = [DateTime]::Now; rec = $null; voice = $true; tag = $null }
   $vl = @($Feed.list | Where-Object { $_.voice })
   if ($vl.Count -ge 3) { $old = $vl[0]; $Feed.sp.Children.Remove($old.box); [void]$Feed.list.Remove($old) }
@@ -5417,6 +5527,289 @@ function Voice-Show([string]$ko, [string]$en) {
   Feed-Place
   $script:trDirty = $true
 }
+try { Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
+using System; using System.Drawing; using System.Drawing.Imaging; using System.Runtime.InteropServices;
+namespace FTRO {
+public static class Ocr {
+  public static Bitmap Prep(Bitmap src, int k) {
+    int w = src.Width, h = src.Height;
+    Rectangle rc = new Rectangle(0, 0, w, h);
+    Bitmap g = new Bitmap(w, h, PixelFormat.Format24bppRgb);
+    using (Bitmap s0 = src.Clone(rc, PixelFormat.Format24bppRgb)) {
+      BitmapData a = s0.LockBits(rc, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+      BitmapData b = g.LockBits(rc, ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
+      int n = a.Stride * h; byte[] x = new byte[n]; byte[] y = new byte[n];
+      Marshal.Copy(a.Scan0, x, 0, n);
+      for (int r = 0; r < h; r++) { int o = r * a.Stride; for (int c = 0; c < w * 3; c += 3) { int i = o + c; byte m = Math.Max(x[i], Math.Max(x[i + 1], x[i + 2])); byte v = (byte)(255 - m); y[i] = v; y[i + 1] = v; y[i + 2] = v; } }
+      Marshal.Copy(y, 0, b.Scan0, n);
+      s0.UnlockBits(a); g.UnlockBits(b);
+    }
+    if (k <= 1) return g;
+    Bitmap o2 = new Bitmap(w * k, h * k, PixelFormat.Format24bppRgb);
+    using (Graphics gr = Graphics.FromImage(o2)) { gr.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic; gr.DrawImage(g, 0, 0, w * k, h * k); }
+    g.Dispose();
+    return o2;
+  }
+  public static long Sig(Bitmap bm) {
+    Rectangle rc = new Rectangle(0, 0, bm.Width, bm.Height);
+    BitmapData a = bm.LockBits(rc, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+    int n = a.Stride * bm.Height; byte[] x = new byte[n]; Marshal.Copy(a.Scan0, x, 0, n); bm.UnlockBits(a);
+    long s = 17; for (int i = 0; i < n; i += 28) s = s * 31 + x[i];
+    return s;
+  }
+  public static double Sim(string a, string b) {
+    if (a == b) return 1; int la = a.Length, lb = b.Length; if (la == 0 || lb == 0) return 0;
+    int[] p = new int[lb + 1], q = new int[lb + 1];
+    for (int j = 0; j <= lb; j++) p[j] = j;
+    for (int i = 1; i <= la; i++) { q[0] = i; for (int j = 1; j <= lb; j++) { int c = a[i - 1] == b[j - 1] ? 0 : 1; q[j] = Math.Min(Math.Min(q[j - 1] + 1, p[j] + 1), p[j - 1] + c); } int[] t = p; p = q; q = t; }
+    return 1.0 - (double)p[lb] / Math.Max(la, lb);
+  }
+}
+}
+'@ } catch { Log "전장 읽기 준비: $_" }
+$BgOScript = {
+  param($H)
+  try {
+    Add-Type -AssemblyName System.Drawing
+    Add-Type -AssemblyName System.Runtime.WindowsRuntime
+    $null = [Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType = WindowsRuntime]
+    $null = [Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics, ContentType = WindowsRuntime]
+    $null = [Windows.Globalization.Language, Windows.Globalization, ContentType = WindowsRuntime]
+    $null = [Windows.Graphics.Imaging.SoftwareBitmap, Windows.Graphics, ContentType = WindowsRuntime]
+    $asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
+    $eng = $null; try { $eng = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage((New-Object Windows.Globalization.Language 'en-US')) } catch {}
+    if (-not $eng) { $eng = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages() }
+    if (-not $eng) { $H.err = 'none'; return }
+    $mx = [int][Windows.Media.Ocr.OcrEngine]::MaxImageDimension
+    $last = 0
+    while (-not $H.stop) {
+      $r = $H.rect
+      if (-not $H.run -or -not $r) { Start-Sleep -Milliseconds 400; continue }
+      try {
+        $bmp = New-Object System.Drawing.Bitmap([int]$r.w, [int]$r.h)
+        $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen([int]$r.x, [int]$r.y, 0, 0, (New-Object System.Drawing.Size([int]$r.w, [int]$r.h))); $g.Dispose()
+        $sig = [FTRO.Ocr]::Sig($bmp)
+        if ($sig -eq $last) { $bmp.Dispose(); Start-Sleep -Milliseconds 700; continue }
+        $last = $sig
+        $k = [Math]::Max(1, [Math]::Min(3, [Math]::Floor($mx / [Math]::Max($r.w, $r.h))))
+        $pp = [FTRO.Ocr]::Prep($bmp, [int]$k); $bmp.Dispose()
+        $ms = New-Object System.IO.MemoryStream; $pp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Bmp); $pp.Dispose(); $ms.Position = 0
+        $ras = [System.IO.WindowsRuntimeStreamExtensions]::AsRandomAccessStream($ms)
+        $t1 = $asTask.MakeGenericMethod([Windows.Graphics.Imaging.BitmapDecoder]).Invoke($null, @([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($ras))); [void]$t1.Wait(5000)
+        $t2 = $asTask.MakeGenericMethod([Windows.Graphics.Imaging.SoftwareBitmap]).Invoke($null, @($t1.Result.GetSoftwareBitmapAsync())); [void]$t2.Wait(5000)
+        $t3 = $asTask.MakeGenericMethod([Windows.Media.Ocr.OcrResult]).Invoke($null, @($eng.RecognizeAsync($t2.Result))); [void]$t3.Wait(5000)
+        $H.q.Enqueue((@($t3.Result.Lines | ForEach-Object { $_.Text }) -join "`n"))
+        try { $t2.Result.Dispose() } catch {}
+        $ms.Dispose()
+      } catch { $H.err = [string]$_ }
+      Start-Sleep -Milliseconds 800
+    }
+  } catch { $H.err = [string]$_ }
+}
+$BgO = @{ ps = $null; H = $null; dl = (New-Object System.Collections.ArrayList); cand = (New-Object System.Collections.ArrayList); last = (New-Object System.Collections.ArrayList); seen = (New-Object System.Collections.ArrayList); first = $true; on = $false; lastErr = '' }
+function Bg-OcrStart {
+  if ($BgO.ps) { return }
+  $BgO.H = [hashtable]::Synchronized(@{ run = $false; rect = $null; stop = $false; err = ''; q = (New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]') })
+  $ps = [powershell]::Create(); [void]$ps.AddScript($BgOScript).AddArgument($BgO.H)
+  $BgO.ar = $ps.BeginInvoke(); $BgO.ps = $ps
+}
+function Bg-Hint([string]$t) {
+  $hs = New-Object System.Collections.ArrayList
+  foreach ($e in $BG_IN) { $m = $e[2].Match($t); if ($m.Success -and $m.Length -gt 0) { [void]$hs.Add(@($m.Index, $m.Length, $m.Value, [string]$e[1])) } }
+  $r = New-Object System.Collections.ArrayList
+  while ($hs.Count -gt 0 -and $r.Count -lt 6) {
+    $bi = 0; for ($i = 1; $i -lt $hs.Count; $i++) { if ($hs[$i][1] -gt $hs[$bi][1]) { $bi = $i } }
+    $h = $hs[$bi]; $hs.RemoveAt($bi)
+    $in = $false; foreach ($k in $r) { if ($h[0] -lt ($k[0] + $k[1]) -and ($h[0] + $h[1]) -gt $k[0]) { $in = $true; break } }
+    if (-not $in) { [void]$r.Add($h) }
+  }
+  return ,$r
+}
+function Bg-OcrShow($c) {
+  $p = [string]$c.msg
+  $FL = $null; try { $FL = Feed-Add @{ t = 'INSTANCE_CHAT'; sender = [string]$c.who; msg = $p; cls = ''; me = $false } } catch {}
+  Dbg ('전장 읽기 · ' + $c.who + ': ' + $p)
+  if (-not $FL) { return }
+  $ck = 'bg|' + $p
+  if ($Cache[$ck]) { Feed-Tr $FL ([string]$Cache[$ck].ko) $p; return }
+  $bh = Bg-Hint $p
+  $sl = Slang-In $p
+  $bt = ''
+  if ($bh.Count -gt 0) {
+    $ws = New-Object System.Collections.ArrayList; $bl = New-Object System.Collections.ArrayList
+    foreach ($h in $bh) { [void]$ws.Add(([string]$h[2]).ToLower()); [void]$bl.Add('- ' + $h[2] + ' = ' + $h[3]) }
+    $sk = New-Object System.Collections.ArrayList
+    foreach ($l in ($sl -split "`n")) { $drop = $false; foreach ($w in $ws) { if ($l.ToLower().StartsWith('- ' + $w + ' =')) { $drop = $true; break } }; if (-not $drop) { [void]$sk.Add($l) } }
+    $any = $false; foreach ($l in $sk) { if ($l.StartsWith('- ')) { $any = $true; break } }
+    $sl = $(if ($any) { $sk -join "`n" } else { '' })
+    $bt = "`n[전장 안 인스턴스 대화 · 이 말들은 전장 뜻으로]`n" + ($bl -join "`n")
+  } else { $bt = "`n[전장 안 인스턴스 대화]" }
+  $task = Gem-Send ($SYS_IN + (Gloss-For $p) + $bt + $sl) (Pre-Fix $p) $false 'in'
+  if ($task) { [void]$Pending.Add(@{ kind = 'bgocr'; task = $task; FL = $FL; src = $p; ck = $ck }) }
+}
+function Bg-OcrClean([string]$t) {
+  if (-not $t) { return 0 }
+  return ([regex]::Matches($t, "[A-Za-z0-9 .,!?'/+-]").Count / [double]$t.Length)
+}
+function Bg-OcrWho([string]$w, [bool]$br) {
+  $w = $w.Trim() -replace '」', 'J'
+  $cut = $br
+  if ($w -cmatch '^[^A-Za-z]*[\[\(Ilt|1]([A-Z].*)$') { $w = $Matches[1]; $cut = $true } elseif ($w -match '^[^A-Za-z]+(.*)$') { $w = $Matches[1]; $cut = $true }
+  $w = $w -replace '[^A-Za-z]+$', ''
+  if ($cut -and $w -cmatch '^(.*[a-z])[Il1]$') { $w = $Matches[1] }
+  return $w.Trim()
+}
+$BgVocab = @('help','push','camp','ruins','tower','towers','cove','mid','flag','flags','heals','healer','healers','need','take','def','base','bases','defend','coming','going','enemy','enemies','rogue','rogues','stealth','horde','alliance','nice','lost','win','losing','everyone','group','people','guys','here','there','south','north','east','west','left','right','back','boat','ship','bridge','water','kill','killed','dead','focus','wipe','fight','team','they','them','their','need','more','five','four','three','two','one','ten','sapped','incoming','inc','zerg','cap','capped','node','nodes','mine','farm','stables','blacksmith','lumber','tunnel','ramp','roof','graveyard','honor','marks','spawn','shipwreck','abandoned','ninja','ninjaing','dispel','afk','bots','premade','points','ticks','behind','ahead','holding','hold','guard','attack','retreat','wait','stay','stop','same','just','good','well','played','sorry','thanks','please','someone','anyone','nobody','calls','call','make','less','last')
+function Bg-Snap([string]$w) {
+  if ($w.Length -lt 3 -or $w -cnotmatch '[0-9BI185]' -or $w -cnotmatch '[a-z]') { return $w }
+  $lw = $w.ToLower(); if ($BgVocab -contains $lw) { return $w }
+  $map = @{ 'b' = 's'; '0' = 'o'; '1' = 'l'; 'i' = 'l'; '5' = 's'; '8' = 'b' }
+  foreach ($v in $BgVocab) {
+    if ($v.Length -ne $lw.Length) { continue }
+    $ok = $true
+    for ($i = 0; $i -lt $v.Length; $i++) {
+      $a = [string]$lw[$i]; $b = [string]$v[$i]
+      if ($a -eq $b) { continue }
+      if (($map[$a] -eq $b) -or ($a -eq 'l' -and $b -eq 'i') -or ($a -eq '1' -and $b -eq 'i') -or ($a -eq '0' -and $b -eq 'o')) { continue }
+      $ok = $false; break
+    }
+    if ($ok) { return $v }
+  }
+  return $w
+}
+$BgWords = @{}; $bwi = 0; foreach ($w0 in ('the to for you lf and is it in of that on we can have be just tank dps are need all my with me not this if get they do so like lol or your no go lfg forever anyone what lfm one at will pst up but im here got was good its there re out more any enchant run he now people yeah wtb how from when back guild healer time going then heals gold wow only an some dont don too bro know want gonna who summon as come think them guys looking quest right wts free about make why mage did ll game port raid enchanter rogue mats where enchanting even oh tbc sw level see should let pvp ah first thats play new someone hunter would dead off kill has am still wait server hh does help last been take our than recruiting cant group everyone over us full two much za by lvl say way chat day well uc heal sm org sr down fun weapon alliance playing okay their pm same horde into sure ill quests big hr man again doing really him loot boss were give work ur bad please wanna tip raids said bt clear chest invite gotta name tomorrow had pally bag before because these tb lock love those better players other hours use never city priest gear put hit welcome open next left classic layer shaman buy wc ya nice boots lmao world most trade after join mount inv mean ty bracer could around keep summons actually lockbox dungeon thing end hhx ms retail real else best sorry speed kara os ready pretty old call his pull already away long bags druid sfk alright guy oce questie major something getting stuff lets rfc lfw night days raiding leveling many daily gloves always yall also try hope yes yolo selling bear being wanted little drop st every prot quick die start cath cool pls pay she years cniq coming whisper maybe wrath gtg since heroic min warrior ppl move done yet find made money content while nothing damn blue tips hard ve ever haha thought plz class whats which might mana once water jc today until cloak stormwind healing look chill buff turn great running blade geared nah few both though sick warlock tell enjoy hey ok times holy check dungeons goldshire thanks enough fire waiting yep dm wants xd log red must enh stocks wont probably damage darn very didn dude needs greater drops high farm launch outside summ normal pve hour feel isnt stop bot em mobs thunderfury blessed agility ret leaving tho imagine ramps elite hes show bank each rfk send shield life live fresh head arms wrong windseeker tailoring agi true healers through fiery hate happy tauren info mom her lesser shadow gs week main youre stam crazy lot close war trying ally silver bfd bracers room shat boys roll mongoose talking doesnt another bit god kargath having didnt hot stack anything iron fast stay won melee leave bring lib remember pick brad sleeping tanks low making everything least watch whatever care skill part set tonight appreciated able side believe year games mages mark point battle far cause rogues wotlk levels ing bros gay share gnomer sum brd own epic fight almost gems talk paladin matter guess kinda community id without hyjal cheaper ring timed leather three looks job different top wtf rp friendly vendor price beta america drowned tailor enchants stamina stats rn yo sounds olympus ask zf together portal currently died friends rfd thank sleep change spell halls tk mech blood blizzard single isn add slot mob thinking hold soon queue spec things fishing yea called came resto home party starting place shatt player glaives spot whole front doesn death goes instead feral king sec killed hand giving funny seen broke fish dst rol ele sword entrance learn bosses miss aint read belt cloth hi food bots shammy kind armor later hillsbrad vote black ive active discord bm form pack res suck lost took seems either problem bs bored pump north past ench sell wetlands social literally plus rip mop saw saying gta strength fear woke escort slain ago sham started deadmines fine cut groups crusader idk till cost wish stupid makes says boar skull runs toons hardcore everybody super south stacks marks trash bis theres cat wife working non fat lockpicking broken dalaran asmon str stockades available cuz mins hell word mind using prob sv used disc walk buffs taking max comes solo gets casual axe may barrens friend donate nobody arm na gone green behind flame dad addon members sp steps easy magic save bye small strong team release spriest worth blizz mad sunwell month minor second character uh zone th reason bg key deviate gg type baby items brb schematic silk power cheap cod bgs early fury prison white item happened men minutes half arent feels safe drink ones undead late buying based ban bruh cata country que rare duels wouldnt khorium wed yourself couple interested double takes bed progression unless ssc went shot breath inside win heard build per classes aoe servers warlocks xp light online less raiders kick rez book poor ubrs gy building mallet mt pulling reset extra morning semi badge myself opening fair sad person sucks huge staying become town star grab pet killing graveyard between cow toon defense vanilla beat potion market quit golden eat moo deflector stv land lv nation camp months formula offer weird dwarf core under hear happen exactly pal btw guilds midnight anymore arena hunters aren nerf stand adds tanking range caster mograine swap missed girl pumper bunch eating usually wipe future boy inn found living pref vibes means against worse dumb brother straight farming mail gruul rolls rich gf mate racist mara site attack boost event arcane gnome ranged spellpower druids alt shard west perfect boxes chanter paid whos lbrs theyre pyrestone post mine zero rest question wave wild alive shut higher needed charge sit ed spirit bet bar uldaman fighting steel executioner played couldn works troll enhance training skip heavy flying line shower tf ogrimmar soup mailbox portals streamers spellthread wand est sub ac instance pushing af filled omg weeks temple excited happens report loser pop craft knows ride lose bow era ghost tombs boat strat stone pre pass seconds tier test hits box talent space dual rep idea havent questing arc realm bugged asking rolled lw combat trust gates told soul frost jump fall starts duel paying company bought anyway da korea chinese questionable texas sap australian bruuz aus alcaz runic superior horseman rage chance norm crew finish break sod op forget willing netherweave fkn experience dog glad nope tbh awesome door solid spawn focus forgot situation pulled dropped supposed map dk cr exp questions atm version tried support honestly rd house intellect earth picked warriors names taken deal large rod pants ai blame target gave elites dark hrs cry mon sheep cap china dung fr general jesus kept bronze files hide chol aruk ravener reagent zep levelling mb savagery ran resilience lmfao boars sale shamans sethekk grind unlock human ignore peace anybody trolls locked stuck alone women kids channel dal plenty slow threat aggro cd square hang worst warr durn table spend rules family follow act road system exceptional boring touch armory points ub copper sometimes doubt tuesday service ruins cares elves poison rt progress recovery mr knew breaking changes gj fix others prices finally accept skin ratchet rank lor al revelation murloc recipes headless ot required phase forward floor rdy theramore sunken int lots nuts noob ground east scholo saved fill couldnt number gun sense flight shit moving gas loose pot whoever tablet corner wall four apart abilities except rolling scarlet hall cats paladins azeroth youll gives lockboxes telling story luck peak kid captain business logs pattern poop lockpick services bottom sry laugh near dmg tipping happening summoning alts recipe npc hype hc ha stark sir along bang spots booty gl nerd expansion lord shall allies xsr sitting wasnt million orgrimmar sun copy exploit asked deposit banter arugal keen chain expert arcanite darnassus ports ends ore hander mh cleared screw donations fountain wind history chuck purple hpal wowf feed brain economy ap ish boot daddy crypts haven um zones keeping bridge bull five path rack eye dance carry push hungerer soulfrost link wailing caverns layers turned order sl blacksmith spam area choice thursday none ye short teams earlier master wod wars video continue missing pulls ability etc dollar sign meh afford john heading mithril faster difference clean interrupt lead insane biggest nerds smoke yeh lame evil aest tree og wep ofc feet balls wheres logging hair train above chick rock weekly undercity elixir steve americans streamer np nz australia aussie loch den badlands mageweave sigil drown krol dok nimble details sh riding basically lionseye shattered average serious greens hunting bout assault aldor anyways silence somewhere middle srs av such demo jokes entire gem fail silly figure scroll library released ain promise annoying fell soda deep wasn targets saving spare plan thane health control pat kt rather enchanters cleave absolutely de dc karazhan honor slabs focused understand dexterity original worry attention during allowed theyll instant grp minute surefooted ramparts school oil across spent zul weekend thick alot winning rate hurt definitely crying mouth ima legacy chair teh timer gamers strike increase split meal kings spike rat upon sweet depends holding pussy popular standing raptor cheese plans below omw meet wouldn abuse wake eventually walking sold losing massive stock moonkin folks enjoying banned addons kfc sally loves orc pto veteran irl cya modan rig coffee greatest ss sea idiot milk fps joke rain guard cave sight drums mum shark ez tbd princess aketh yup leg fel homie bulk sat putting badges longer heroics favorite fault dedicated journey dire boomkin fortitude harder hug cooked roaches dw faction sweaty somehow crap huh sadly words car inscribed hasnt stacked worked ton pets chicken changed ending careful pressure quite fucking incoming decent balance ironforge mythic oof swiftness ab gods message united arcatraz stream account characters possible mounts shoulders lil credit male mother smooth handed linen crit girls westfall liked complain bears bill burger aid hands hmm bait iq striking kills cows beef mid soft excellent plate reserved stairs spells oom agree dang pain curator immune complaining handing char heart ninja lie bio skyborne march goin beep self steal hello fk anniversary auto gate losers corpse nvm elses peeps race costs multiple murlocs dogs insight mining voted exist bars bud maintenance madness final delayed rough tax state lazy stolen create socialism anal burn states american helping nerfed brill albo ginv casuals cheers ward lands layering campfire laid humbert excav hinterlands cyclonian rend materials reg boomie romulo hhm pali somebody maul respect sup otherwise math sides reported donation nd thorium interesting norris inclusive warcraft bois demon growing jsut remix endgame exodar swim numbers record effort asleep shout casters course annihilator marked thunder ahead lady horse zeliek moment track bob separate stick throw trinket specs waste ex torn vs trainer seth reach tabard added realms la roster imma naked gather itself announced mans attunement terrace seriously cast crafter locks wonder opened expensive wth update bother multi nether compared bc unholy jobs issue outta wear parsing wf cc gladiator cobra base butt goose singing crystal actual amazing ls known stun talents handle enemy curse wisdom onto controlled important reminder meant cooldown interrupts benefit totally dragon click nasty servo shows def mass profession population ahh rise hahaha sound bu voting mcdonalds bodies failed corrected stomach shutdown jealous pala ten clickers special diremaul woah wdym ruleset apparently likely buddy crafting protect news mmo ruin professions air shame healthcare choosing speak elf searing google ud young example total trans twice loss survival veterans leadership ding seeking humour shes herb corpses dying mature respawn hides trouble note villainous beast provocative spy frostmaw noodles blueprint tanning raining gz stronghold heed moan jom vulgara easily checked hammer brilliant pics logged noble radiant swords hellfire pug clearing escape afraid quitting blast twink suppose gnomeregan neither humans prefer sunday minds mace offense tome source ugh prolly vc overall plays keyboard clearly friday edge council rdruid wiped wolves skinning fuck los patrol pro pole twist normally counter case speaking gordon list crush grabbing realize roles listen mama eh hunt aye legion press spending rsham hpriest bf resil gross honored parse sooo forsaken racials random unlocked welcoming color purpose smells legit gears devilsaur leggings gauntlets enjoyers body launcher healz bliz nose helm ruined whether counting shoot offhand rating highest female cities walmart prismatic mastery turtle twisted staff negative scale phone kidding shop loved waiters usa helps quickly gath prove wool obviously anni chasing brought screwed rouge certain wtt canada especially prof queues guide cheat surely search correct roads bonus prepared boop evening title protection enemies round beam repair attraction whoa wipes dudes aww invited mostly patterns donating eternium relaxatives hogger lunacy gimme shift worried sky piss gd itll fellas bubble opinion foot bay falling consider amount ww scary calm traded nightmare likes spelling mc sent bread vashj role angry kim seeing pops load dick cute calling kitten force shards catch sugar band weapons er glaive haters fixed ffs accepting crimson spinel becomes qq walked login mute cease opinions ma rule betterhuman impact redridge alli efb pages jk travel turns kek begging reinforced afk frogleg fil mac stopped reddit hp pugs excluding lotto bacon tues dust raffle crash orcs pc fly evasion slightly yee blackrock es street auctioneer desk government proud pedos ting taxes choose werent costco sex mmorpg blessing monster hybrid weaving wheel jimmy kiss minded hurry pouch rune cholaruk tired taurens english flask distilled decurse girlfriend ngl camping profanity reading woman stonetalon opens virtual docks wpvp ranks pond wrongly blamed justly sums indian excavation howard summs swamp woolen arathi aedt fp razorfen delete stromgarde morals grom gol dced cook storm embrace awst riverglades kroldok beautiful foul thugs gays transmute confirmed named rdps rob adamantite current chances hero runecloth thera complete third wil knight winter clap truly arguing hole brave mistake keeps modern dies finished nightseye bop looked whining goated rats stable shouldn married optional son aight obvious feelings fastest invented cus dream arthas steamvault gotcha anniv ups ontop pee keys vibe keybinds bugs mp sunder landing alondo insanely triangle maximum snap resist hitting ended axes bomb priests sebastian switch refresh gruuls decide lookin amani ancient spellcleave ohh tirisfal northrend ques strath quiet maiden dawn club block prog dope elemental botanica joining truth veiled beyond saturday disease thur resistance mode boosts darnasus countdown versions meat hasn outlands firey ata mal hm bug invincible cathedral seem technically date goth yum blasting grim premade runed timers dew razzen rated dice sack problems disarm weak lore spellcaster upper draw ilzogg hosted maraudon agil thru pallys built sigh ftw ass pshero including reflexes teaching casue billion capped abit mess traitor traps trap internet gaming culture facts reality lied minority swear blow popping sending checking exalted matters bless fiji chillin instantly bigger cannot piece vanish nervous starkist expose stage debuff window seed opera kidney exit slap eternal powerful julianne disable potential shared chess packs easier iran useful fact champion vile books board goal leader duo enter freshies needing wasted chapter shouldnt swiftheal wraps aura stealth brutal reckon loud prince truck banner haul boomy yer ahhh daylight cos deez drunk gnomes adventure korean idiots jong confused felwood ashenvale ignored data movie lit robot hehe carrier quality location bussy yours reservation cringe erp eats degree legendary mat hospital endless sandwich chants warchief reasonable queen olympics goblin hated hilarious toxic hardly rekt pvpers ohb sunfire cult thin tag access beg curious pockets feeling asmongold police thousands stealing signatures smart salty zug scared aiming horizontal invade chud hod nov fuk quarter thrall ashes chaos fights bb til transmog woot babies rope lvling ball occasionally awhile announce dint arrows majority encouraged tos claude fake rofl bathrooms garbage loan eachother dirty knock topic useless gender formed harambe rear logic shots dagger tent hopefully sons expect token gamer individuals weed handstitched thunderbluff oceanic dinged adventures attacked hallway agro yesterday msg experienced tiny golf lake clothie zealander exploited filter lads dads abusing posture language returning grape india poo often eradication laughs wonce kisses lambos hearth additional damp shape crabs ganked rice ganking dots alterac revenge bloody shoulda desolace spamming apologise farrak excuse psa count age marf engineering issues jensen stormstrike gooning stonard weekdays thurs lalai crafted drama twilight qt jed mixed femboys bloodmaster matriarch neck commerce thanes insatiable subject reload oven bounty poverty lotus pumpkin tomb taunt stockade merry horsemen toss whisp recommend dam pair eng checks wednesday loads launches quiting differently agreed newbie coin overrated karazan believes royal topaz creation nagrand everywhere everyday orange triggered halloween dreamscythe whilst society indeed solved tiktok effective acid scholomance zg eve became child lately updates announcement probly aquamarine anywhere blades lemme realized immediately stacking guzu thread dump bean zonin muted harla stones dummy parla pointless face gar tab circle eggs turning ooh shade screen moves relief section rebuff tells marker scrub charged stunned naga parses rap shockadin glades seal gotten card imo cipher damnation borak wg sekk boomies advice music lich propaganda hungry snack beginning guardian mortal bench fishy benefits dafuq dear congrats scene cockroach damaged slab starter playable tryna alchemy hoping sovereign shadowsong amethyst summer shutting specific policy cycle mega mentioned headache lines kingdom remain growth hanging daggers brains cards wrist reserve indie busy supplies helpful toilet freshly grouping delight ship gearing meta controlling chars wendy fml promised confirm equal aman addicted gp planner season brown twisting tech pen however forbid fries pie aside guildies md nethercobra meme wsg thousand faerie profs easiest forms ceiling sprint movement skilled favor infernal increased several regardless whine private recently violence ws decade trailer fails mems adding expac constantly rly sets wanting campfires merchant procs ol mouse learned essence monday nights district menu convince jus kicks yell soldier turbo crits atk elder rocks odds stands sausage sized secret kekw haste noticed neat reserves leading salvation sort spawns forth morows leads virtue rooms corruption beside physical starkas breaks critical explode wizard disabled energy hehehe decided steady restore giga lust patrols switching teleport nova netherock punch meow waters himself tommorow jan diff baddies letting accounts rot gooooo spread youve host snacks prepare parties closed nostalgia ostalo clown grow stromwind peopel lucky defs patch asf heaps soldiers ggs gathering planting mooo launching leveled grabbed cold trick billions public vard information meaningful doo radical detected patrick valid letter pray wit cn network models parts giant kitty koreans tokens trink sleepy hordie peaceful dih phew disconnected score molten bucks cope tool someones package resources tats jail bills following collections slim crisis pl chin blah europe pdf percent lel stat convinced wrists chuds design melt ba rid playstyle gameplay gnomergan prime lover isreal rides cuts pushed elon noobs hardest cover lennon clan finding horrible caught fart lash strongest lmk incredibly thou seasoned goats chik whose mrow messed option mountain fields changing foreign created touched asian lower expertise ladies zhardoom central latina dentist primal solarian personally sc gain park eater ne lava belongs mag dimensius devouring whirlwind swing thus crashed children depending bonnie tend pandas slavepens thinks legs hook ui surprised momma muslim literal pure node hop un smith furniture hats glowing commander paxton sethekks mystical watching pedo labour regent praise silent jet expecting corporate bathroom billionaires fixing andrew beasts parents edgy wearing jacks ooht nuke collins creatures jack diet dr washed creep depression wrynn caps durnholde duck lasts twerky illegal veto companies border septum fd vivek term mechanics twelve murder para rpg rping duh wise wielding sting yards wrap kimmel bush smell zinger crushing mulgore hill yourselves view text pink environment bluff dinkum bee moon lowbie capital ping competitive levelers dec wolf events halal beer tap degenerates mavericks romantic ti doctor breathe flasks thirty preorder tame gdkp animal warhammer plainstrider row collect wisper born identify settings warning icon pressed necrophelia phasing uninstall mullet twenty hooves filthy rested num universe presence headed fs nerfs deeps everyones closet hog mental mix focusing dun amen collection sniff pipe maccas law argue sunblock fking shannon gnoll migrant button exc goblins console grats advertising lordaeron sumon lfp snape unending triple pauline bald inflation onion bin shutup mafia labor ay slots respawning rug lag reliable guaranteed led pharse fathom baron skills unhinged vale mansion bods reroll remove retard ragnar pussies herd rares humble zoram aliden perenolde adventurers necros sewer writ alch spinning mote sigs totem deliver doordash inner taste typical soo ryan strom summoners ta jumped boi alr encrusted crown rc gm necro reef cloaks puss dme perth coldbringer lvls clears relaxed welfare decisions dexies nagas saltseer boyfriend newly tyt dangerous swipe chatting unemployed nezza fiddlesticks whale homophobic bottle dwarves ghostmaw bedtime nacho nature infestation necklace sturdy smh emp bilbo necessary alchemist manually azure hood winterspring auction xmute perma spurs weather' -split ' ')) { if (-not $BgWords.ContainsKey($w0)) { $BgWords[$w0] = $bwi }; $bwi++ }
+$BgSub = @{ 'b' = @('a', 's'); '0' = @('o'); '8' = @('s'); '$' = @('s'); '6' = @('g') }
+function Bg-Repair([string]$tok) {
+  $t = $tok.Replace('LJ', 'U').Replace('lj', 'u')
+  if ($t -ceq 'B') { return 'a' }
+  $sus = ($t -match '[0-9$]') -or ($t.Contains('B') -and $t -cmatch '[a-z]') -or ($t -cmatch '^[A-Z]+$' -and $t.Contains('B'))
+  if (-not $sus) { return $t }
+  $lw = $t.ToLower()
+  $vars = @(''); $n = 0
+  foreach ($ch in $lw.ToCharArray()) {
+    $k = [string]$ch; $opt = $(if ($BgSub.ContainsKey($k)) { $n++; $BgSub[$k] } else { @($k) })
+    if ($n -gt 5) { return $t }
+    $nx = New-Object System.Collections.Generic.List[string]
+    foreach ($v in $vars) { foreach ($o in $opt) { $nx.Add($v + $o) } }
+    $vars = $nx
+  }
+  if ($n -eq 0) { return $t }
+  $best = $null
+  foreach ($v in $vars) { if ($BgWords.ContainsKey($v) -and ($null -eq $best -or $BgWords[$v] -lt $BgWords[$best])) { $best = $v } }
+  if ($null -eq $best) { return $t }
+  if ($BgWords.ContainsKey($lw) -and $BgWords[$lw] -le $BgWords[$best]) { return $t }
+  if ($BgWords[$best] -gt 2000 -and -not $BgWords.ContainsKey($lw) -and $t -cmatch '^[A-Z][a-z]+$') { return $t }
+  return $best
+}
+function Bg-OcrFix([string]$t, [bool]$snap = $true) {
+  $t = $t -replace '[^\x20-\x7E]+', ' '
+  if ($snap) { $t = [regex]::Replace($t, "'B\b", "'s"); $t = [regex]::Replace($t, '[A-Za-z0-9$]+', { param($m) Bg-Repair $m.Value }) }
+  $t = [regex]::Replace($t, '(?<=[a-z])B\b', 's')
+  $t = [regex]::Replace($t, '\biB\b', 'is')
+  $t = [regex]::Replace($t, '\*0\b', 'to')
+  $t = [regex]::Replace($t, '\b90t\b', 'got')
+  $t = [regex]::Replace($t, '\b[9g][o0]{2}d\b', 'good')
+  $t = [regex]::Replace($t, '\b90\b(?=\s+[a-z])', 'go')
+  $t = [regex]::Replace($t, '^00\b', 'do')
+  $t = [regex]::Replace($t, '^99\b', 'gg')
+  if ($snap) { $t = [regex]::Replace($t, '[A-Za-z0-9]+', { param($m) Bg-Snap $m.Value }) }
+  return (($t -replace '\s{2,}', ' ').Trim(' ', '.', ',', '~', '-'))
+}
+function Bg-OcrParse([string]$txt) {
+  $msgs = New-Object System.Collections.ArrayList; $cur = $null
+  foreach ($ln in ($txt -split "`n")) {
+    $t = $ln.Trim(); if (-not $t) { continue }
+    $m = [regex]::Match($t, '^[\[\(（{]?\s*(인스\S*|인던\S*|전장\S*|파티\S*|공격대\S*|공대\S*)(\s+[가-힣]{2,4})?\s*[\]\)）}]?\s*[\[\(（{]?\s*([^\]\)）}:：;；•·]{2,40}?)\s*[\]\)）}]?\s*[:：;；•·]\s*(.+)$')
+    if ($m.Success) { $g3 = $m.Groups[3]; $br = ($g3.Index -gt 0 -and '[(（{'.Contains([string]$t[$g3.Index - 1])); $cur = @{ who = (Bg-OcrWho $g3.Value $br); msg = $m.Groups[4].Value.Trim() }; [void]$msgs.Add($cur); continue }
+    if ($cur -and $t -notmatch '[:：]' -and (Bg-OcrClean $t) -ge 0.85 -and ([regex]::Matches($t, '[A-Za-z]').Count -ge 2)) { $cur.msg += ' ' + $t } else { $cur = $null }
+  }
+  $now = [DateTime]::Now
+  for ($i = $BgO.cand.Count - 1; $i -ge 0; $i--) { if (($now - $BgO.cand[$i].t).TotalSeconds -gt 8) { $BgO.cand.RemoveAt($i) } }
+  foreach ($c in $msgs) {
+    $k = ([string]$c.msg).ToLower() -replace '[^a-z0-9]', ''
+    if ($k.Length -lt 2) { continue }
+    $dup = $false; foreach ($s0 in $BgO.seen) { if ([FTRO.Ocr]::Sim([string]$s0, $k) -ge 0.7) { $dup = $true; break } }
+    if ($dup) { continue }
+    if ($BgO.first) { [void]$BgO.seen.Add($k); continue }
+    $hit = $null; foreach ($cd in $BgO.cand) { if ([FTRO.Ocr]::Sim([string]$cd.k, $k) -ge 0.7) { $hit = $cd; break } }
+    if (-not $hit) { [void]$BgO.cand.Add(@{ k = $k; n = 1; c = $c; t = $now }); continue }
+    $hit.n++; $hit.t = $now
+    if ((Bg-OcrClean ([string]$c.msg)) -gt (Bg-OcrClean ([string]$hit.c.msg))) { $hit.c = $c }
+    if ($hit.n -lt 2) { continue }
+    [void]$BgO.cand.Remove($hit)
+    [void]$BgO.seen.Add($k); [void]$BgO.seen.Add($hit.k); while ($BgO.seen.Count -gt 120) { $BgO.seen.RemoveAt(0) }
+    $c = $hit.c
+    if ([regex]::Matches([string]$c.msg, '[가-힣]').Count -ge 2) { continue }
+    if ((Bg-OcrClean ([string]$c.msg)) -lt 0.6 -or ([string]$c.who -replace '[^A-Za-z]', '').Length -lt 2) { continue }
+    $c = @{ who = (Bg-OcrFix ([string]$c.who) $false); msg = (Bg-OcrFix ([string]$c.msg)) }
+    $ck = ([string]$c.msg).ToLower() -replace '[^a-z0-9]', ''
+    if ($ck.Length -lt 2) { continue }
+    $same = $false
+    for ($i = $BgO.last.Count - 1; $i -ge 0; $i--) {
+      $L = $BgO.last[$i]
+      if (($now - $L.t).TotalSeconds -gt 90) { $BgO.last.RemoveAt($i); continue }
+      if ([FTRO.Ocr]::Sim(([string]$L.who).ToLower(), ([string]$c.who).ToLower()) -lt 0.7) { continue }
+      if ($L.k.Contains($ck) -or $ck.Contains($L.k) -or [FTRO.Ocr]::Sim([string]$L.k, $ck) -ge 0.55) { $same = $true; break }
+    }
+    if ($same) { continue }
+    [void]$BgO.last.Add(@{ who = $c.who; k = $ck; t = $now })
+    $me = $(if ($state.me) { [string]$state.me } else { [string]$S.lastMe })
+    if ($me -and [FTRO.Ocr]::Sim($me.ToLower(), ([string]$c.who).ToLower()) -ge 0.6) { continue }
+    try { Bg-OcrShow $c } catch { Log "전장 읽기 번역: $_" }
+  }
+  $BgO.first = $false
+}
+function Bg-FeedAuto {
+  $inBg = [bool]$state.bgOcr -and $state.off
+  if ($inBg -and -not $script:bgIn) {
+    $script:bgIn = $true
+    if ($S.feedOff) { $S.feedOff = $false; $S.bgFeedForced = $true; Save-Cfg; Pills-Paint; Feed-GameSync }
+  } elseif (-not $inBg -and $script:bgIn) {
+    $script:bgIn = $false
+    if ($S.bgFeedForced) { $S.bgFeedForced = $false; $S.feedOff = $true; Save-Cfg; Pills-Paint; Feed-GameSync }
+  }
+}
+function Bg-OcrTick {
+  try { Bg-FeedAuto } catch { Log "전장 집중 대화창: $_" }
+  $want = [bool]$state.bgOcr -and $state.off
+  if (-not $want) { if ($BgO.H) { $BgO.H.run = $false }; if ($BgO.on) { $BgO.on = $false; $BgO.seen.Clear(); $BgO.cand.Clear(); $BgO.last.Clear(); $BgO.first = $true }; return }
+  if (-not ('FTRO.Ocr' -as [type])) { return }
+  Bg-OcrStart
+  if ($BgO.H.err -and $BgO.H.err -ne $BgO.lastErr) { $BgO.lastErr = $BgO.H.err; Log ('전장 읽기: ' + $BgO.H.err) }
+  $w = [FTR]::FindWow(); $g = $state.geo
+  if ($w -eq [IntPtr]::Zero -or -not $g -or [FTR]::Foreground() -ne $w) { $BgO.H.run = $false; return }
+  $cr = [FTR]::ClientRect($w); if (-not $cr) { return }
+  $BgO.H.rect = @{ x = [int]($cr[0] + $g.x); y = [int]($cr[1] + $g.y); w = [int][Math]::Max(50, $g.w); h = [int][Math]::Max(50, $g.h) }
+  $BgO.H.run = $true; $BgO.on = $true
+  $txt = $null; while ($BgO.H.q.TryDequeue([ref]$txt)) {
+    foreach ($l0 in ($txt -split "`n")) { $l1 = $l0.Trim(); if ($l1.Length -lt 4) { continue }; $hit = $false; foreach ($s1 in $BgO.dl) { if ([FTRO.Ocr]::Sim([string]$s1, $l1) -ge 0.7) { $hit = $true; break } }; if ($hit) { continue }; [void]$BgO.dl.Add($l1); while ($BgO.dl.Count -gt 120) { $BgO.dl.RemoveAt(0) }; Dbg ('전장 줄 · ' + $l1) }
+    Bg-OcrParse $txt
+  }
+}
+$TipF = @{ pop = $null; n = 0 }
+$TipFT = New-Object Windows.Threading.DispatcherTimer; $TipFT.Interval = [TimeSpan]::FromSeconds(5)
+$TipFT.Add_Tick({
+  try {
+    $TipF.n++
+    if ($S.tipFocus -or $TipF.n -gt 120) { $TipFT.Stop(); return }
+    if (-not $CenP.root.IsVisible -or -not $win.IsVisible) { return }
+    $w = [FTR]::FindWow(); if ($w -eq [IntPtr]::Zero -or [FTR]::Foreground() -ne $w) { return }
+    $S.tipFocus = 1; Save-Cfg; $TipFT.Stop()
+    $p = New-Object System.Windows.Controls.Primitives.Popup
+    $p.PlacementTarget = $CenP.root; $p.Placement = 'Top'; $p.AllowsTransparency = $true; $p.StaysOpen = $true; $p.VerticalOffset = -8
+    $bd = New-Object System.Windows.Controls.Border; $bd.Background = Br '#F0111112'; $bd.BorderBrush = Br '#99E0B95A'; $bd.BorderThickness = New-Object System.Windows.Thickness(1); $bd.CornerRadius = New-Object System.Windows.CornerRadius(6); $bd.Padding = New-Object System.Windows.Thickness(11, 7, 11, 8)
+    $bd.LayoutTransform = $Scale
+    $sp = New-Object System.Windows.Controls.StackPanel
+    $h = TB '집중 대화창' 11.5 $GOLD; UIF $h; [void]$sp.Children.Add($h)
+    $t = TB '전장 입장 시에는 집중 대화창에서 번역을 보실 수 있어요' 11.5 $CREAM; UIF $t; $t.Margin = New-Object System.Windows.Thickness(0, 3, 0, 0); [void]$sp.Children.Add($t)
+    $bd.Child = $sp; $p.Child = $bd
+    $bd.Add_MouseLeftButtonUp({ try { $TipF.pop.IsOpen = $false } catch {} })
+    $TipF.pop = $p; $p.IsOpen = $true
+    $c = New-Object Windows.Threading.DispatcherTimer; $c.Interval = [TimeSpan]::FromSeconds(15)
+    $c.Add_Tick({ param($snd) $snd.Stop(); try { $TipF.pop.IsOpen = $false } catch {} }.GetNewClosure()); $c.Start()
+  } catch { Log "집중 대화창 안내: $_" }
+})
+$TipFT.Start()
 $Main = New-Object Windows.Threading.DispatcherTimer
 $Main.Interval = [TimeSpan]::FromMilliseconds(50)
 $script:lastFollow = [DateTime]::MinValue
@@ -5458,7 +5851,7 @@ $Main.Add_Tick({
         Log $res.err; continue
       }
       $j = $res.json
-      if ($j -and ($p.kind -eq 'in' -or $p.kind -eq 'lfg')) {
+      if ($j -and ($p.kind -eq 'in' -or $p.kind -eq 'lfg' -or $p.kind -eq 'bgocr')) {
         if ([string]$j.ko -match '(^|[\s,(])아이(가|는|도|랑)?([\s,.!?~]|$)' -and $p.src -notmatch '(?i)\b(kids?|child|children|baby|babies)\b') {
           if (-not $p.retry) { $t2 = Gem-Send ($SYS_IN + (Gloss-For $p.src) + (Slang-In $p.src)) (Pre-Fix $p.src) $false 'chat'; if ($t2) { $p.task = $t2; $p.retry = $true; [void]$Pending.Add($p); Dbg ("받은 번역 다시('아이') · " + $p.src); continue } }
           $j.ko = $p.src
@@ -5468,6 +5861,7 @@ $Main.Add_Tick({
       switch ($p.kind) {
         'in' { if ($j) { if ($Cache.Count -ge 2000) { $Cache.Clear() }; $Cache[$p.src] = $j; Done-In $p.L $j } }
         'lfg' { if ($j) { if ($Cache.Count -ge 2000) { $Cache.Clear() }; $Cache[$p.src] = $j; Lfg-Done $p.key $j $p.src } }
+        'bgocr' { if ($j -and [string]$j.ko -and [string]$j.lang -ne 'KO') { if ($Cache.Count -ge 2000) { $Cache.Clear() }; $Cache[[string]$p.ck] = $j; try { Feed-Tr $p.FL ([string]$j.ko) $p.src } catch {} } }
         'prev' {
           $o = $(if ($j -and $j.text) { [string]$j.text } else { '' }); $o = Ad-Caps $o
           if ($o -and $Inp.Text.Trim() -eq $p.src) { $state.prevText = $p.src; $state.prevOut = $o; $state.prevLang = $p.lang; Set-Prev ('→  ' + (Link-Show $o)); $PrevG.Visibility = 'Visible' }
@@ -5488,6 +5882,7 @@ $Main.Add_Tick({
     }
     Lfg-Tick
     Feed-Tick
+    try { Bg-OcrTick } catch { Log "전장 읽기: $_" }
     try { if ($Pop.IsOpen -and (([FTRK.Keys]::GetAsyncKeyState(0x1B) -band 0x8000) -ne 0)) { $Pop.IsOpen = $false } } catch {}
     try { Bar-Tick } catch { Log "도우미 바: $_" }
     if ($Pop.IsOpen) {
@@ -5545,7 +5940,7 @@ $Main.Add_Tick({
       if (([DateTime]::Now - $state.wantInput).TotalSeconds -gt 6) { $state.wantInput = $null }
       elseif ($show) { $state.wantInput = $null; if ($state.inputOn) { Paint-Target; $Inp.Focus() | Out-Null } else { Enter-Input } }
     }
-    $wantHk = ($fg -eq $wow -and $wow -ne [IntPtr]::Zero -and $live -and -not $state.off)
+    $wantHk = ($fg -eq $wow -and $wow -ne [IntPtr]::Zero -and $live -and (-not $state.off -or [bool]$state.bgOcr))
     if ($wantHk -ne $state.hk) { [void][FTR]::Hotkey($script:hwnd, $wantHk); $state.hk = $wantHk }
     $wantE = ($wantHk -and -not $state.kb -and -not $state.editing -and -not $state.sending)
     if ($wantE -ne $state.hkE) { [void][FTR]::HotkeyEnter($script:hwnd, $wantE); $state.hkE = $wantE }
