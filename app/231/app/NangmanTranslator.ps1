@@ -1295,7 +1295,7 @@ function Sx-Do($t) {
   switch ([string]$t.kind) {
     'close' { $Pop.IsOpen = $false; return }
     'quit' { $Pop.IsOpen = $false; if (-not [bool]$S.pause) { Tr-Set $false }; return }
-    'help' { $Pop.IsOpen = $false; foreach ($hl in @('── 번역 대화창 사용법 ──', '· 답장: 와우 화면에서 Shift+Enter 또는 아래 입력칸 클릭 → 한국어로 쓰고 Enter = 번역해서 게임에 보냄', '· Tab = 보낼 곳(일반·파티·귓말 등) 바꾸기 · Esc = 입력 취소', '· 탭 오른쪽 클릭 = 그 탭에 보일 대화 고르기', '· 창 옮기기 = 위쪽 탭 줄 끌기 · 크기 = 맨 오른쪽 아래 구석의 금색 빗금 끌기 (마우스를 올리면 보여요)', '· Ctrl + 오른쪽 클릭 = 위치·크기 잠금 / 풀기 (잠겨 있으면 빗금이 안 보여요)', '· [번역 ON] = 받은 말 번역 켜기·끄기 · 톱니(설정) = 번역할 대화 · 집중 대화창 · 글자 크기 등', '· 엉망이 되면 설정 맨 아래 [위치·크기 처음대로]')) { try { [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = $hl }) } catch {} }; return }
+    'help' { $Pop.IsOpen = $false; foreach ($hl in @('── 번역 대화창 사용법 ──', '· 답장: 와우 화면에서 Shift+Enter 또는 아래 입력칸 클릭 → 한국어로 쓰고 Enter = 번역해서 게임에 보냄', '· Tab = 보낼 곳(일반·파티·귓말 등) 바꾸기 · Esc = 입력 취소', '· 이름 클릭 = 그 사람 정보 보기 · 줄 오른쪽 클릭 = 귓말·초대 등 메뉴', '· 탭 오른쪽 클릭 = 그 탭에 보일 대화 고르기', '· 창 옮기기 = 위쪽 탭 줄 끌기 · 크기 = 맨 오른쪽 아래 구석의 금색 빗금 끌기 (마우스를 올리면 보여요)', '· Ctrl + 오른쪽 클릭 = 위치·크기 잠금 / 풀기 (잠겨 있으면 빗금이 안 보여요)', '· [번역 ON] = 받은 말 번역 켜기·끄기 · 톱니(설정) = 번역할 대화 · 집중 대화창 · 글자 크기 등', '· 엉망이 되면 설정 맨 아래 [위치·크기 처음대로]')) { try { [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = $hl }) } catch {} }; return }
     'pause' { Tr-Set ([bool]$S.pause) }
     'feed' { $S.feedOff = -not [bool]$S.feedOff; $S.bgFeedForced = $false; Save-Cfg; Pills-Paint; Feed-GameSync; try { Cen-Moved } catch {} }
     'tr' { $S.tr[[string]$t.k] = -not [bool]$S.tr[[string]$t.k]; Save-Cfg }
@@ -1861,6 +1861,7 @@ function Parse-Wow([string]$s, [string]$base) {
 }
 function Lk-Norm($lk, [string]$txt) { if ($lk -and ([string]$lk) -match '^questie:(\d+)') { $qid = $Matches[1]; $lv = '0'; if ($txt -match '^\[\[(\d+)') { $lv = $Matches[1] }; return ('quest:' + $qid + ':' + $lv) }; return $lk }
 function Plain([string]$s) { return (((Parse-Wow $s 'ffffff') | ForEach-Object { $_[0] }) -join '') }
+$NameTag = @{ who = $true }
 function Add-Run($tb, $text, $hex, $tag) {
   $r = New-Object System.Windows.Documents.Run($text)
   $r.Foreground = HexBr $hex
@@ -1976,14 +1977,14 @@ function Fill-Main($L) {
   $col = $r.col; $who = Short $r.sender; $nameHex = $(if ($r.cls) { $r.cls } else { $col })
   $bdg = [bool]$L.hasB
   switch -Regex ($r.t) {
-    '^WHISPER$' { [void](Add-Run $main "$who" $nameHex $null); [void](Add-Run $main ' : ' $col $null) }
-    '^WHISPER_INFORM$' { [void](Add-Run $main ('→ ' + $who) $nameHex $null); [void](Add-Run $main ' : ' $col $null) }
-    '^BN_WHISPER$' { [void](Add-Run $main "$who" $col $null); [void](Add-Run $main ' : ' $col $null) }
-    '^BN_WHISPER_INFORM$' { [void](Add-Run $main ('→ ' + $who) $col $null); [void](Add-Run $main ' : ' $col $null) }
-    '^EMOTE$' { [void](Add-Run $main "$who " $nameHex $null) }
-    '^CHANNEL$' { if (-not $bdg) { [void](Add-Run $main ("[{0}. {1}] " -f $r.cnum, $r.cname) $col $null) }; [void](Add-Run $main "$who" $nameHex $null); [void](Add-Run $main ' : ' $col $null) }
-    '^YELL$' { [void](Add-Run $main "$who" $nameHex $null); [void](Add-Run $main ' : ' $col $null) }
-    default { if ($PREFIX[$r.t] -and -not $bdg) { [void](Add-Run $main $PREFIX[$r.t] $col $null) }; [void](Add-Run $main "$who" $nameHex $null); [void](Add-Run $main ' : ' $col $null) }
+    '^WHISPER$' { [void](Add-Run $main "$who" $nameHex $NameTag); [void](Add-Run $main ' : ' $col $null) }
+    '^WHISPER_INFORM$' { [void](Add-Run $main ('→ ' + $who) $nameHex $NameTag); [void](Add-Run $main ' : ' $col $null) }
+    '^BN_WHISPER$' { [void](Add-Run $main "$who" $col $NameTag); [void](Add-Run $main ' : ' $col $null) }
+    '^BN_WHISPER_INFORM$' { [void](Add-Run $main ('→ ' + $who) $col $NameTag); [void](Add-Run $main ' : ' $col $null) }
+    '^EMOTE$' { [void](Add-Run $main "$who " $nameHex $NameTag) }
+    '^CHANNEL$' { if (-not $bdg) { [void](Add-Run $main ("[{0}. {1}] " -f $r.cnum, $r.cname) $col $null) }; [void](Add-Run $main "$who" $nameHex $NameTag); [void](Add-Run $main ' : ' $col $null) }
+    '^YELL$' { [void](Add-Run $main "$who" $nameHex $NameTag); [void](Add-Run $main ' : ' $col $null) }
+    default { if ($PREFIX[$r.t] -and -not $bdg) { [void](Add-Run $main $PREFIX[$r.t] $col $null) }; [void](Add-Run $main "$who" $nameHex $NameTag); [void](Add-Run $main ' : ' $col $null) }
   }
   if ($L.body) {
     $lkm = @{}
@@ -2058,6 +2059,7 @@ function Show-Link([string]$lk) {
 $script:LineLeftUp = { param($snd, $e)
   $o = $e.OriginalSource
   if ($o -is [System.Windows.Documents.Run] -and $o.Tag -is [hashtable] -and $o.Tag.link) { Show-Link $o.Tag.link; $e.Handled = $true; return }
+  if (-not ($o -is [System.Windows.Documents.Run] -and $o.Tag -is [hashtable] -and $o.Tag.who)) { return }
   while ($o -and -not ($o -is [System.Windows.Controls.StackPanel] -and $o.Tag -is [hashtable])) {
     if ($o -is [System.Windows.Media.Visual] -or $o -is [System.Windows.Media.Media3D.Visual3D]) { $o = [System.Windows.Media.VisualTreeHelper]::GetParent($o) }
     elseif ($o -is [System.Windows.FrameworkContentElement]) { $o = $o.Parent }
@@ -2065,8 +2067,8 @@ $script:LineLeftUp = { param($snd, $e)
     else { $o = $null }
   }
   if ($o -and $o.Tag.rec.kind -eq 'C' -and -not $o.Tag.rec.me -and $o.Tag.rec.sender) {
-    $state.target = Tell-Tg $o.Tag.rec.sender
-    Enter-Input
+    $n0 = [string]$o.Tag.rec.sender
+    if (-not $BnId[$n0]) { Send-Wow @('/who ' + ($n0 -split '-')[0]) $true }
   }
 }
 $Lines.Add_MouseLeftButtonUp($script:LineLeftUp)
@@ -3153,12 +3155,9 @@ function Parse-Slash {
     '^(w|whisper|t|tell|귓|귓말)$' {
       $m2 = [regex]::Match($rest, '^(\S+) (.*)$', 'Singleline')
       if (-not $m2.Success) { return $false }
-      if ($BnId[$m2.Groups[1].Value]) { $tg = Tell-Tg $m2.Groups[1].Value; $rest = $m2.Groups[2].Value }
-      else {
-        $m2 = [regex]::Match($rest, '^(\S+ \S+) (.*)$', 'Singleline')
-        if (-not $m2.Success) { return $false }
-        $tg = Tell-Tg $m2.Groups[1].Value; $rest = $m2.Groups[2].Value
-      }
+      $m3 = [regex]::Match($rest, '^(\S+ \S+) (.*)$', 'Singleline')
+      if (-not $BnId[$m2.Groups[1].Value] -and $m3.Success -and $BnId[$m3.Groups[1].Value]) { $m2 = $m3 }
+      $tg = Tell-Tg $m2.Groups[1].Value; $rest = $m2.Groups[2].Value
     }
     '^\d+$' { $tg = @{ t = 'CHANNEL'; cnum = $cmd; cname = (Chan-Name $cmd) } }
   }
@@ -3349,7 +3348,7 @@ function Do-Send {
   if ($script:chanGone -and $txt -and -not $txt.StartsWith('/')) { Paint-Target; Set-Prev ("이 캐릭은 '{0}' 채널에 안 들어가 있어서 일반 대화로 바꿨어요 · Enter = 일반 대화로 보내기" -f $script:chanGone); $PrevG.Visibility = 'Visible'; $script:chanGone = $null; return }
   if (-not $txt) { Exit-Input $true; return }
   $mw = [regex]::Match($txt, '^/(\S+) (\S+(?: \S+)?)$')
-  if ($mw.Success -and (Ko-Keys $mw.Groups[1].Value).ToLower() -match '^(w|whisper|t|tell|귓|귓말)$') { $state.target = Tell-Tg $mw.Groups[2].Value; $Inp.Text = ''; Paint-Target; return }
+  if ($mw.Success -and (Ko-Keys $mw.Groups[1].Value).ToLower() -match '^(w|whisper|t|tell|귓|귓말)$' -and ($mw.Groups[2].Value -notmatch ' ' -or $BnId[$mw.Groups[2].Value])) { $state.target = Tell-Tg $mw.Groups[2].Value; $Inp.Text = ''; Paint-Target; return }
   if ($txt.StartsWith('/')) { Exit-Input $true; Send-Wow @($txt) $false $false $true; return }
   if ($script:noTr) { $pre = Prefix-For $tg; $tk = Link-Tok $txt; Exit-Input $true; Send-Wow (Split-Msg $pre (Link-Game $tk $tk)) $false $true; return }
   $lq = Laugh-Out $txt
@@ -4301,7 +4300,7 @@ function Feed-Make {
   $w.Add_MouseMove({ param($s2, $e2) if ($script:fedit -and $script:fdrag) { try { FEd-Move } catch {} } })
   $w.Add_LostMouseCapture({ param($s2, $e2) $script:fdrag = $null })
   $w.Add_MouseWheel({ param($s2, $e2) if ($script:fedit) { $e2.Handled = $true; return }; try { Feed-Wheel ([int]$e2.Delta) } catch { Log "가운데 줄 휠: $_" }; $e2.Handled = $true })
-  $w.Add_MouseLeftButtonUp({ if ($script:fedit) { try { $script:fdrag = $null; $Feed.win.ReleaseMouseCapture() } catch {}; return }; try { if ($Feed.hot -is [hashtable]) { if ($Feed.hot.link) { Show-Link ([string]$Feed.hot.link) } } elseif ($Feed.hot) { $state.target = Tell-Tg $Feed.hot; Enter-Input } } catch { Log "가운데 줄 답장: $_" } })
+  $w.Add_MouseLeftButtonUp({ if ($script:fedit) { try { $script:fdrag = $null; $Feed.win.ReleaseMouseCapture() } catch {}; return }; try { if ($Feed.hot -is [hashtable]) { if ($Feed.hot.link) { Show-Link ([string]$Feed.hot.link) } } elseif ($Feed.hot) { $n0 = [string]$Feed.hot; if (-not $BnId[$n0]) { Send-Wow @('/who ' + ($n0 -split '-')[0]) $true } } } catch { Log "가운데 줄 답장: $_" } })
   $w.Show(); $Feed.hwnd = (New-Object System.Windows.Interop.WindowInteropHelper($w)).Handle
   [FTR]::NoActivate($Feed.hwnd, $true); [FTR]::ClickThrough($Feed.hwnd, $true); $Feed.ct = $true
   $w.Hide()
@@ -5166,7 +5165,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 230
+$APPV = 231
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }

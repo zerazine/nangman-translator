@@ -1432,8 +1432,11 @@ do
     m:SetJustifyH("LEFT") m:SetMaxLines(500) m:SetFrameLevel(P:GetFrameLevel() + 3)
     m:SetHyperlinksEnabled(true)
     m:SetScript("OnHyperlinkClick", function(self, link, text, button)
-      local who = button == "RightButton" and link and link:match("^player:([^:]+)")
-      if who and who ~= "" and NT.nameMenu then pcall(NT.nameMenu, who) return end
+      local who = link and link:match("^player:([^:]+)")
+      if who and who ~= "" then
+        if button == "RightButton" then if NT.nameMenu then pcall(NT.nameMenu, who) end else NT.whoInfo(who) end
+        return
+      end
       pcall(SetItemRef, link, text, button, ChatFrame1)
     end)
     m:EnableMouseWheel(true)
@@ -2201,6 +2204,12 @@ do
   local function closeMenus()
     if Menu and Menu.GetManager then pcall(function() Menu.GetManager():CloseMenus() end) end
     if CloseDropDownMenus then pcall(CloseDropDownMenus) end
+  end
+  function NT.whoInfo(who)
+    if type(who) ~= "string" or who == "" then return end
+    local short = who:match("^([^%-]+)") or who
+    if C_FriendList and C_FriendList.SendWho then pcall(C_FriendList.SendWho, 'n-"' .. short .. '"')
+    elseif SendWho then pcall(SendWho, 'n-"' .. short .. '"') end
   end
   function NT.nameMenu(who)
     if type(who) ~= "string" or who == "" or NT.secret(who) then return end
