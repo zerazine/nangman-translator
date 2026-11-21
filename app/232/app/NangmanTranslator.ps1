@@ -2922,7 +2922,7 @@ function Handle($line) {
         }
       } catch { Log "탭 맞추기: $_" }
     }
-    'R' { if ($f[1]) { $state.target = Tell-Tg $f[1]; $state.wantInput = [DateTime]::Now } }
+    'R' { if ([string]$f[1] -match '^bn:(\d+):(.+)$') { $BnId[$Matches[2]] = $Matches[1]; $f[1] = $Matches[2] }; if ($f[1]) { $state.target = Tell-Tg $f[1]; $state.wantInput = [DateTime]::Now } }
     'J' { if ([string]$f[1] -eq 'SOLO') { $state.solo = $true; $gp = '^(PARTY|PARTY_LEADER|RAID|RAID_LEADER|RAID_WARNING|INSTANCE_CHAT|INSTANCE_CHAT_LEADER)$'; if ($state.target -and [string]$state.target.t -match $gp) { $state.target = @{ t = 'SAY' } }; if ($state.lastTarget -and [string]$state.lastTarget.t -match $gp) { $state.lastTarget = @{ t = 'SAY' } }; if ($S.lastTarget -is [hashtable] -and [string]$S.lastTarget.t -match $gp) { $S.lastTarget = @{ t = 'SAY' } }; try { Paint-Target } catch {}; return }
       if ($f[1]) { $state.solo = $false; $state.target = @{ t = [string]$f[1] }; $state.lastTarget = $state.target; $S.lastTarget = $state.target; try { Paint-Target } catch {} } }
     'E' { $e1 = ($f[1] -eq '1'); if ($e1 -and -not $state.editing) { $state.editOnAt = [DateTime]::Now }; $state.editing = $e1 }
@@ -5163,7 +5163,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 231
+$APPV = 232
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }

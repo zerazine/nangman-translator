@@ -785,8 +785,43 @@ do
     end
     push("R", name)
   end
+  local function bnTag(id)
+    if C_BattleNet and C_BattleNet.GetAccountInfoByID then
+      local ok, info = pcall(C_BattleNet.GetAccountInfoByID, id)
+      if ok and type(info) == "table" and type(info.battleTag) == "string" and not secret(info.battleTag) then return info.battleTag:match("^([^#]+)") end
+    end
+    if BNGetFriendInfoByID then
+      local ok, _, _, tag = pcall(BNGetFriendInfoByID, id)
+      if ok and type(tag) == "string" and not secret(tag) then return tag:match("^([^#]+)") end
+    end
+  end
+  function NT.bnTell(name)
+    if not BNet_GetBNetIDAccount then return false end
+    local ok, id = pcall(BNet_GetBNetIDAccount, name)
+    if not ok or type(id) ~= "number" or secret(id) then return false end
+    local nm = bnTag(id)
+    if not nm or nm == "" then return false end
+    push("R", "bn:" .. id .. ":" .. nm)
+    return true
+  end
+  local function onBNTell(name)
+    if not db().on or not NT.alive() then return end
+    local now = GetTime()
+    if name == lastN and now - lastT < 0.5 then return end
+    lastN, lastT = name, now
+    local f = ChatEdit_GetActiveWindow or (ChatFrameUtil and ChatFrameUtil.GetActiveWindow)
+    local ok, eb = pcall(f or function() end)
+    if ok and eb then
+      local off = ChatEdit_DeactivateChat or (ChatFrameUtil and ChatFrameUtil.DeactivateChat)
+      if off then pcall(off, eb) elseif eb.Hide then pcall(eb.ClearFocus, eb) pcall(eb.Hide, eb) end
+    end
+    NT.bnTell(name)
+  end
+  local hb, hbu = false, false
   local hg, hu = false, false
   local function hook()
+    if not hb and type(ChatFrame_SendBNetTell) == "function" then hb = true NT.hsf("ChatFrame_SendBNetTell", onBNTell) end
+    if not hbu and ChatFrameUtil and type(ChatFrameUtil.SendBNetTell) == "function" then hbu = true NT.hsf(ChatFrameUtil, "SendBNetTell", onBNTell) end
     if not hg and type(ChatFrame_SendTell) == "function" then hg = true NT.hsf("ChatFrame_SendTell", onTell) end
     if not hu and ChatFrameUtil and type(ChatFrameUtil.SendTell) == "function" then hu = true NT.hsf(ChatFrameUtil, "SendTell", onTell) end
   end
@@ -812,7 +847,8 @@ do
     eb:SetText("")
     local off = ChatEdit_DeactivateChat or (ChatFrameUtil and ChatFrameUtil.DeactivateChat)
     if off then pcall(off, eb) else pcall(eb.ClearFocus, eb) end
-    if (ct == "WHISPER" or ct == "BN_WHISPER") and type(tell) == "string" and tell ~= "" and not secret(tell) then push("R", tell) end
+    if ct == "BN_WHISPER" and tell and tell ~= "" and NT.bnTell and NT.bnTell(tell) then
+    elseif (ct == "WHISPER" or ct == "BN_WHISPER") and type(tell) == "string" and tell ~= "" and not secret(tell) then push("R", tell) end
     push("M", plain)
     for _, l in ipairs(links) do if T.linkSend then pcall(T.linkSend, l) end end
   end
