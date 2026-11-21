@@ -481,10 +481,19 @@ end)
 
 do
   local jf = CreateFrame("Frame")
-  jf:RegisterEvent("GROUP_JOINED")
-  NT.onEvent(jf, function()
+  jf:RegisterEvent("GROUP_JOINED") jf:RegisterEvent("GROUP_LEFT") jf:RegisterEvent("PLAYER_ENTERING_WORLD")
+  NT.onEvent(jf, function(_, ev)
     C_Timer.After(0.5, function()
-      if not (IsInGroup and IsInGroup()) then return end
+      if not (IsInGroup and IsInGroup()) then
+        push("J", "SOLO")
+        local eb = ChatFrame1EditBox
+        local ct = eb and eb:GetAttribute("chatType")
+        if ct and ct:find("^PARTY") or ct and ct:find("^RAID") or ct and ct:find("^INSTANCE") then
+          if not InCombatLockdown() then pcall(eb.SetAttribute, eb, "chatType", "SAY") pcall(eb.SetAttribute, eb, "stickyType", "SAY") end
+        end
+        return
+      end
+      if ev ~= "GROUP_JOINED" then return end
       local t = (IsInGroup(LE_PARTY_CATEGORY_INSTANCE or 2) and "INSTANCE_CHAT") or (IsInRaid and IsInRaid() and "RAID") or "PARTY"
       push("J", t)
       local eb = ChatFrame1EditBox
@@ -835,4 +844,45 @@ do
     end
   end
   NT.onEvent(bf, function() C_Timer.After(1, function() pcall(check) end) end)
+end
+
+do
+  local IN = {}
+  for _, c in ipairs({ "ntchat", "ntbn", "ntlink", "nttr" }) do IN[c] = true end
+  local function inner(t)
+    if type(t) ~= "string" then return false end
+    local c = t:match("^%s*/(%S+)")
+    return c and IN[c:lower()] or false
+  end
+  local function run(t)
+    local c, rest = t:match("^%s*/(%S+)%s*(.*)$")
+    if not c then return end
+    c = "/" .. c:lower()
+    for k, h in pairs(SlashCmdList) do
+      if _G["SLASH_" .. k .. "1"] == c then pcall(h, rest) return end
+    end
+  end
+  local function wrap(fn) return function(msg, ...) if inner(msg) then run(msg) return end return fn(msg, ...) end end
+  if C_ChatInfo and type(C_ChatInfo.SendChatMessage) == "function" then C_ChatInfo.SendChatMessage = wrap(C_ChatInfo.SendChatMessage) end
+  if type(SendChatMessage) == "function" then SendChatMessage = wrap(SendChatMessage) end
+  if type(BNSendWhisper) == "function" then local o = BNSendWhisper BNSendWhisper = function(id, msg, ...) if inner(msg) then run(msg) return end return o(id, msg, ...) end end
+  local seen = {}
+  local function quiet(eb)
+    if not eb or seen[eb] or not eb.HookScript then return end
+    seen[eb] = true
+    eb:HookScript("OnTextChanged", function(self)
+      local t = self:GetText() or ""
+      local hide = inner(t)
+      local c = t:match("^/(%S+)$")
+      if not hide and c and #c >= 2 then c = c:lower() for k in pairs(IN) do if k:sub(1, #c) == c then hide = true break end end end
+      if hide then if not self.__ntq then self.__ntq = self:GetAlpha() end self:SetAlpha(0)
+      elseif self.__ntq then self:SetAlpha(self.__ntq) self.__ntq = nil end
+    end)
+    eb:HookScript("OnHide", function(self) if self.__ntq then self:SetAlpha(self.__ntq) self.__ntq = nil end end)
+  end
+  local qf = CreateFrame("Frame")
+  qf:RegisterEvent("PLAYER_LOGIN")
+  qf:SetScript("OnEvent", function()
+    for i = 1, (NUM_CHAT_WINDOWS or 10) do quiet(_G["ChatFrame" .. i .. "EditBox"]) end
+  end)
 end

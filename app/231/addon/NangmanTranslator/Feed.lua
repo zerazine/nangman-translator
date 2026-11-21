@@ -179,10 +179,10 @@ local function nameButton(l, full, nameText, pre)
   local nb = l.nb
   if not nb then
     nb = CreateFrame("Button", nil, feed)
-    nb:RegisterForClicks("LeftButtonUp")
+    nb:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     nb.hl = nb:CreateTexture(nil, "HIGHLIGHT") nb.hl:SetTexture(MEDIA .. "glow") nb.hl:SetBlendMode("ADD") nb.hl:SetPoint("TOPLEFT", -8, 4) nb.hl:SetPoint("BOTTOMRIGHT", 8, -4) nb.hl:SetVertexColor(1, 0.5, 1, 0.55)
-    nb:SetScript("OnClick", function(self) if self.who and NT.reply then NT.reply(self.who) end end)
-    nb:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_TOP") GameTooltip:SetText("클릭 = " .. (self.short or "") .. " 님에게 답장", 1, 0.6, 1) GameTooltip:Show() end)
+    nb:SetScript("OnClick", function(self, btn) if not self.who then return end if btn == "RightButton" then if NT.nameMenu then NT.nameMenu(self.who) end elseif NT.whoInfo then NT.whoInfo(self.who) end end)
+    nb:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_TOP") GameTooltip:SetText("클릭 = 정보 보기 · 우클릭 = 귓말 등 메뉴", 1, 0.6, 1) GameTooltip:Show() end)
     nb:SetScript("OnLeave", function() GameTooltip:Hide() end)
     l.nb = nb
   end
