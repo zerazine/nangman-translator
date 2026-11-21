@@ -34,6 +34,15 @@ local HEAD = 10
 local HOLD = 0.1
 local LV = { 0, 40 / 255, 80 / 255, 120 / 255 }
 local strip, cells
+NT.stripY = function(f, x, y)
+  local _, ph = GetPhysicalScreenSize()
+  if not (ph and ph > 0 and x and y and f) then return y end
+  local es = f:GetEffectiveScale()
+  local u = 768 / ph
+  if x * es >= u * (CELLPX * (HEAD + PAYLOAD) + 10) then return y end
+  local need = u * 8 / es
+  return y < need and need or y
+end
 local seq, lastShow, shownAny = 0, 0, false
 local pendBytes = ""
 

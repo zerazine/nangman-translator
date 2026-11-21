@@ -916,7 +916,7 @@ function Ui-DragMove {
   $c = [FTR]::Cursor(); $dx = $c[0] - $d.c0[0]; $dy = $c[1] - $d.c0[1]; $g = $d.g0.Clone()
   if ($d.m -eq 'move') { $g.x = $d.g0.x + $dx; $g.y = $d.g0.y + $dy }
   else { $g.w = [int][math]::Max(240 * $g.s, $d.g0.w + $dx); $g.h = [int][math]::Max(120 * $g.s, $d.g0.h + $dy) }
-  try { $wr = [FTR]::FindWow(); if ($wr -ne [IntPtr]::Zero) { $cr = [FTR]::ClientRect($wr); if ($cr) { $g.w = [int][math]::Min($g.w, $cr[2]); $g.h = [int][math]::Min($g.h, $cr[3]); $g.x = [int][math]::Max(0, [math]::Min($cr[2] - $g.w, $g.x)); $g.y = [int][math]::Max([int]($TOP * $g.s), [math]::Min($cr[3] - $g.h, $g.y)) } } } catch {}
+  try { $wr = [FTR]::FindWow(); if ($wr -ne [IntPtr]::Zero) { $cr = [FTR]::ClientRect($wr); if ($cr) { $g.w = [int][math]::Min($g.w, $cr[2]); $g.h = [int][math]::Min($g.h, $cr[3]); $g.x = [int][math]::Max(0, [math]::Min($cr[2] - $g.w, $g.x)); $g.y = [int][math]::Max([int]($TOP * $g.s), [math]::Min($cr[3] - $g.h, $g.y)); Strip-Clear $g $cr $d.m } } } catch {}
   $script:geoOv = $g; Place-Win
 }
 function Ui-DragEnd {
@@ -933,6 +933,12 @@ function Geo-Push {
   $GC.nudge = @(0, 0, 0, 0)
   Game-Cmd ('/ntchat place {0} {1} {2} {3}' -f ($g.x / $s0).ToString('0.#', $ci), ($g.y / $s0).ToString('0.#', $ci), ($g.w / $s0).ToString('0.#', $ci), ($g.h / $s0).ToString('0.#', $ci))
   $script:geoTry++; $script:ovUntil = [DateTime]::Now.AddSeconds(3.5)
+}
+function Strip-Clear($g, $cr, [string]$m) {
+  if (-not $g -or -not $cr -or $g.x -ge 430) { return }
+  $lim = $cr[3] - 8
+  if ($g.y + $g.h -le $lim) { return }
+  if ($m -eq 'move') { $g.y = [int]($lim - $g.h) } else { $g.h = [int][math]::Max(60, $lim - $g.y) }
 }
 function Geo-Same($a, $b) { return ($a -and $b -and [math]::Abs($a.x - $b.x) -le 3 -and [math]::Abs($a.y - $b.y) -le 3 -and [math]::Abs($a.w - $b.w) -le 3 -and [math]::Abs($a.h - $b.h) -le 3) }
 $script:mir = $null; $script:lmbPrev = $false
@@ -961,7 +967,7 @@ function Mir-Step {
   $c = [FTR]::Cursor(); $dx = $c[0] - $d.c0[0]; $dy = $c[1] - $d.c0[1]; $g = $d.g0.Clone()
   if ($d.m -eq 'move') { $g.x = $d.g0.x + $dx; $g.y = $d.g0.y + $dy }
   else { $g.w = [int][math]::Max(240 * $g.s, $d.g0.w + $dx); $g.h = [int][math]::Max(120 * $g.s, $d.g0.h + $dy) }
-  try { $wr = [FTR]::FindWow(); if ($wr -ne [IntPtr]::Zero) { $cr = [FTR]::ClientRect($wr); if ($cr) { $g.w = [int][math]::Min($g.w, $cr[2]); $g.h = [int][math]::Min($g.h, $cr[3]); $g.x = [int][math]::Max(0, [math]::Min($cr[2] - $g.w, $g.x)); $g.y = [int][math]::Max(0, [math]::Min($cr[3] - $g.h, $g.y)) } } } catch {}
+  try { $wr = [FTR]::FindWow(); if ($wr -ne [IntPtr]::Zero) { $cr = [FTR]::ClientRect($wr); if ($cr) { $g.w = [int][math]::Min($g.w, $cr[2]); $g.h = [int][math]::Min($g.h, $cr[3]); $g.x = [int][math]::Max(0, [math]::Min($cr[2] - $g.w, $g.x)); $g.y = [int][math]::Max(0, [math]::Min($cr[3] - $g.h, $g.y)); Strip-Clear $g $cr $d.m } } } catch {}
   if ([math]::Abs($dx) + [math]::Abs($dy) -lt 3 -and -not $script:geoOv) { return }
   if ($d.m -ne 'move') { $nw = [DateTime]::Now; if ($d.last -and ($nw - $d.last).TotalMilliseconds -lt 45) { return }; $d.last = $nw }
   $script:geoOv = $g; Place-Win
@@ -3927,7 +3933,7 @@ function UW-DragMove($u) {
   $d = $u.drag; if (-not $d) { return }
   $c = [FTR]::Cursor(); $dx = $c[0] - $d.c0[0]; $dy = $c[1] - $d.c0[1]; $g = $d.g0.Clone(); $zk = [double]$state.geo.s
   if ($d.m -eq 'move') { $g.x = $d.g0.x + $dx; $g.y = $d.g0.y + $dy } else { $g.w = [int][math]::Max(180 * $zk, $d.g0.w + $dx); $g.h = [int][math]::Max(90 * $zk, $d.g0.h + $dy) }
-  if ($d.cr) { $g.w = [int][math]::Min($g.w, $d.cr[2]); $g.h = [int][math]::Min($g.h, $d.cr[3]); $g.x = [int][math]::Max(0, [math]::Min($d.cr[2] - $g.w, $g.x)); $g.y = [int][math]::Max(0, [math]::Min($d.cr[3] - $g.h, $g.y)) }
+  if ($d.cr) { $g.w = [int][math]::Min($g.w, $d.cr[2]); $g.h = [int][math]::Min($g.h, $d.cr[3]); $g.x = [int][math]::Max(0, [math]::Min($d.cr[2] - $g.w, $g.x)); $g.y = [int][math]::Max(0, [math]::Min($d.cr[3] - $g.h, $g.y)); Strip-Clear $g $d.cr $d.m }
   $u.ov = $g; UW-Place $u
   if ($d.m -eq 'move') { Dock-Hi $(if (UW-OverMain) { 'main' } else { $null }) }
 }

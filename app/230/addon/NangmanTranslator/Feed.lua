@@ -28,6 +28,7 @@ local function place()
   local d = cdb() if d.w and d.h then feed:SetSize(d.w, d.h) end
   feed:ClearAllPoints()
   local p = cdb().pos
+  if p and NT.stripY then local es = feed:GetEffectiveScale() p[2] = NT.stripY(feed, p[1] / es, p[2] / es) * es end
   if p then feed:SetPoint("BOTTOMLEFT", WorldFrame, "BOTTOMLEFT", p[1] / feed:GetEffectiveScale(), p[2] / feed:GetEffectiveScale())
   else feed:SetPoint("BOTTOM", WorldFrame, "CENTER", 0, 70 / feed:GetEffectiveScale()) end
 end

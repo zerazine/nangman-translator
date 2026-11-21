@@ -825,6 +825,7 @@ do
   local function place()
     local c = cfg()
     P:ClearAllPoints()
+    if c.pos and NT.stripY then c.pos[2] = NT.stripY(P, c.pos[1], c.pos[2]) end
     if c.pos then P:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", c.pos[1], c.pos[2]) else P:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0.5, 27.5) end
     P:SetSize(c.w or 440, c.h or 230)
   end
@@ -1554,6 +1555,7 @@ do
     local U = UD.win[w.id] if not U then return end
     U:ClearAllPoints()
     if not w.pos then local l, t = P:GetRight() or 460, P:GetTop() or 260 w.pos = { l + 12, t - (w.h or 150) } end
+    if NT.stripY then w.pos[2] = NT.stripY(U, w.pos[1], w.pos[2]) end
     U:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", w.pos[1], w.pos[2])
     U:SetSize(w.w or 320, w.h or 150)
   end
