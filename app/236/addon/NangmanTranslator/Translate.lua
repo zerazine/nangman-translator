@@ -655,6 +655,25 @@ do
     if not title or title == "" then return nil end
     return string.format("|cffffff00|Hquest:%d:%d|h[%s]|h|r", qid, tonumber(level) or 0, title)
   end
+  local function plainQuest(text)
+    if type(text) ~= "string" or text:find("|H", 1, true) then return text end
+    local lv, nm, id = text:match("^%[%[(%d+)%] (.-) %((%d+)%)%]$")
+    if not id then nm, id = text:match("^%[(.-) %((%d+)%)%]$") end
+    if not id then return text end
+    return questLink(id, nm, lv) or text
+  end
+  local function questieLink()
+    local L = QuestieLoader
+    if type(L) ~= "table" or type(L.ImportModule) ~= "function" then return end
+    local ok, ts = pcall(L.ImportModule, L, "TrackerShortcuts")
+    if not ok or type(ts) ~= "table" or type(ts.IsLinkClick) ~= "function" or ts.__ntLink then return end
+    local base = ts.IsLinkClick
+    ts.__ntLink = true
+    ts.IsLinkClick = function(button, ...)
+      if base(button, ...) then return true end
+      return button == "LeftButton" and IsShiftKeyDown() and not IsControlKeyDown() and not IsAltKeyDown() and not gameTyping() and trTyping() and true or false
+    end
+  end
   do
     local function qlIdx(self)
       local off = (FauxScrollFrame_GetOffset and QuestLogListScrollFrame) and FauxScrollFrame_GetOffset(QuestLogListScrollFrame) or 0
@@ -688,11 +707,11 @@ do
     end
     local qe = CreateFrame("Frame")
     qe:RegisterEvent("PLAYER_LOGIN")
-    NT.onEvent(qe, function() pcall(hookQL) end)
+    NT.onEvent(qe, function() pcall(hookQL) pcall(questieLink) end)
     if QuestLogFrame and QuestLogFrame.HookScript then QuestLogFrame:HookScript("OnShow", function() pcall(hookQL) end) end
   end
   if HandleModifiedItemClick then NT.hsf("HandleModifiedItemClick", function(link) if not IsModifiedClick or IsModifiedClick("CHATLINK") then onLink(link) end end) end
-  if ChatEdit_InsertLink then NT.hsf("ChatEdit_InsertLink", onLink) end
+  if ChatEdit_InsertLink then NT.hsf("ChatEdit_InsertLink", function(text) onLink(plainQuest(text)) end) end
   if ChatFrameUtil and ChatFrameUtil.InsertLink then NT.hsf(ChatFrameUtil, "InsertLink", onLink) end
   if StackSplitFrame then StackSplitFrame:HookScript("OnShow", function(self) if GetTime() - swallowAt < 0.3 then self:Hide() end end) end
   local on = CreateFrame("Button", "NangmanTrTypingOn")
