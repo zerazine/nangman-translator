@@ -1973,7 +1973,7 @@ function Chan-Badge($r) {
 }
 function Fill-Main($L) {
   $r = $L.rec; $main = $L.main; $main.Inlines.Clear()
-  if ($r.kind -eq 'S') { foreach ($p in (Parse-Wow $r.text $r.col)) { [void](Add-Run $main $p[0] $p[1] $null) }; return }
+  if ($r.kind -eq 'S') { foreach ($p in (Parse-Wow $r.text $r.col)) { [void](Add-Run $main $p[0] $p[1] $(if ($p[2] -and (Lk-Ok ([string]$p[2]))) { @{ link = [string]$p[2] } } else { $null })) }; return }
   $col = $r.col; $who = Short $r.sender; $nameHex = $(if ($r.cls) { $r.cls } else { $col })
   $bdg = [bool]$L.hasB
   switch -Regex ($r.t) {
@@ -1987,23 +1987,9 @@ function Fill-Main($L) {
     default { if ($PREFIX[$r.t] -and -not $bdg) { [void](Add-Run $main $PREFIX[$r.t] $col $null) }; [void](Add-Run $main "$who" $nameHex $NameTag); [void](Add-Run $main ' : ' $col $null) }
   }
   if ($L.body) {
-    $lkm = @{}
-    foreach ($p in (Parse-Wow $r.msg $col)) { if ($p[2] -and ([string]$p[0]) -match '^\[.+\]$' -and -not $lkm.ContainsKey([string]$p[0])) { $lkm[[string]$p[0]] = @([string]$p[2], $p[1]) } }
-    $lko = @(foreach ($p in (Parse-Wow $r.msg $col)) { if ($p[2] -and ([string]$p[0]) -match '^\[.+\]$') { ,@([string]$p[2], $p[1]) } })
-    $bd = [string]$L.body; $pos = 0
+    $bd = [string]$L.body
     if ($r.call -and $bd.IndexOf([string]$r.call, [StringComparison]::OrdinalIgnoreCase) -lt 0) { $bd = [string]$r.call + ', ' + $bd }
-    if ($lkm.Count -gt 0) {
-      $bms = [regex]::Matches($bd, '\[(?:[^\[\]]|\[[^\[\]]*\])+\]'); $bi = -1
-      foreach ($mm in $bms) {
-        $bi++; $lv = $null
-        if ($lkm.ContainsKey($mm.Value)) { $lv = $lkm[$mm.Value] } elseif ($bms.Count -eq $lko.Count) { $lv = $lko[$bi] }
-        if (-not $lv) { continue }
-        if ($mm.Index -gt $pos) { Add-CallRun $main $bd.Substring($pos, $mm.Index - $pos) $col $null ([string]$r.call) }
-        [void](Add-Run $main $mm.Value $lv[1] @{ link = $lv[0] })
-        $pos = $mm.Index + $mm.Length
-      }
-    }
-    if ($pos -lt $bd.Length) { Add-CallRun $main $bd.Substring($pos) $col $null ([string]$r.call) }
+    Body-Links $main $bd $col ([string]$r.msg) ([string]$r.call)
   }
   else { foreach ($p in (Parse-Wow $r.msg $col)) { Add-CallRun $main $p[0] $p[1] $(if ($p[2]) { @{ link = [string]$p[2] } } else { $null }) $(if ($p[2]) { '' } else { [string]$r.call }) } }
 
@@ -2052,9 +2038,31 @@ function Select-Tab($k) {
   foreach ($L in $LineList) { Apply-TabTo $L }
   $Sv.ScrollToEnd()
 }
+function Lk-Ok([string]$lk) { return ($lk -match '^(item|spell|quest|enchant|talent|achievement):[0-9:\-]+$' -or $lk -match '^trade:[A-Za-z0-9:\-]+$') }
 function Show-Link([string]$lk) {
-  if ($lk -notmatch '^(item|spell|quest|enchant|talent|achievement):[0-9:\-]+$' -and $lk -notmatch '^trade:[A-Za-z0-9:\-]+$') { return }
-  Send-Wow @("/ntlink $lk") $true
+  if (-not (Lk-Ok $lk)) { return }
+  $dr = (([FTRK.Keys]::GetAsyncKeyState(0x11) -band 0x8000) -ne 0) -and $lk.StartsWith('item:')
+  Send-Wow @($(if ($dr) { "/ntlink d $lk" } else { "/ntlink $lk" })) $true
+}
+function Body-Links($tb, [string]$bd, $col, [string]$raw, [string]$call) {
+  $lks = @(if ($raw) { foreach ($p in (Parse-Wow $raw $col)) { if ($p[2] -and ([string]$p[0]) -match '^\[.+\]$' -and (Lk-Ok ([string]$p[2]))) { ,@([string]$p[0], [string]$p[2], $p[1]) } } })
+  $used = @{}; $hit = @{}; $pos = 0
+  if ($lks.Count -gt 0) {
+    $bms = @([regex]::Matches($bd, '\[(?:[^\[\]]|\[[^\[\]]*\])+\]'))
+    for ($i = 0; $i -lt $bms.Count; $i++) { for ($j = 0; $j -lt $lks.Count; $j++) { if (-not $used[$j] -and $lks[$j][0] -eq $bms[$i].Value) { $hit[$i] = $j; $used[$j] = $true; break } } }
+    $fb = @(for ($i = 0; $i -lt $bms.Count; $i++) { if (-not $hit.ContainsKey($i)) { $i } })
+    $fl = @(for ($j = 0; $j -lt $lks.Count; $j++) { if (-not $used[$j]) { $j } })
+    if ($fb.Count -gt 0 -and $fb.Count -eq $fl.Count) { for ($k = 0; $k -lt $fb.Count; $k++) { $hit[$fb[$k]] = $fl[$k]; $used[$fl[$k]] = $true } }
+    for ($i = 0; $i -lt $bms.Count; $i++) {
+      if (-not $hit.ContainsKey($i)) { continue }
+      $mm = $bms[$i]; $lv = $lks[$hit[$i]]
+      if ($mm.Index -gt $pos) { Add-CallRun $tb $bd.Substring($pos, $mm.Index - $pos) $col $null $call }
+      [void](Add-Run $tb $mm.Value $lv[2] @{ link = $lv[1] })
+      $pos = $mm.Index + $mm.Length
+    }
+  }
+  if ($pos -lt $bd.Length) { Add-CallRun $tb $bd.Substring($pos) $col $null $call }
+  for ($j = 0; $j -lt $lks.Count; $j++) { if (-not $used[$j]) { [void](Add-Run $tb ' ' $col $null); [void](Add-Run $tb $lks[$j][0] $lks[$j][2] @{ link = $lks[$j][1] }) } }
 }
 $script:LineLeftUp = { param($snd, $e)
   $o = $e.OriginalSource
@@ -4411,24 +4419,7 @@ function Feed-Add($rec) {
   Feed-Place
   return $FL
 }
-function Add-LinkedText($tb, [string]$text, $col, [string]$raw) {
-  $lkm = @{}
-  if ($raw) { foreach ($p in (Parse-Wow $raw $col)) { if ($p[2] -and ([string]$p[0]) -match '^\[.+\]$' -and -not $lkm.ContainsKey([string]$p[0])) { $lkm[[string]$p[0]] = @([string]$p[2], $p[1]) } } }
-  $lko = @(if ($raw) { foreach ($p in (Parse-Wow $raw $col)) { if ($p[2] -and ([string]$p[0]) -match '^\[.+\]$') { ,@([string]$p[2], $p[1]) } } })
-  $pos = 0
-  if ($lkm.Count -gt 0) {
-    $bms = [regex]::Matches($text, '\[(?:[^\[\]]|\[[^\[\]]*\])+\]'); $bi = -1
-    foreach ($mm in $bms) {
-      $bi++; $lv = $null
-      if ($lkm.ContainsKey($mm.Value)) { $lv = $lkm[$mm.Value] } elseif ($bms.Count -eq $lko.Count) { $lv = $lko[$bi] }
-      if (-not $lv) { continue }
-      if ($mm.Index -gt $pos) { [void](Add-Run $tb $text.Substring($pos, $mm.Index - $pos) $col $null) }
-      [void](Add-Run $tb $mm.Value $lv[1] @{ link = $lv[0] })
-      $pos = $mm.Index + $mm.Length
-    }
-  }
-  if ($pos -lt $text.Length) { [void](Add-Run $tb $text.Substring($pos) $col $null) }
-}
+function Add-LinkedText($tb, [string]$text, $col, [string]$raw) { Body-Links $tb $text $col $raw '' }
 function Feed-Text($FL, [string]$text) {
   $FL.main.Inlines.Clear()
   if ($FL.pre) { [void](Add-Run $FL.main $FL.pre 'ff80ff' $null) }
@@ -5163,7 +5154,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 232
+$APPV = 233
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }

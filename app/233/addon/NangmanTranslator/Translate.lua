@@ -579,11 +579,21 @@ end
 SLASH_NTLINK1 = "/ntlink"
 SlashCmdList.NTLINK = function(arg)
   arg = (arg or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  local mode, rest = arg:match("^(d)%s+(.+)$")
+  if mode then arg = rest end
   if not (arg:match("^%a+:[%d:%-]+$") or arg:match("^trade:[%w:%-]+$")) then return end
   local text = "[" .. arg .. "]"
-  if arg:match("^item:") and GetItemInfo then
-    local ok, _, full = pcall(GetItemInfo, arg)
+  local gi = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+  if arg:match("^item:") and gi then
+    local ok, _, full = pcall(gi, arg)
     if ok and type(full) == "string" then text = full end
+  end
+  if mode == "d" then
+    if not arg:match("^item:") then return end
+    local full = text:find("|H", 1, true) and text or ("|cffffffff|H" .. arg .. "|h[" .. arg .. "]|h|r")
+    local f = DressUpItemLink or DressUpLink
+    if f then pcall(f, full) end
+    return
   end
   if SetItemRef then pcall(SetItemRef, arg, text, "LeftButton") end
 end
