@@ -1,5 +1,9 @@
 local NT = NangmanTr
 if not NT or NT.inert then return end
+local function commText(t)
+  if type(t) ~= "string" or (issecretvalue and issecretvalue(t)) or not t:find("|HplayerCommunity:", 1, true) then return t end
+  return (t:gsub("|K[wx]%d+|k", "|cff8c8c8c(내용은 커뮤니티 창 J에서 보여요)|r"))
+end
 
 local FACE = STANDARD_TEXT_FONT or "Fonts\\2002.TTF"
 local GOLD = { 0.96, 0.82, 0.48 }
@@ -2112,7 +2116,7 @@ do
         end
       end
     end)
-    NT.hsf(ChatFrame1, "AddMessage", function(_, text, r, g, b) if chHook(text) then return end route(text, r, g, b) end)
+    NT.hsf(ChatFrame1, "AddMessage", function(_, text, r, g, b) if chHook(text) then return end route(commText(text), r, g, b) end)
     hideBlizz()
     C_Timer.NewTicker(2, function() pcall(hideBlizz) end)
     local lastNat

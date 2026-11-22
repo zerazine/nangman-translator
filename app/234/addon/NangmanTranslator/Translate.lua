@@ -1,5 +1,9 @@
 local NT = NangmanTr
 if not NT or NT.inert then return end
+local function commText(t)
+  if type(t) ~= "string" or (issecretvalue and issecretvalue(t)) or not t:find("|HplayerCommunity:", 1, true) then return t end
+  return (t:gsub("|K[wx]%d+|k", "|cff8c8c8c(내용은 커뮤니티 창 J에서 보여요)|r"))
+end
 
 local T = {}
 NT.T = T
@@ -243,7 +247,7 @@ local function hookCF()
   T.hooked = true
   NT.hsf(ChatFrame1, "AddMessage", function(_, text, r, g, b)
     if type(text) ~= "string" or secret(text) or not text:find("%S") then return end
-    pendLines[#pendLines + 1] = { text, hexOf(r, g, b) }
+    pendLines[#pendLines + 1] = { commText(text), hexOf(r, g, b) }
   end)
 end
 local catOf = {}

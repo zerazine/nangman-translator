@@ -1,12 +1,12 @@
 {
- "v": 233,
- "ver": "2.33",
+ "v": 234,
+ "ver": "2.34",
  "date": "2026-11-22",
  "files": [
   {
    "p": "app/NangmanTranslator.ps1",
-   "sha256": "31ee657e380118d31f19b763ae82d449e04170c1b6e5e28fd36f71573e4e0b8b",
-   "size": 471001
+   "sha256": "2a2bbe5ff2e0878120566dbc3f43994aca196d406939f868ee1e93defd280a72",
+   "size": 476854
   },
   {
    "p": "app/NangmanTranslator.exe",
@@ -65,8 +65,8 @@
   },
   {
    "p": "addon/NangmanTranslator/Chat.lua",
-   "sha256": "5b29133de29768b52d4ef1c81ed42f608ea9fc1fef6db6c2b16dc1772ea766c4",
-   "size": 134439
+   "sha256": "c1716534670006dedac2fc494e6e3cf9fc8c92d2a8072484bef27421acb8f25c",
+   "size": 134703
   },
   {
    "p": "addon/NangmanTranslator/Core.lua",
@@ -100,8 +100,8 @@
   },
   {
    "p": "addon/NangmanTranslator/Translate.lua",
-   "sha256": "fa9e5b0de779ca6dccfce2db31fcf178ccbc3a3ea7d6315ae5ffd630890630e4",
-   "size": 40367
+   "sha256": "2784d6f691ddad48ee514fab9ec5a8e5f596c44d3ca4f1854005652c5746c5b3",
+   "size": 40631
   },
   {
    "p": "addon/NangmanTranslator/media/GJ_Binggrae.ttf",

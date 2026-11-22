@@ -161,6 +161,31 @@ public static uint Type(string s) {
   return SendInput((uint)a.Length, a, Marshal.SizeOf(typeof(IN)));
 }
 '@ } catch { Log "글자 입력 준비: $_" }
+try { Add-Type -Namespace FTRK -Name Way -MemberDefinition @'
+[StructLayout(LayoutKind.Sequential)] public struct KI { public ushort vk; public ushort scan; public uint flags; public uint time; public IntPtr extra; }
+[StructLayout(LayoutKind.Explicit, Size = 40)] public struct IN { [FieldOffset(0)] public uint type; [FieldOffset(8)] public KI ki; }
+[DllImport("user32.dll")] static extern uint SendInput(uint n, IN[] inp, int size);
+[DllImport("user32.dll")] static extern uint MapVirtualKey(uint c, uint t);
+[DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+static void Sc(byte vk, bool up) {
+  var a = new IN[1]; a[0].type = 1; a[0].ki.scan = (ushort)MapVirtualKey(vk, 0);
+  a[0].ki.flags = 8u | (up ? 2u : 0u);
+  SendInput(1, a, Marshal.SizeOf(typeof(IN)));
+}
+static void Pm(IntPtr h, byte vk, bool up) {
+  uint l = 1u | (MapVirtualKey(vk, 0) << 16); if (up) l |= 0xC0000000u;
+  PostMessage(h, up ? 0x101u : 0x100u, (IntPtr)vk, (IntPtr)unchecked((int)l));
+}
+public static void Tap(int way, IntPtr h, byte vk) {
+  if (way == 2) { Pm(h, vk, false); if (vk == 0x0D || vk == 0x1B) PostMessage(h, 0x102, (IntPtr)vk, (IntPtr)1); System.Threading.Thread.Sleep(15); Pm(h, vk, true); return; }
+  Sc(vk, false); System.Threading.Thread.Sleep(15); Sc(vk, true);
+}
+public static void CtrlV() { Sc(0x11, false); System.Threading.Thread.Sleep(10); Sc(0x56, false); System.Threading.Thread.Sleep(15); Sc(0x56, true); System.Threading.Thread.Sleep(10); Sc(0x11, true); }
+public static int Chars(IntPtr h, string s) {
+  int n = 0; foreach (char c in s) { if (PostMessage(h, 0x102, (IntPtr)c, (IntPtr)1)) n++; }
+  return n;
+}
+'@ } catch { Log "보조 키 준비: $_" }
 try { Add-Type -Namespace FTRK -Name Clip -MemberDefinition @'
 [DllImport("user32.dll")] static extern bool OpenClipboard(IntPtr h);
 [DllImport("user32.dll")] static extern bool CloseClipboard();
@@ -2007,6 +2032,7 @@ function Build-Sub($L) {
     $pb = New-Object System.Windows.Controls.Border; $pb.CornerRadius = New-Object System.Windows.CornerRadius((U 4)); $pb.Background = Br '#46C8A55A'; $pb.BorderBrush = Br '#96E1BE6E'; $pb.BorderThickness = New-Object System.Windows.Thickness(0.8)
     $pb.Padding = New-Object System.Windows.Thickness((U 3.5), 0, (U 3.5), 0); $pb.Margin = New-Object System.Windows.Thickness(0); $pb.VerticalAlignment = 'Center'
     $pt = Line-TB 8; $pt.Text = $L.subTag; $pt.Foreground = Br '#FFFFE09A'; $pt.TextWrapping = 'NoWrap'; $pb.Child = $pt
+    if ([string]$L.subTag -like '⚠*') { $pb.Background = Br '#46D25050'; $pb.BorderBrush = Br '#96F07070'; $pt.Foreground = Br '#FFFFB4B4' }
     $lh0 = $(if ([string]$S.chatFont -eq 'wow') { (U ([double]$S.fz * 0.85 + 7)) } else { (U (14 * $kz0)) })
     $pw0 = New-Object System.Windows.Controls.Grid; $pw0.Height = $lh0; $pw0.VerticalAlignment = 'Top'; $pw0.Margin = New-Object System.Windows.Thickness(0, 0, (U 5), 0); [void]$pw0.Children.Add($pb)
     [System.Windows.Controls.DockPanel]::SetDock($pw0, 'Left'); [void]$sp.Children.Add($pw0)
@@ -2996,6 +3022,7 @@ function Handle($line) {
           $LL.rec = $rec; $LL.tab = TabOf $rec.t; $LL.cat = TrCat $rec.t $rec.cname; if ($LL.cat -eq 'other') { $LL.cat = 'sys' }
           $LL.chk = $(if ([string]$rec.t -eq 'CHANNEL') { Ch-Key $rec.cname } else { '' })
           Build-Line $LL; Apply-TabTo $LL; try { UW-Refresh $LL } catch {}
+          if ([string]$LL.subTag -eq '⚠ 전송 안 됨') { Set-Sub $LL '보냄' $LL.subText }
           try { [void](Ctx-Take $rec $pk) } catch {}
           if ((Feed-Want $rec) -and -not $state.off) { $LL.feed = Feed-Add $rec }
           try { Echo-Seen $pk } catch {}
@@ -3402,7 +3429,7 @@ function Local-Echo($tg, [string]$msg, [string]$ko) {
   $rec = @{ kind = 'C'; t = $t; cnum = [string]$tg.cnum; cname = [string]$tg.cname; sender = $who; cls = $cls; col = $col; msg = $msg; me = $true; test = $false; local = $true }
   $L = Add-Line $rec
   Set-Sub $L '보냄' $ko
-  $LocalEcho[$msg] = $L
+  $LocalEcho[$msg] = $L; $script:echoL = $L
   if ($LocalEcho.Count -gt 30) { $LocalEcho.Clear() }
   if ($state.bgOcr) { try { $FL = Feed-Add $rec; if ($FL -and $ko) { Feed-Tr $FL $ko $msg } } catch { Log "전장 내 글 표시: $_" } }
 }
@@ -3437,10 +3464,11 @@ $SwT.Add_Tick({
     if (([DateTime]::Now - $q.up).TotalMilliseconds -lt 60) { return }
     $script:swQ.RemoveAt(0)
     $t0 = [DateTime]::Now
+    $script:echoL = $null
     if ($q.echoLocal) { try { Local-Echo $q.echoLocal.tg $q.echoLocal.msg $q.echoLocal.ko } catch { Log "바로 보이기: $_" } }
     $t1 = [DateTime]::Now
     Send-WowNow $q.lines $q.keep ([bool]$q.raw)
-    if ($q.echo) { Await-Echo $q.lines }
+    if ($q.echo) { Await-Echo $q.lines $script:echoL }
     if ($q.echoLocal) { Dbg ("보내기 시간: Enter→표시 {0}ms · 바로 표시 {1}ms · 게임 입력 {2}ms" -f [int]($t0 - $q.at).TotalMilliseconds, [int]($t1 - $t0).TotalMilliseconds, [int]([DateTime]::Now - $t1).TotalMilliseconds) }
   } catch { Log "보내기 대기: $_" }
 })
@@ -3449,10 +3477,10 @@ function Send-Wow($lines, [bool]$keepTab = $false, [bool]$echo = $false, [bool]$
   $SwT.Start()
 }
 $script:echoW = $null
-function Await-Echo($lines) {
+function Await-Echo($lines, $L = $null) {
   $b = @(); foreach ($l in @($lines)) { $t = [string]$l; if ($t -match '\{fkl') { return }; $b += $t }
   if ($b.Count -eq 0 -or $state.bgOcr) { return }
-  $script:echoW = @{ lines = $b; at = [DateTime]::Now; drops = [FTR]::Drops; tries = 0 }
+  $script:echoW = @{ lines = $b; at = [DateTime]::Now; drops = [FTR]::Drops; tries = 0; L = $L }
 }
 function Echo-Seen([string]$p) {
   $w = $script:echoW; if (-not $w) { return }
@@ -3466,6 +3494,7 @@ $EchoT.Add_Tick({
     if (([DateTime]::Now - $w.at).TotalSeconds -lt 4) { return }
     $script:echoW = $null
     Dbg ("보낸 글 확인 안 됨: " + ($w.lines -join ' | '))
+    if ($w.L -and $w.L.rec.local) { Set-Sub $w.L '⚠ 전송 안 됨' $w.L.subText }
   } catch { Log "보낸 글 확인: $_" }
 })
 $EchoT.Start()
@@ -3535,6 +3564,14 @@ try { Add-Type -Namespace FTRK -Name Fg -MemberDefinition @'
 [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
 public static uint Pid() { uint p; GetWindowThreadProcessId(GetForegroundWindow(), out p); return p; }
 '@ } catch { Log "앞 창 확인 준비: $_" }
+$script:keyWay = $(if ($S.keyWay -in @(1, 2)) { [int]$S.keyWay } else { 0 })
+function K-Tap($w, [byte]$vk, [int]$way) { if ($way -eq 0 -or -not ('FTRK.Way' -as [type])) { [FTR]::Tap($vk) } else { [FTRK.Way]::Tap($way, $w, $vk) } }
+function K-Text($w, [string]$t, [int]$way) { if ($way -eq 2 -and ('FTRK.Way' -as [type])) { return [FTRK.Way]::Chars($w, $t) }; return [FTRK.Uni]::Type($t) }
+function K-Good([int]$way) {
+  if ($way -eq $script:keyWay) { return }
+  $script:keyWay = $way; $S.keyWay = $way; Save-Cfg
+  Log ("보내기: " + ($way + 1) + "번 방식으로 들어가서 이 방식을 씀")
+}
 function Wow-Front($w) {
   for ($i = 0; $i -lt 2; $i++) { [FTR]::Focus($w); Start-Sleep -Milliseconds (90 + 60 * $i); if ([FTR]::Foreground() -eq $w) { return $true } }
   return $false
@@ -3602,22 +3639,25 @@ function Send-WowNow($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
       if ($tx -match '^/(fk|nt)chat ' -and $tx -notmatch '[^\x20-\x7E]') {
         if (-not (Wow-Front $w)) { Log '보내기: 와우가 앞으로 안 와서 멈춤 (다른 창에 글이 들어가지 않게)'; break }
         $sqm = [regex]::Match($tx, ' #(\d+)$'); $sq = $(if ($sqm.Success) { $sqm.Groups[1].Value } else { '' })
+        $wo = 0
         for ($try = 0; $try -lt 3; $try++) {
+          $way = ($script:keyWay + $wo) % 3
           if ($try -gt 0) {
             $t1 = [Environment]::TickCount; while ((([FTRK.Keys]::GetAsyncKeyState(0x01) -band 0x8000) -ne 0 -or ([FTRK.Keys]::GetAsyncKeyState(0x02) -band 0x8000) -ne 0) -and ([Environment]::TickCount - $t1) -lt 1500) { Start-Sleep -Milliseconds 30 }
-            if ($script:lastE) { if ([FTR]::Foreground() -eq $w) { [FTR]::Tap(0x1B) }; [void](Wait-Edit $false 500) }
+            if ($script:lastE) { if ([FTR]::Foreground() -eq $w) { K-Tap $w 0x1B $way }; [void](Wait-Edit $false 500) }
             if (-not (Wow-Front $w)) { break }
             Dbg ('명령 다시 보냄: ' + $tx)
           }
           if (-not (Wait-Move)) { Log '보내기: 키가 눌려 있어 멈춤'; break }
           $script:lastE = [bool]$state.editing
-          [FTR]::Tap(0x0D)
-          if (-not (Wait-Edit $true 700)) { Dbg '보내기: 게임 입력줄이 안 열림'; continue }
+          K-Tap $w 0x0D $way
+          if (-not (Wait-Edit $true 700)) { Dbg ('보내기: 게임 입력줄이 안 열림 (' + ($way + 1) + '번 방식)'); if ([FTR]::SincePacket() -lt 3000) { $wo++ }; continue }
+          K-Good $way
           Start-Sleep -Milliseconds 30
           if ([FTR]::Foreground() -ne $w) { Log '보내기: 입력 직전에 와우가 앞에서 사라져 멈춤'; break }
-          [void][FTRK.Uni]::Type($tx); Start-Sleep -Milliseconds (60 + 2 * $tx.Length)
+          [void](K-Text $w $tx $way); Start-Sleep -Milliseconds (60 + 2 * $tx.Length)
           if ([FTR]::Foreground() -ne $w) { Log '보내기: 입력 중에 와우가 앞에서 사라져 멈춤'; break }
-          [FTR]::Tap(0x0D)
+          K-Tap $w 0x0D $way
           [void](Wait-Edit $false 700)
           if (-not $sq -or (Wait-Ack $sq 900)) { break }
         }
@@ -3626,24 +3666,32 @@ function Send-WowNow($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
       if (-not (Set-Clip $tx)) {
         if (-not (Wow-Front $w)) { Log '보내기: 와우가 앞으로 안 와서 멈춤 (다른 창에 글이 들어가지 않게)'; break }
         if (-not (Wait-Move)) { Log '보내기: 키가 눌려 있어 멈춤'; break }
-        [FTR]::Tap(0x0D); Start-Sleep -Milliseconds 110
+        K-Tap $w 0x0D $script:keyWay; Start-Sleep -Milliseconds 110
         if ([FTR]::Foreground() -ne $w) { Log '보내기: 입력 직전에 와우가 앞에서 사라져 멈춤'; break }
-        $sent = 0; try { $sent = [FTRK.Uni]::Type($tx) } catch {}
+        $sent = 0; try { $sent = K-Text $w $tx $script:keyWay } catch {}
         Start-Sleep -Milliseconds (70 + 4 * $tx.Length)
         if ([FTR]::Foreground() -ne $w) { Log '보내기: 입력 중에 와우가 앞에서 사라져 멈춤'; break }
-        [FTR]::Tap(0x0D); Start-Sleep -Milliseconds 160
+        K-Tap $w 0x0D $script:keyWay; Start-Sleep -Milliseconds 160
         if (-not $sent) { Log '보내기: 클립보드도 글자 입력도 안 됨' }
         continue
       }
       if (-not (Wow-Front $w)) { Log '보내기: 와우가 앞으로 안 와서 멈춤 (다른 창에 글이 들어가지 않게)'; break }
       if (-not (Wait-Move)) { Log '보내기: 키가 눌려 있어 멈춤'; break }
       $script:lastE = [bool]$state.editing
-      [FTR]::Tap(0x0D)
-      if (Wait-Edit $true 700) { Start-Sleep -Milliseconds 30 } else { Start-Sleep -Milliseconds 40 }
+      $way = $script:keyWay
+      for ($k = 0; $k -lt 3; $k++) {
+        $way = ($script:keyWay + $k) % 3
+        K-Tap $w 0x0D $way
+        if (Wait-Edit $true 700) { K-Good $way; break }
+        if ([FTR]::SincePacket() -ge 3000 -or [FTR]::Foreground() -ne $w) { break }
+        Dbg ('보내기: 게임 입력줄이 안 열림 (' + ($way + 1) + '번 방식)')
+      }
+      Start-Sleep -Milliseconds 30
       if ([FTR]::Foreground() -ne $w) { Log '보내기: 붙여넣기 직전에 와우가 앞에서 사라져 멈춤'; break }
-      [FTR]::CtrlV(); Start-Sleep -Milliseconds 70
+      if ($way -eq 2) { [void](K-Text $w $tx 2) } elseif ($way -eq 1) { [FTRK.Way]::CtrlV() } else { [FTR]::CtrlV() }
+      Start-Sleep -Milliseconds 70
       if ([FTR]::Foreground() -ne $w) { Log '보내기: 붙여넣기 뒤 와우가 앞에서 사라져 멈춤'; break }
-      [FTR]::Tap(0x0D)
+      K-Tap $w 0x0D $way
       [void](Wait-Edit $false 500)
       $usedClip = $true; $lastTx = $tx
       if ($iL -lt $nL) { Start-Sleep -Milliseconds 250 }
@@ -5154,7 +5202,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 233
+$APPV = 234
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
@@ -5804,6 +5852,34 @@ $TipFT.Add_Tick({
   } catch { Log "집중 대화창 안내: $_" }
 })
 $TipFT.Start()
+$TipO = @{ pop = $null }
+$TipOT = New-Object Windows.Threading.DispatcherTimer; $TipOT.Interval = [TimeSpan]::FromSeconds(15)
+$TipOT.Add_Tick({
+  try {
+    if ($S.tipObs) { $TipOT.Stop(); return }
+    if (-not $win.IsVisible) { return }
+    if (-not (Get-Process -Name 'obs64', 'obs32', 'obs' -ErrorAction SilentlyContinue)) { return }
+    $S.tipObs = 1; Save-Cfg; $TipOT.Stop()
+    $p = New-Object System.Windows.Controls.Primitives.Popup
+    $p.PlacementTarget = $Outer; $p.Placement = 'Top'; $p.AllowsTransparency = $true; $p.StaysOpen = $true; $p.VerticalOffset = -8
+    $bd = New-Object System.Windows.Controls.Border; $bd.Background = Br '#F0111112'; $bd.BorderBrush = Br '#99E0B95A'; $bd.BorderThickness = New-Object System.Windows.Thickness(1); $bd.CornerRadius = New-Object System.Windows.CornerRadius(6); $bd.Padding = New-Object System.Windows.Thickness(11, 7, 11, 8)
+    $bd.LayoutTransform = $Scale
+    $sp = New-Object System.Windows.Controls.StackPanel
+    $h = TB '방송 중이신가요?' 11.5 $GOLD; UIF $h; [void]$sp.Children.Add($h)
+    $t = TB '번역창은 OBS 게임 캡처에 안 잡혀요. 디스플레이 캡처를 추가해 번역창 자리만 잘라 올리면 방송에 나와요.' 11.5 $CREAM; UIF $t; $t.TextWrapping = 'Wrap'; $t.MaxWidth = 300; $t.Margin = New-Object System.Windows.Thickness(0, 3, 0, 0); [void]$sp.Children.Add($t)
+    $row = New-Object System.Windows.Controls.StackPanel; $row.Orientation = 'Horizontal'; $row.HorizontalAlignment = 'Right'; $row.Margin = New-Object System.Windows.Thickness(0, 6, 0, 0)
+    $go = TB '방법 보기' 11 $GOLD; UIF $go; $go.Cursor = [System.Windows.Input.Cursors]::Hand; $go.Margin = New-Object System.Windows.Thickness(0, 0, 14, 0)
+    $go.Add_MouseLeftButtonUp({ param($snd, $e) $e.Handled = $true; try { Start-Process 'https://zerazine.github.io/nangman-translator/#faq-obs' } catch { Log "방송 안내 열기: $_" }; try { $TipO.pop.IsOpen = $false } catch {} })
+    $x = TB '닫기' 11 $MUTED; UIF $x; $x.Cursor = [System.Windows.Input.Cursors]::Hand
+    [void]$row.Children.Add($go); [void]$row.Children.Add($x); [void]$sp.Children.Add($row)
+    $bd.Child = $sp; $p.Child = $bd
+    $bd.Add_MouseLeftButtonUp({ try { $TipO.pop.IsOpen = $false } catch {} })
+    $TipO.pop = $p; $p.IsOpen = $true
+    $c = New-Object Windows.Threading.DispatcherTimer; $c.Interval = [TimeSpan]::FromSeconds(40)
+    $c.Add_Tick({ param($snd) $snd.Stop(); try { $TipO.pop.IsOpen = $false } catch {} }.GetNewClosure()); $c.Start()
+  } catch { Log "방송 안내: $_" }
+})
+$TipOT.Start()
 $Main = New-Object Windows.Threading.DispatcherTimer
 $Main.Interval = [TimeSpan]::FromMilliseconds(50)
 $script:lastFollow = [DateTime]::MinValue
@@ -5967,7 +6043,7 @@ $Main.Add_Tick({
       $nw = [DateTime]::Now
       if ($state.editOnAt -ge $script:gcSendAt -and ($nw - $state.editOnAt).TotalSeconds -gt 0.8 -and ($nw - $script:gcSendAt).TotalSeconds -lt 6) {
         $script:gcSendAt = $null; $wq = [FTR]::FindWow()
-        if ($wq -ne [IntPtr]::Zero -and [FTR]::Foreground() -eq $wq) { [FTR]::Tap(0x1B); Dbg '게임 입력줄 닫음 (명령 뒤 열린 채 남음)' }
+        if ($wq -ne [IntPtr]::Zero -and [FTR]::Foreground() -eq $wq) { K-Tap $wq 0x1B $script:keyWay; Dbg '게임 입력줄 닫음 (명령 뒤 열린 채 남음)' }
       }
     }
     $gv0 = $(if (($hov -or $script:uiDrag) -and -not $S.uiLock) { 'Visible' } else { 'Collapsed' }); if ($Grip.Visibility -ne $gv0) { $Grip.Visibility = $gv0 }
