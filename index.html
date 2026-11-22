@@ -220,7 +220,9 @@ details.gem .gbody{padding:0 20px 18px}
   <img src="img/ms_not_malware.png" alt="마이크로소프트 판정: Not malware" style="display:block;width:100%;max-width:760px;border-radius:8px;margin:10px 0">
   · <b>바이러스토탈</b>(백신 71개로 한꺼번에 검사): 71개 중 65개 <b>탐지 안 됨</b> · 안랩 V3·알약·어베스트·AVG·비트디펜더·카스퍼스키·ESET·마이크로소프트 모두 깨끗 · <a href="https://www.virustotal.com/gui/file/5932f895736ee3fb1aa255381cbbd71e92f2cca48d638aad8134ca46afce1511/detection" target="_blank" rel="noopener">검사 결과 직접 보기</a><br>
   · 나머지 몇 곳은 국내에서 거의 쓰지 않는 해외 기업용 백신으로, 새 프로그램을 '처음 보는 파일'로 분류한 것이라 업체에 오진 신고를 해 두었습니다.</div>
-  <h3 id="safety">받은 파일이 진짜인지 확인하기 (선택)</h3>
+  <details id="safety" class="gem">
+  <summary><span class="gt">그래도! 의심된다면?</span><span class="gs">받은 파일이 진짜인지 검사값으로 직접 확인하기 (선택)</span><span class="ga">펼치기</span></summary>
+  <div class="gbody">
   <p>받은 zip이 이 페이지에 올린 파일과 똑같은지 <b>검사값(SHA-256)</b>으로 직접 확인할 수 있습니다. 한 글자라도 바뀐 파일이면 검사값이 완전히 달라집니다.</p>
   <ol class="steps">
     <li>시작 버튼을 오른쪽 클릭 → <b>터미널</b>(또는 Windows PowerShell)을 엽니다.</li>
@@ -232,6 +234,8 @@ details.gem .gbody{padding:0 20px 18px}
     <tr><td><b>Gemma 버전</b></td><td><code style="word-break:break-all">5CFDBA4E304EDB048ECD51A4EE01B8D58A26C35D26B4AA8D35D053C21FDCE8C8</code></td></tr>
     <tr><td><b>Gemini 버전</b></td><td><code style="word-break:break-all">4D9B4796D2E276163818CE920261A9ACB6ABC006577F1B827067DCA759E6E746</code></td></tr>
   </table></div>
+  </div>
+  </details>
   <div class="note"><b>번역기가 스스로 지키는 것</b><br>
   · <b>번역 모델</b>은 받은 뒤 크기와 SHA-256 검사값이 맞아야만 설치합니다. 하나라도 다르면 지우고 다시 받습니다.<br>
   · <b>자동 업데이트</b>는 바뀐 파일마다 검사값을 확인해서, 이 페이지에 올린 값과 맞을 때만 바꿉니다.<br>
