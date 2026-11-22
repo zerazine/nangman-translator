@@ -326,6 +326,11 @@ local function applyHide()
   end
   if GetTime() > (T.stAt or 0) then T.stAt = GetTime() + 2 lastEdit = nil T.lastKb = nil end
   if typing ~= lastEdit then lastEdit = typing pushS("E", typing and 1 or 0) end
+  if GetTime() > (T.ebAt or 0) then
+    T.ebAt = GetTime() + 10
+    local k1, k2 = GetBindingKey("OPENCHAT")
+    if k1 ~= "ENTER" and k2 ~= "ENTER" then pushS("EB", 0) end
+  end
   if on then
     local kb = (GetCurrentKeyBoardFocus and GetCurrentKeyBoardFocus() ~= nil) and true or false
     if kb ~= T.lastKb then T.lastKb = kb pushS("K", kb and 1 or 0) end

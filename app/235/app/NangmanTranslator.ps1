@@ -166,7 +166,7 @@ try { Add-Type -Namespace FTRK -Name Way -MemberDefinition @'
 [StructLayout(LayoutKind.Explicit, Size = 40)] public struct IN { [FieldOffset(0)] public uint type; [FieldOffset(8)] public KI ki; }
 [DllImport("user32.dll")] static extern uint SendInput(uint n, IN[] inp, int size);
 [DllImport("user32.dll")] static extern uint MapVirtualKey(uint c, uint t);
-[DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+[DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "PostMessageW")] static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
 static void Sc(byte vk, bool up) {
   var a = new IN[1]; a[0].type = 1; a[0].ki.scan = (ushort)MapVirtualKey(vk, 0);
   a[0].ki.flags = 8u | (up ? 2u : 0u);
@@ -2976,6 +2976,7 @@ function Handle($line) {
       } catch { Log "메모 복사: $_" }
     }
     'H' { if ($f.Count -gt 2) { Link-Add $f[1] (($f[2..($f.Count - 1)]) -join "`t") } }
+    'EB' { if (-not $script:ebWarn) { $script:ebWarn = $true; Log '와우 키 설정: 대화 입력창 열기에 Enter 없음'; [void](Add-Line @{ kind = 'S'; col = 'ff8a6a'; text = "와우 키 설정에서 '대화 입력창 열기'에 Enter를 지정해 주세요. 지정돼 있지 않으면 번역기에서 보낸 글이 게임에 들어가지 않아요. (ESC → 키 설정 → 대화)" }) } }
     'K' { $state.kb = ($f[1] -eq '1'); if ($state.kb -and $state.hkE) { [void][FTR]::HotkeyEnter($script:hwnd, $false); $state.hkE = $false } }
     'V' {
       $v = ($f[1] -eq '1')
@@ -3564,12 +3565,13 @@ try { Add-Type -Namespace FTRK -Name Fg -MemberDefinition @'
 [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
 public static uint Pid() { uint p; GetWindowThreadProcessId(GetForegroundWindow(), out p); return p; }
 '@ } catch { Log "앞 창 확인 준비: $_" }
-$script:keyWay = $(if ($S.keyWay -in @(1, 2)) { [int]$S.keyWay } else { 0 })
+if ($S.ContainsKey('keyWay')) { [void]$S.Remove('keyWay') }
+$script:keyWay = $(if ($S.kw -in @(1, 2)) { [int]$S.kw } else { 0 })
 function K-Tap($w, [byte]$vk, [int]$way) { if ($way -eq 0 -or -not ('FTRK.Way' -as [type])) { [FTR]::Tap($vk) } else { [FTRK.Way]::Tap($way, $w, $vk) } }
 function K-Text($w, [string]$t, [int]$way) { if ($way -eq 2 -and ('FTRK.Way' -as [type])) { return [FTRK.Way]::Chars($w, $t) }; return [FTRK.Uni]::Type($t) }
 function K-Good([int]$way) {
   if ($way -eq $script:keyWay) { return }
-  $script:keyWay = $way; $S.keyWay = $way; Save-Cfg
+  $script:keyWay = $way; $S.kw = $way; Save-Cfg
   Log ("보내기: " + ($way + 1) + "번 방식으로 들어가서 이 방식을 씀")
 }
 function Wow-Front($w) {
@@ -3651,7 +3653,7 @@ function Send-WowNow($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
           if (-not (Wait-Move)) { Log '보내기: 키가 눌려 있어 멈춤'; break }
           $script:lastE = [bool]$state.editing
           K-Tap $w 0x0D $way
-          if (-not (Wait-Edit $true 700)) { Dbg ('보내기: 게임 입력줄이 안 열림 (' + ($way + 1) + '번 방식)'); if ([FTR]::SincePacket() -lt 3000) { $wo++ }; continue }
+          if (-not (Wait-Edit $true 700)) { Dbg ('보내기: 게임 입력줄이 안 열림 (' + ($way + 1) + '번 방식)'); if (-not $state.off -and [FTR]::SincePacket() -lt 3000) { $wo++ }; continue }
           K-Good $way
           Start-Sleep -Milliseconds 30
           if ([FTR]::Foreground() -ne $w) { Log '보내기: 입력 직전에 와우가 앞에서 사라져 멈춤'; break }
@@ -3679,14 +3681,8 @@ function Send-WowNow($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
       if (-not (Wait-Move)) { Log '보내기: 키가 눌려 있어 멈춤'; break }
       $script:lastE = [bool]$state.editing
       $way = $script:keyWay
-      for ($k = 0; $k -lt 3; $k++) {
-        $way = ($script:keyWay + $k) % 3
-        K-Tap $w 0x0D $way
-        if (Wait-Edit $true 700) { K-Good $way; break }
-        if ([FTR]::SincePacket() -ge 3000 -or [FTR]::Foreground() -ne $w) { break }
-        Dbg ('보내기: 게임 입력줄이 안 열림 (' + ($way + 1) + '번 방식)')
-      }
-      Start-Sleep -Milliseconds 30
+      K-Tap $w 0x0D $way
+      if (Wait-Edit $true 700) { Start-Sleep -Milliseconds 30 } else { Start-Sleep -Milliseconds 40 }
       if ([FTR]::Foreground() -ne $w) { Log '보내기: 붙여넣기 직전에 와우가 앞에서 사라져 멈춤'; break }
       if ($way -eq 2) { [void](K-Text $w $tx 2) } elseif ($way -eq 1) { [FTRK.Way]::CtrlV() } else { [FTR]::CtrlV() }
       Start-Sleep -Milliseconds 70
@@ -5202,7 +5198,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 234
+$APPV = 235
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
