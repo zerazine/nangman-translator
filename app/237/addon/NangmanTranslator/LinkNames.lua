@@ -14,9 +14,29 @@ local PROF = { Alchemy = "연금술", Blacksmithing = "대장기술", Enchanting
 local PROFEN = {}
 for k, v in pairs(PROF) do PROFEN[v] = k end
 
+local QP1, QP2 = "%[%[(%d+)%] ([^%[%]|]-) %((%d+)%)%]", "%[([^%[%]|]-) %((%d+)%)%]"
+local function qEN(id) id = tonumber(id) return id and (Q[id] or learn()[id]) end
+local function plainEN(t)
+  if not t:find(" (", 1, true) then return t end
+  t = t:gsub(QP1, function(lv, nm, id)
+    local en = hasKo(nm) and qEN(id)
+    if en then return "[[" .. lv .. "] " .. en .. " (" .. id .. ")]" end
+  end)
+  t = t:gsub(QP2, function(nm, id)
+    local en = hasKo(nm) and qEN(id)
+    if en then return "[" .. en .. " (" .. id .. ")]" end
+  end)
+  return t
+end
+
 function NangmanTranslator_LinkEN(t, force)
-  if not ko or type(t) ~= "string" or sec(t) or not t:find("|H", 1, true) then return t end
-  if not force and hasKo((t:gsub("|H.-|h.-|h", ""))) then return t end
+  if not ko or type(t) ~= "string" or sec(t) then return t end
+  if not force then
+    local bare = t:gsub("|H.-|h.-|h", ""):gsub(QP1, ""):gsub(QP2, "")
+    if hasKo(bare) then return t end
+  end
+  t = plainEN(t)
+  if not t:find("|H", 1, true) then return t end
   return (t:gsub("(|H(%a+):(%d+)[^|]*|h)%[(.-)%](|h)", function(h, k, id, nm, e)
     if not hasKo(nm) then return nil end
     id = tonumber(id)
