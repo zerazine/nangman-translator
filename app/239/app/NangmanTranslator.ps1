@@ -1800,7 +1800,7 @@ $LangCat = @{}
 $Cache = @{}
 $Pending = New-Object System.Collections.ArrayList
 $Http = New-Object System.Net.Http.HttpClient
-$Http.Timeout = [TimeSpan]::FromSeconds(30)
+$Http.Timeout = [TimeSpan]::FromSeconds(120)
 $CHT = @{ SAY = @('일', 'say', '/s '); YELL = @('외', 'yell', '/y '); EMOTE = @('감', 'emote', '/e '); PARTY = @('파', 'party', '/p '); PARTY_LEADER = @('파', 'party', '/p ')
   RAID = @('공', 'raid', '/ra '); RAID_LEADER = @('공', 'raid', '/ra '); RAID_WARNING = @('경', 'rw', '/rw '); INSTANCE_CHAT = @('인', 'raid', '/i '); INSTANCE_CHAT_LEADER = @('인', 'raid', '/i ')
   GUILD = @('길', 'guild', '/g '); OFFICER = @('관', 'officer', '/o '); WHISPER = @('귓', 'whisper', '/w '); WHISPER_INFORM = @('귓', 'whisper', '/w '); BN_WHISPER = @('귓', 'bn', ''); BN_WHISPER_INFORM = @('귓', 'bn', ''); CHANNEL = @('채', 'channel', '/') }
@@ -2497,7 +2497,9 @@ function Ollama-Body($b, $sys, $text, [bool]$raw = $false) {
 }
 function Eng-Start($job, $b) {
   $cts = New-Object System.Threading.CancellationTokenSource
-  $cts.CancelAfter([TimeSpan]::FromSeconds($b.wait))
+  $job.wait = $b.wait
+  if ($b.kind -eq 'ollama' -and (-not $b.lastOk -or ([DateTime]::Now - $b.lastOk).TotalMinutes -ge 25)) { $job.wait = 90 }
+  $cts.CancelAfter([TimeSpan]::FromSeconds($job.wait))
   if ($b.kind -eq 'ollama') {
     $req = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Post, ($b.host + '/api/chat'))
     $req.Content = New-Object System.Net.Http.StringContent((Ollama-Body $b $job.sys $job.text ([bool]$job.raw)), [Text.Encoding]::UTF8, 'application/json')
@@ -2516,7 +2518,7 @@ function Eng-Next($job) {
   $L = @($job.list)
   while ($job.i + 1 -lt $L.Count) {
     $job.i++; $b = $L[$job.i]
-    if ($b.kind -eq 'ollama' -and ($b.st -eq 'down' -or $b.noModel -or $b.full)) { continue }
+    if ($b.kind -eq 'ollama' -and ($b.st -eq 'down' -or $b.noModel -or $b.full -or ($b.broken -and ([DateTime]::Now - $b.brokenAt).TotalSeconds -lt 120))) { continue }
     if ($b.kind -eq 'gemini' -and -not (Api-Key)) { continue }
     if ($b.kind -eq 'gemini' -and $job.way -ne 'out' -and $Tier -ne 'low') { continue }
     try { Eng-Start $job $b; return $true } catch { Log ("{0} 보내기 실패: {1}" -f $b.short, $_) }
@@ -2558,7 +2560,7 @@ function Parse-Json([string]$out) {
 function Eng-Read($job) {
   $b = $job.be; $t = $job.task
   try { $job.cts.Dispose() } catch {}
-  if ($t.IsCanceled) { if ($b.st -eq 'down') { return @{ err = ("{0} 연결 안 됨" -f $b.short); down = $true } }; return @{ err = ("{0} 응답 시간 초과({1}초)" -f $b.short, $b.wait); down = $true } }
+  if ($t.IsCanceled) { if ($b.st -eq 'down') { return @{ err = ("{0} 연결 안 됨" -f $b.short); down = $true } }; return @{ err = ("{0} 응답 시간 초과({1}초)" -f $b.short, $job.wait) } }
   if ($t.IsFaulted) { return @{ err = ("{0} 연결 안 됨" -f $b.short); down = $true } }
   $resp = $t.Result
   $txt = ''; try { $txt = $resp.Content.ReadAsStringAsync().Result } finally { $sc = $resp.IsSuccessStatusCode; $code = [int]$resp.StatusCode; $resp.Dispose() }
@@ -2566,9 +2568,11 @@ function Eng-Read($job) {
   $mk = Get-Date -Format 'yyyy-MM'
   if ($b.kind -eq 'ollama') {
     if (-not $sc) {
-      $em = ''; if ($bj -and $bj.error) { $em = [string]$bj.error }
+      $em = ''; if ($bj -and $bj.error) { $em = [string]$bj.error } elseif ($txt) { $em = ([string]$txt).Substring(0, [Math]::Min(300, ([string]$txt).Length)) }
       if ($em -match 'think' -and -not $script:thinkNo) { $script:thinkNo = $true; Log ('엔진이 생각하기 끄기를 모름 → 빼고 보냄: ' + $em) }
-      if ($code -eq 404 -or $em -match 'not found') { $b.noModel = $true; return @{ err = ("{0} 모델을 찾을 수 없음 (설치를 다시 해 주세요)" -f $b.short) } }
+      if ($script:olErrLast -ne "$code $em") { $script:olErrLast = "$code $em"; Log ("{0} 엔진 오류 {1}: {2}" -f $b.short, $code, $em) }
+      if ($em -match 'binary not found|llama-server[^\n]*not found|\.dll[^\n]*(not found|missing)|cannot find the file|no such file') { Eng-Broken $b $em; return @{ err = ("{0} 엔진 파일 문제 (Ollama 다시 설치 필요)" -f $b.short) } }
+      if ($code -eq 404 -and $em -match 'model') { $b.noModel = $true; $b.noModelAt = [DateTime]::Now; return @{ err = ("{0} 모델을 찾을 수 없음 (설치를 다시 해 주세요)" -f $b.short) } }
       return @{ err = ("{0} 오류 {1} {2}" -f $b.short, $code, $em) }
     }
     $out = ''; try { $out = [string]$bj.message.content } catch {}
@@ -2660,12 +2664,26 @@ function Job-Ready($job) {
     if ($job.spare -and [string]$r.err -match '영어가 많이 남은|반복 고장') { $job.res = $job.spare; $job.done = $true; return $true }
     $job.res = $r; $job.done = $true; return $true
   }
-  if ($b.kind -eq 'ollama' -and $b.st -ne 'up') { $b.st = 'up' }
+  if ($b.kind -eq 'ollama') {
+    if ($b.st -ne 'up') { $b.st = 'up' }
+    $b.lastOk = [DateTime]::Now
+    if ($b.broken) { $b.broken = $null; Log ("{0} 엔진 다시 정상" -f $b.short); try { [void](Add-Line @{ kind = 'S'; col = 'e0b95a'; text = '번역 엔진이 다시 정상이에요' }) } catch {}; Paint-Status }
+  }
   if ($script:engUsed -ne $b) { $script:engUsed = $b; Log ("번역 엔진: " + $b.short + $(if ($b.model) { ' ' + $b.model } else { '' })); Paint-Status }
   Dbg ("{0} {1}ms" -f $b.short, [int]([DateTime]::Now - $job.t0).TotalMilliseconds)
   $job.res = $r; $job.done = $true; return $true
 }
 function Gem-Read($job, [string]$kind = '') { return $job.res }
+function Eng-Broken($b, [string]$em) {
+  $first = -not $b.broken
+  $b.broken = $em; $b.brokenAt = [DateTime]::Now
+  if (-not $first) { return }
+  Paint-Status
+  if (-not $script:brokenMsg) {
+    $script:brokenMsg = $true
+    try { [void](Add-Line @{ kind = 'S'; col = 'ff7a5c'; text = '번역 엔진(Ollama) 파일 일부가 없어져서 번역을 못 하고 있어요. ollama.com 에서 Ollama를 받아 다시 설치해 주세요 (번역 모델은 그대로 남아요). 백신이 Ollama 파일을 지웠을 수도 있으니 백신 검역소도 확인해 주세요.' }) } catch {}
+  }
+}
 function Probe-Start($b, [bool]$force = $false) {
   if ($b.kind -ne 'ollama' -or $b.probe) { return }
   if (-not $force -and ([DateTime]::Now - $b.probeAt).TotalSeconds -lt 1) { return }
@@ -2700,7 +2718,10 @@ function Eng-Tick {
       if (-not $ok -and $Tier -ne 'low' -and ([string]$b.host) -match '127\.0\.0\.1|localhost') { try { Ollama-Start } catch {} }
       if ($ok) {
         $mn = $b.model; if ($mn -notmatch ':') { $mn += ':latest' }
-        $b.noModel = ($models -and $models -notmatch ('"' + [regex]::Escape($mn) + '"'))
+        $nm = [bool]($models -and $models -notmatch ('"' + [regex]::Escape($mn) + '"'))
+        if (-not $nm -and $b.noModelAt -and ([DateTime]::Now - $b.noModelAt).TotalSeconds -lt 120) { $nm = $true }
+        $b.noModel = $nm
+        if ($was -ne 'up') { $b.lastOk = $null }
         if ($was -ne 'up') { Log ("{0} Ollama 연결됨 ({1}){2}" -f $b.short, $b.host, $(if ($b.noModel) { " · 모델 $($b.model) 없음" } else { '' })); if ($b.warm -and -not $b.noModel -and -not $b.full) { Warm-Up $b } }
       } elseif ($was -eq 'up') { Log ("{0} Ollama 응답 없음 → 다음 엔진 사용" -f $b.short) }
       if (([string]$b.host) -match '127\.0\.0\.1|localhost' -and $Tier -ne 'low') {
@@ -2741,7 +2762,10 @@ function Ollama-Start {
     $exe = $null; foreach ($od in @(Ollama-Dirs)) { $x = Join-Path $od 'ollama.exe'; if (-not $exe -and (Test-Path -LiteralPath $x)) { $exe = $x } }
     if (-not $exe) { $cmd = Get-Command 'ollama.exe' -ErrorAction SilentlyContinue | Select-Object -First 1; if ($cmd) { $exe = $cmd.Source } }
     if ($exe) { Start-Process -FilePath $exe -ArgumentList 'serve' -WindowStyle Hidden | Out-Null; Log '사비 엔진(Ollama) 켜는 중 (ollama serve)' }
-    else { Log '사비 엔진(Ollama)을 찾을 수 없음 (설치를 다시 해 주세요)' }
+    else {
+      Log '사비 엔진(Ollama)을 찾을 수 없음 (설치를 다시 해 주세요)'
+      if (-not $script:noOlMsg) { $script:noOlMsg = $true; try { [void](Add-Line @{ kind = 'S'; col = 'ff7a5c'; text = '번역 엔진(Ollama)이 이 PC에 없어요. 설치 프로그램을 다시 실행해 주세요.' }) } catch {} }
+    }
   } catch { Log "사비 엔진 켜기: $_" }
 }
 function Ollama-Tick {
@@ -2819,6 +2843,15 @@ function In-Pump {
     $busy++
   }
 }
+function Eng-Why {
+  foreach ($b in $script:BE) {
+    if ($b.kind -ne 'ollama') { continue }
+    if ($b.broken) { return '번역 엔진 고장 · Ollama 다시 설치 필요' }
+    if ($b.noModel) { return '번역 모델 없음 · 다시 설치 필요' }
+    if ($b.st -eq 'down') { return '번역 엔진 켜는 중' }
+  }
+  return '번역 엔진 준비 중'
+}
 function In-Start($L) {
   if ($script:ctlBlock) { Set-Sub $L $null ('(' + $script:ctlBlock + ')'); return }
   $p = Plain $L.rec.msg
@@ -2826,7 +2859,7 @@ function In-Start($L) {
   if (-not $ctx -and $Cache[$p]) { Done-In $L $Cache[$p]; return }
   $cx = ''; if ($ctx) { $cx = "`n[앞 대화 · 같은 채팅방 · 참고만 하고 이 줄들은 번역하지 말 것 · 비꼬기·농담·누구에게 한 말인지 판단에만 쓰고 맨 아래 원문 한 줄만 번역한다]`n" + $ctx }
   $task = Gem-Send ($SYS_IN + (Gloss-For $p) + (Slang-In $p) + $cx) (Pre-Fix $p) $false (In-Way $L.rec)
-  if (-not $task) { Set-Sub $L $null '(번역 엔진 준비 중 - 이 줄은 원문 그대로)'; return }
+  if (-not $task) { Set-Sub $L $null ('(' + (Eng-Why) + ' - 이 줄은 원문 그대로)'); return }
   [void]$Pending.Add(@{ kind = 'in'; task = $task; L = $L; src = $p })
 }
 function Done-In($L, $res) {
@@ -3062,7 +3095,7 @@ function Paint-Status {
   elseif ($S.pause) { $TrLab.Text = ''; $TrM.glow.Opacity = 0; $TrM.root.ToolTip = '번역 설정' }
   else {
     $t = ''; $col = $MUTED; $b0 = $(if ($script:BE.Count -gt 0) { $script:BE[0] } else { $null })
-    if ($b0 -and $b0.kind -eq 'ollama' -and ($b0.st -eq 'down' -or $b0.noModel)) { $t = $(if ($b0.noModel) { '번역 모델 없음 (다시 설치해 주세요)' } else { '번역 엔진 준비 중…' }); $col = Br '#FFFFB36B' }
+    if ($b0 -and $b0.kind -eq 'ollama' -and ($b0.st -eq 'down' -or $b0.noModel -or $b0.broken)) { $t = $(if ($b0.broken) { '번역 엔진 고장 (Ollama 다시 설치해 주세요)' } elseif ($b0.noModel) { '번역 모델 없음 (다시 설치해 주세요)' } else { '번역 엔진 준비 중…' }); $col = Br '#FFFFB36B' }
     if ($script:cfgErrAt -ne [DateTime]::MinValue -and ([DateTime]::Now - $script:cfgErrAt).TotalSeconds -lt 30) { $t = '사전 파일 오류 (로그 확인)'; $col = Br '#FFFF7A5C' }
     $TrLab.Text = ''; $TrM.glow.Opacity = $(if ($t) { 1 } else { 0 }); if ($t) { $TrM.glow.Fill = $col }; $TrM.root.ToolTip = $(if ($t) { '번역 설정 · ' + $t } else { '번역 설정' })
   }
@@ -5200,7 +5233,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 238
+$APPV = 239
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
