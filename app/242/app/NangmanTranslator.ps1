@@ -2737,6 +2737,7 @@ function Eng-Tick {
         if (-not $nm -and $b.noModelAt -and ([DateTime]::Now - $b.noModelAt).TotalSeconds -lt 120) { $nm = $true }
         $b.noModel = $nm
         if ($was -ne 'up') { $b.lastOk = $null }
+        if ($b.broken -and ($was -ne 'up' -or $b.noModel)) { $b.broken = $null }
         if ($was -ne 'up') { Log ("{0} Ollama 연결됨 ({1}){2}" -f $b.short, $b.host, $(if ($b.noModel) { " · 모델 $($b.model) 없음" } else { '' })); if ($b.warm -and -not $b.noModel -and -not $b.full) { Warm-Up $b } }
       } elseif ($was -eq 'up') { Log ("{0} Ollama 응답 없음 → 다음 엔진 사용" -f $b.short) }
       if (([string]$b.host) -match '127\.0\.0\.1|localhost' -and $Tier -ne 'low') {
@@ -5416,7 +5417,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 241
+$APPV = 242
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
