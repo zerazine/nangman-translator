@@ -1,12 +1,12 @@
 {
- "v": 244,
- "ver": "2.44",
+ "v": 245,
+ "ver": "2.45",
  "date": "2026-11-24",
  "files": [
   {
    "p": "app/NangmanTranslator.ps1",
-   "sha256": "c20cef3f8fcca12592f0d3dc5d4afc897504e737ada252a1f44c97938e4d2714",
-   "size": 496846
+   "sha256": "068ba8f8e1d1432fbc7e75a70cf4e4bd12fa31f24ac1d3205a6627bbd9819d40",
+   "size": 497094
   },
   {
    "p": "app/NangmanTranslator.exe",
@@ -100,8 +100,8 @@
   },
   {
    "p": "addon/NangmanTranslator/Translate.lua",
-   "sha256": "c316c1210c94f9d7710dd5b67b66c66e08f09685e87c9665061b34c8e96cb56c",
-   "size": 47379
+   "sha256": "4f68c5cb8a9aa9069ffc7f2b8b7db0d21b8b25e993af77631c0687b3b10bbf27",
+   "size": 47982
   },
   {
    "p": "addon/NangmanTranslator/media/GJ_Binggrae.ttf",

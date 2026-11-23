@@ -3599,6 +3599,7 @@ $SwT.Add_Tick({
   try {
     if ($script:swQ.Count -eq 0) { $SwT.Stop(); return }
     $q = $script:swQ[0]
+    if ((Dual-On) -and $state.editing) { if (-not $q.waitAt) { $q.waitAt = [DateTime]::Now; Dbg '보내기: 와우 입력창에 쓰는 중 → 다 쓰면 보냄' }; if (([DateTime]::Now - $q.waitAt).TotalSeconds -lt 30) { $q.up = $null; return } }
     $held = ([FTRK.Keys]::GetAsyncKeyState(0x0D) -band 0x8000) -ne 0
     if ($held -and ([DateTime]::Now - $q.at).TotalMilliseconds -lt 900) { $q.up = $null; return }
     if (-not $q.up) { $q.up = [DateTime]::Now; return }
@@ -5430,7 +5431,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 244
+$APPV = 245
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }

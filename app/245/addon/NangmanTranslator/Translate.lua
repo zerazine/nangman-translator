@@ -731,7 +731,16 @@ do
   off:SetScript("OnClick", function() typingAt = nil pendLink = nil end)
   local pasted, pastedEb, pastedAt = nil, nil, 0
   NT.ours = NT.ours or {}
-  local function swap(eb)
+  NT.st = NT.st or {}
+  local function track(eb, user)
+    local s = NT.st[eb] if not s then s = {} NT.st[eb] = s end
+    local x = eb:GetText()
+    if type(x) ~= "string" or secret(x) then s.text = nil s.pre = nil return end
+    if not user then local now = GetTime() if s.nuAt ~= now then s.pre = s.text s.nuAt = now end end
+    s.text = x
+  end
+  local function swap(eb, user)
+    pcall(track, eb, user)
     if busy then return end
     local t = eb:GetText()
     if type(t) ~= "string" or secret(t) then return end
@@ -990,7 +999,6 @@ do
     local c = CAT[ct]
     return (c and st.tr[c]) and true or false
   end
-  local fwd = {}
   local function dualGrab(msg, ct, target)
     if not (NT.chatDual and NT.chatDual()) then return false end
     if not ((db().on or db().bgOff) and NT.alive()) then return false end
@@ -1001,10 +1009,6 @@ do
     if not wantTr(ct, target) then return false end
     local okS, sh = pcall(IsShiftKeyDown)
     if okS and not secret(sh) and sh then return false end
-    local now = GetTime()
-    if fwd[msg] and now - fwd[msg] < 10 then fwd[msg] = nil return false end
-    for k, t in pairs(fwd) do if now - t > 60 then fwd[k] = nil end end
-    fwd[msg] = now
     local function tok(l) local id = T.linkSend and T.linkSend(l) return id and ("{L" .. id .. "}") or "" end
     local text = msg:gsub("(|c[^|]*|H.-|h.-|h|r)", tok):gsub("(|H.-|h.-|h)", tok)
     local tg = ""
@@ -1019,6 +1023,14 @@ do
     if inner(t) then eb:SetText("") run(t) return end
     local o = NT.ours and NT.ours[eb]
     if o and GetTime() - o < 8 then return end
+    local s = NT.st and NT.st[eb]
+    if s and s.nuAt == GetTime() and type(s.pre) == "string" and s.pre ~= "" and s.pre ~= t and not s.pre:find("{fk", 1, true) then
+      local best
+      for _, c in ipairs({ s.pre, s.pre:match("^/%S+%s+(.+)$"), s.pre:match("^/%S+%s+%S+%s+(.+)$") }) do
+        if c and c ~= "" and t:find(c, 1, true) and (not best or #c > #best) then best = c end
+      end
+      if best then t = best end
+    end
     local ct = eb.GetAttribute and eb:GetAttribute("chatType")
     local target
     if ct == "WHISPER" or ct == "BN_WHISPER" then target = eb:GetAttribute("tellTarget") elseif ct == "CHANNEL" then target = eb:GetAttribute("channelTarget") end
