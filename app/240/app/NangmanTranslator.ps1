@@ -97,6 +97,8 @@ try {
 } catch { Log "음성 번역 준비 실패: $_" }
 $VoiceWhy = '이 PC에선 준비 안 됨'
 if ($VoiceOK -and -not (Test-Path -LiteralPath (Join-Path $env:WINDIR 'System32\LiveCaptions.exe'))) { $VoiceOK = $false; $VoiceWhy = '윈도우 11(22H2 이상)에서만 돼요'; Log '음성 번역: 실시간 자막 없음 (윈도우 11 22H2 이상 필요)' }
+try { Add-Type -Namespace FTRK -Name Zo -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr a, int x, int y, int w, int hh, uint f);' } catch { Log "창 순서 준비: $_" }
+try { Add-Type -Namespace FTRK -Name Hk -MemberDefinition '[DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr h, int id, uint m, uint vk); [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr h, int id);' } catch { Log "알트 엔터 준비: $_" }
 try { Add-Type -Namespace FTRK -Name Keys -MemberDefinition '[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int v);' } catch { Log "키 상태 준비: $_" }
 foreach ($nd in @('x64', 'x86')) { try { $np = Join-Path $A $nd; if (Test-Path -LiteralPath (Join-Path $np 'ntcore.dll')) { Remove-Item -LiteralPath $np -Recurse -Force } } catch {} }
 try { Add-Type -Namespace FTRK -Name Cur -MemberDefinition @'
@@ -408,7 +410,7 @@ function In-Game($fg, $wow) {
 }
 function UI-Body {
   $ci = [Globalization.CultureInfo]::InvariantCulture
-  return ('{0} {1} {2} {3} {4} {5} {6}' -f $(if ($S.chromeKeep) { '1' } else { '0' }), ([double]$S.bg).ToString('0.00', $ci), $(if ($S.chatNative) { '1' } else { '0' }), $(if ($S.chatFont) { [string]$S.chatFont } else { 'maple' }), $(if ([bool]$S.thin) { '1' } else { '0' }), [int]$S.fade, [int]$S.fz)
+  return ('{0} {1} {2} {3} {4} {5} {6} {7}' -f $(if ($S.chromeKeep) { '1' } else { '0' }), ([double]$S.bg).ToString('0.00', $ci), $(if ($S.chatNative) { '1' } else { '0' }), $(if ($S.chatFont) { [string]$S.chatFont } else { 'maple' }), $(if ([bool]$S.thin) { '1' } else { '0' }), [int]$S.fade, [int]$S.fz, $(if ([bool]$S.chatDual) { '1' } else { '0' }))
 }
 function UI-Hello { Game-Cmd ('/ntchat ui 0 {0}' -f (UI-Body)) }
 function Sync-Game {
@@ -969,7 +971,7 @@ function Geo-Same($a, $b) { return ($a -and $b -and [math]::Abs($a.x - $b.x) -le
 $script:mir = $null; $script:lmbPrev = $false
 $MirT = New-Object Windows.Threading.DispatcherTimer; $MirT.Interval = [TimeSpan]::FromMilliseconds(15)
 function Pass-Zone {
-  if ($S.uiLock -or $state.combat -or $state.inputOn -or $script:uiDrag -or $script:tdrag -or $Pop.IsOpen) { return $null }
+  if ($S.uiLock -or $state.combat -or $state.inputOn -or $script:uiDrag -or $script:tdrag -or $Pop.IsOpen -or (Dual-On)) { return $null }
   try {
     $c = [FTR]::Cursor()
     $h = $win.InputHitTest($win.PointFromScreen((New-Object System.Windows.Point($c[0], $c[1]))))
@@ -1098,7 +1100,7 @@ $ntSl = New-Object System.Windows.Shapes.Line; $ntSl.X1 = 8; $ntSl.Y1 = 14; $ntS
 [void]$NtP.root.Children.Add($ntSl)
 function Nt-Tip([bool]$off) {
   $lg = ''; try { if ($state.target) { $c = Out-Lang $state.target; $lg = $LANGSHORT[$c]; if (-not $lg) { $lg = $c } } } catch {}
-  $a = $(if ($off) { '지금: 이번 한 마디는 번역 없이 그대로 보냄 · 다시 누르면 번역해서 보내기' } else { '왼쪽 클릭 = 이번 한 마디만 번역 없이 그대로 보내기 (보내면 다시 켜짐)' })
+  $a = $(if ($off) { '지금: 이번 한 마디는 번역 없이 그대로 보냄 · 다시 누르면 번역해서 보내기' } else { '왼쪽 클릭 또는 Shift + 엔터 = 이번 한 마디만 번역 없이 그대로 보내기 (보내면 다시 켜짐)' })
   return $a + "`n오른쪽 클릭 = 보낼 언어 고르기" + $(if ($lg) { ' (지금: 한 → ' + $lg + ')' } else { '' })
 }
 function Nt-Paint {
@@ -1350,6 +1352,7 @@ function Sx-Do($t) {
     'cfz' { $Feed.font = [int]$t.v; $GC.cfont = [int]$t.v; Game-Cmd ''; try { Feed-Make; Feed-Place } catch {} }
     'fade' { $S.fade = [int]$t.v; Save-Cfg; Sync-Game }
     'chatnative' { $S.chatNative = ([int]$t.v -eq 1); Save-Cfg; Sync-Game }
+    'chatdual' { $S.chatDual = ([int]$t.v -eq 1); Save-Cfg; Sync-Game }
     'chromekeep' { $S.chromeKeep = ([int]$t.v -eq 1); Save-Cfg; Sync-Game }
     'join' { Game-Cmd ('/ntchat join ' + [string]$t.k) }
     'leave' { Game-Cmd ('/ntchat leave ' + [string]$t.k) }
@@ -1440,7 +1443,14 @@ function Sx-Seg($items, $cur, [string]$kind) {
     $b = New-Object System.Windows.Controls.Border; $b.Height = 30; $b.CornerRadius = New-Object System.Windows.CornerRadius(6); $b.Margin = New-Object System.Windows.Thickness(0, 0, 5, 0)
     $b.Background = $(if ($on) { Br '#E6B98E5F' } else { Br '#0DFFFFFF' })
     $l = TB $it[1] 11.5 $(if ($on) { Br '#FF141414' } else { Br '#FFB8B8B8' }); $l.FontWeight = 'Bold'; $l.HorizontalAlignment = 'Center'; $l.VerticalAlignment = 'Center'
-    $b.Child = $l; Sx-Click $b @{ kind = $kind; v = $it[0] }
+    if (@($it).Count -gt 2 -and [string]$it[2] -eq 'new') {
+      $gd = New-Object System.Windows.Controls.Grid; [void]$gd.Children.Add($l)
+      $nb = New-Object System.Windows.Controls.Border; $nb.Background = Br '#FFE0B95A'; $nb.CornerRadius = New-Object System.Windows.CornerRadius(3); $nb.Height = 12; $nb.Padding = New-Object System.Windows.Thickness(4, 0, 4, 0)
+      $nb.HorizontalAlignment = 'Right'; $nb.VerticalAlignment = 'Top'; $nb.Margin = New-Object System.Windows.Thickness(0, -6, -4, 0); $nb.IsHitTestVisible = $false
+      $nt = TB 'NEW' 7.5 (Br '#FF141518'); $nt.FontWeight = 'Bold'; $nt.VerticalAlignment = 'Center'; $nb.Child = $nt
+      [void]$gd.Children.Add($nb); $b.Child = $gd
+    } else { $b.Child = $l }
+    Sx-Click $b @{ kind = $kind; v = $it[0] }
     [void]$ug.Children.Add($b)
   }
   [void]$popS.Children.Add($ug)
@@ -1506,6 +1516,8 @@ function Build-Menu {
   Sx-Seg @(@(0, '가만히 두면 투명'), @(1, '항상 보이기')) $(if ($S.chromeKeep) { 1 } else { 0 }) 'chromekeep'
   $ntl = TB '번역 끈 동안 대화창' 12.5 $CREAM; $ntl.Margin = New-Object System.Windows.Thickness(2, 10, 0, 6); [void]$popS.Children.Add($ntl)
   Sx-Seg @(@(0, '낭만 대화창'), @(1, '와우 기본 대화창')) $(if ($S.chatNative) { 1 } else { 0 }) 'chatnative'
+  $dul = TB '번역 중 입력' 12.5 $CREAM; $dul.Margin = New-Object System.Windows.Thickness(2, 10, 0, 6); [void]$popS.Children.Add($dul)
+  Sx-Seg @(@(0, '번역창으로 입력'), @(1, '와우 기본 대화창 같이 쓰기', 'new')) $(if ([bool]$S.chatDual) { 1 } else { 0 }) 'chatdual'
   Sx-FeedCard {
   Sx-Sub '띄울 대화 (모든 탭 공통)' 2
   if ($null -eq $Feed.mask) {
@@ -1869,6 +1881,7 @@ function Parse-Wow([string]$s, [string]$base) {
   $lnk = $null
   $s = [regex]::Replace($s, '\|?HBNplayer:[^\[]*?(\|h|(?=\[))', '')
   $s = [regex]::Replace($s, '\[\|K[^|\]]*\|k\]', '[배틀넷 친구]')
+  $s = [regex]::Replace($s, '(?<!\|h)\[\[(\d+)\+?\] ([^\[\]|]+?) \((\d+)\)\]', '|cffffff00|Hquestie:$3:0|h[[$1] $2]|h|r')
   $re = [regex]'\|c([0-9a-fA-F]{8})|\|cn([A-Za-z0-9_]+):|\|r|\|H(?:[^|]|\|[Kk][^|]*\|k)*\|h|\|h|\|T[^|]*\|t|\|A[^|]*\|a|\|K[^|]*\|k|\|n|\{rt\d\}|\{[a-z]+\d?\}'
   $pos = 0
   foreach ($m in $re.Matches($s)) {
@@ -1896,6 +1909,7 @@ function Add-Run($tb, $text, $hex, $tag) {
 }
 $LineList = New-Object System.Collections.ArrayList
 $SeenC = New-Object 'System.Collections.Generic.HashSet[string]'
+$script:catchUntil = [DateTime]::Now.AddSeconds(30); $script:awayAt = $null; $script:repAt = $null; $script:repN = 0
 $script:K = 1.2187
 $script:Dpi = 1.0
 $FSZ = 1.0
@@ -2394,7 +2408,8 @@ function Word-Out([string]$t) {
 function Slang-Out([string]$t) {
   if (-not $t) { return '' }
   $hit = @()
-  foreach ($e in $SLANG_OUT) { if ($t.Contains($e[0])) { $hit += ('- ' + $e[0] + ' → ' + $e[1]) } }
+  $t0 = $t.Replace(' ', '')
+  foreach ($e in $SLANG_OUT) { $k = [string]$e[0]; if ($t.Contains($k) -or ($k.Contains(' ') -and $t0.Contains($k.Replace(' ', '')))) { $hit += ('- ' + $k + ' → ' + $e[1]) } }
   if ($hit.Count -eq 0) { return '' }
   return "`n[이 줄에 나온 말의 와우 영어 표현 · 그 단어 자리에만 쓰고 문장의 나머지 뜻은 전부 그대로 옮길 것 · 다른 언어면 그 언어권 관례로]`n" + ($hit -join "`n")
 }
@@ -2932,6 +2947,7 @@ function Handle($line) {
             'fade' { $z = 0; if ([int]::TryParse($dv, [ref]$z)) { $S.fade = $z } }
             'keep' { $S.chromeKeep = ($dv -eq '1') }
             'native' { $S.chatNative = ($dv -eq '1') }
+            'dual' { $S.chatDual = ($dv -eq '1') }
           }
           $S.uiVer = [int64][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           Sync-Game; Save-Cfg
@@ -3010,6 +3026,7 @@ function Handle($line) {
     }
     'H' { if ($f.Count -gt 2) { Link-Add $f[1] (($f[2..($f.Count - 1)]) -join "`t") } }
     'EB' { if (-not $script:ebWarn) { $script:ebWarn = $true; Log '와우 키 설정: 대화 입력창 열기에 Enter 없음'; [void](Add-Line @{ kind = 'S'; col = 'ff8a6a'; text = "와우 키 설정에서 '대화 입력창 열기'에 Enter를 지정해 주세요. 지정돼 있지 않으면 번역기에서 보낸 글이 게임에 들어가지 않아요. (ESC → 키 설정 → 대화)" }) } }
+    'KS' { try { Dual-Send ([string]$f[1]) ([string]$f[2]) $(if ($f.Count -gt 3) { (($f[3..($f.Count - 1)]) -join ' ') } else { '' }) } catch { Log "기본창 보내기: $_" } }
     'K' { $state.kb = ($f[1] -eq '1'); if ($state.kb -and $state.hkE) { [void][FTR]::HotkeyEnter($script:hwnd, $false); $state.hkE = $false } }
     'V' {
       $v = ($f[1] -eq '1')
@@ -3017,6 +3034,7 @@ function Handle($line) {
       else { $state.vis = $v; $state.visHeld = $false }
     }
     'Z' { try { UW-Parse $(if ($f.Count -gt 1) { (($f[1..($f.Count - 1)]) -join ' ') } else { '' }) } catch { Log "떨어진 창: $_" } }
+    'GO' { $gv = (($f[1..($f.Count - 1)] -join ' ').Trim()) -split '\s+'; if ($gv.Count -ge 4 -and $gv[0] -match '^-?\d+$') { $script:ocrGeo = @{ x = [int]$gv[0]; y = [int]$gv[1]; w = [int]$gv[2]; h = [int]$gv[3] } } else { $script:ocrGeo = $null } }
     'G' {
       $gv = (($f[1..($f.Count - 1)] -join ' ').Trim()) -split '\s+'
       $state.geo = @{ x = [int]$gv[0]; y = [int]$gv[1]; w = [int]$gv[2]; h = [int]$gv[3]; s = [double]::Parse($gv[4], [Globalization.CultureInfo]::InvariantCulture) }
@@ -3080,7 +3098,9 @@ function Handle($line) {
       }
       if ($isReplay -and ([string]$rec.t -notmatch '^(BN_)?WHISPER$' -or ([DateTime]::Now - $script:bootAt).TotalSeconds -lt 90)) { return }
       if ((Want-Tr $rec) -and (Is-Foreign $p)) {
-        Queue-In $L
+        if ($isReplay) { $nw = [DateTime]::Now; if (-not $script:repAt -or ($nw - $script:repAt).TotalSeconds -gt 2) { $script:repN = 0 }; $script:repAt = $nw; $script:repN++; if ($script:repN -ge 3) { $script:catchUntil = $nw.AddSeconds(3) } }
+        if ($isReplay -and ($script:awayAt -or [DateTime]::Now -lt $script:catchUntil)) { if ($Cache[$p]) { Done-In $L $Cache[$p] } }
+        else { Queue-In $L }
         if (-not $isReplay) {
           $state.lastForeign = $(if ($rec.t -match 'WHISPER') { Tell-Tg $rec.sender } else { @{ t = $rec.t; name = $rec.sender; cnum = $rec.cnum; cname = $rec.cname } })
           $state.lastForeignAt = [DateTime]::Now
@@ -3148,7 +3168,13 @@ function Cycle-Target {
   $state.target = $order[($i + 1) % $order.Count]
   Paint-Target; Kick-Preview
 }
+function Dual-On { return ([bool]$S.chatDual -and (-not $state.off -or [bool]$state.bgOcr)) }
 function Enter-Input {
+  if (Dual-On) {
+    $t0 = $state.target
+    if ($t0 -and $t0.t -eq 'WHISPER' -and $t0.name) { try { Game-Cmd ('/ntchat tell ' + [string]$t0.name) } catch { Log "기본창 귓말: $_" } }
+    return
+  }
   $fg = [FTR]::Foreground(); if ($fg -ne $script:hwnd) { $state.prevFg = $fg }
   if (-not $state.inputOn) { Tr-Signal $true }
   if (-not $state.target) {
@@ -3260,14 +3286,17 @@ $Inp.Add_PreviewKeyDown({ param($snd, $e)
   if ($e.Key -eq 'Tab') { Cycle-Target; $e.Handled = $true; return }
   if ($e.Key -eq 'System' -and ($e.SystemKey -eq 'Return' -or $e.SystemKey -eq 'Enter')) {
     $e.Handled = $true
-    if (-not $S.tipAltEnter) { $S.tipAltEnter = $true; $TipPop.IsOpen = $false; try { Save-Cfg } catch {} }
+    if (-not $S.tipAltEnter) { $S.tipAltEnter = $true; Tip-Hide; try { Save-Cfg } catch {} }
     $script:noTr = $true; try { Nt-Paint } catch {}
     Do-Send
     return
   }
   if ($e.Key -eq 'Return' -or $e.Key -eq 'Enter') {
     $e.Handled = $true
-    if ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift) { }
+    if ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift) {
+      if (-not $S.tipAltEnter) { $S.tipAltEnter = $true; Tip-Hide; try { Save-Cfg } catch {} }
+      $script:noTr = $true; try { Nt-Paint } catch {}
+    }
     Do-Send
   }
 })
@@ -3318,6 +3347,29 @@ function Link-Add($id, [string]$full) {
   $Inp.Text = $t.Insert($c, $ins)
   if (-not $state.inputOn) { Enter-Input }
   $Inp.CaretIndex = $c + $ins.Length
+}
+function Dual-AltEnter {
+  try {
+    $w = [FTR]::FindWow(); if ($w -eq [IntPtr]::Zero -or [FTR]::Foreground() -ne $w) { return }
+    [FTRK.Kb]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 20
+    [FTRK.Kb]::keybd_event(0x10, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 20
+    [FTRK.Kb]::keybd_event(0x0D, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30; [FTRK.Kb]::keybd_event(0x0D, 0, 2, [UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 20; [FTRK.Kb]::keybd_event(0x10, 0, 2, [UIntPtr]::Zero)
+  } catch { Log "기본창 알트 엔터: $_" }
+}
+function Mach-Signal([bool]$on) {
+  try {
+    $w = [FTR]::FindWow(); if ($w -eq [IntPtr]::Zero -or [FTR]::Foreground() -ne $w) { return }
+    $vk = [byte]$(if ($on) { 0x79 } else { 0x78 })
+    $t0 = [Environment]::TickCount
+    while ((Other-Mods) -and ([Environment]::TickCount - $t0) -lt 600) { Start-Sleep -Milliseconds 30 }
+    if (Other-Mods) { return }
+    $held = ([FTRK.Keys]::GetAsyncKeyState(0x11) -band 0x8000) -ne 0
+    if (-not $held) { [FTRK.Kb]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 25 }
+    [FTRK.Kb]::keybd_event($vk, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 35; [FTRK.Kb]::keybd_event($vk, 0, 2, [UIntPtr]::Zero)
+    if (-not $held) { Start-Sleep -Milliseconds 30; [FTRK.Kb]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero) }
+    Start-Sleep -Milliseconds 40
+  } catch { Log "입력줄 숨김 신호: $_" }
 }
 function Tr-Signal([bool]$on) {
   try {
@@ -3435,7 +3487,43 @@ function Do-Send {
   [void]$Pending.Add(@{ kind = 'send'; task = $task; src = $txt; lang = $lg; tg = $tg })
   Exit-Input $true
 }
+$script:dualQ = New-Object System.Collections.ArrayList
+$script:dualCur = $false
+function Dual-Send([string]$t, [string]$who, [string]$txt) {
+  $txt = (Jamo-Fix $txt).Trim()
+  if (-not $txt -or -not $t) { return }
+  if ($state.sending) { [void]$script:dualQ.Add(@($t, $who, $txt)); return }
+  $tg = $null
+  switch -Regex ($t) {
+    '^WHISPER$' { $tg = Tell-Tg $who }
+    '^CHANNEL$' { $tg = @{ t = 'CHANNEL'; cnum = [string]$who; cname = '' }; Fix-ChanTg $tg }
+    default { $tg = @{ t = $t } }
+  }
+  $script:dualCur = $true
+  try {
+    $pre = Prefix-For $tg
+    if (-not (Tr-Out $tg)) { $tk = Link-Tok $txt; Send-Wow (Split-Msg $pre (Link-Game $tk $tk)) $false $true; return }
+    $lq = Laugh-Out $txt
+    if ($lq) { Finish-Send $tg $txt $lq; return }
+    $lg = Out-Lang $tg
+    if ($lg -eq 'EN') { $wq = Word-Out $txt; if ($wq) { Finish-Send $tg $txt $wq; return } }
+    $task = Gem-Send ((Sys-Out $lg $txt) + (Link-Rule (Link-Tok $txt)) + (Slang-Out $txt)) (Link-Tok $txt) $false 'out'
+    if (-not $task) { Dual-Fail $txt '번역 엔진 연결 안 됨'; return }
+    $state.sending = $true
+    [void]$Pending.Add(@{ kind = 'send'; task = $task; src = $txt; lang = $lg; tg = $tg; dual = $true })
+  } finally { $script:dualCur = $false; if (-not $state.sending) { Dual-Next } }
+}
+function Dual-Next {
+  if ($state.sending -or $script:dualQ.Count -eq 0) { return }
+  $q = $script:dualQ[0]; $script:dualQ.RemoveAt(0)
+  Dual-Send $q[0] $q[1] $q[2]
+}
+function Dual-Fail([string]$src, [string]$why) {
+  $state.sending = $false
+  try { [void](Add-Line @{ kind = 'S'; col = 'ff8a6a'; text = ('번역 못 해서 안 보냈어요 (' + $why + ') · ' + $src) }) } catch {}
+}
 function Send-Fail($p, [string]$msg) {
+  if ($p.dual) { Dual-Fail ([string]$p.src) ($msg -replace '^→\s*', '' -replace '\s*\(Enter = 다시\)', ''); Dual-Next; return }
   $state.sending = $false
   if (-not $state.inputOn) { $state.target = $p.tg; Enter-Input; $Inp.Text = [string]$p.src; $Inp.CaretIndex = $Inp.Text.Length }
   Set-Prev $msg; $PrevG.Visibility = 'Visible'
@@ -3445,7 +3533,7 @@ function Finish-Send($tg, $ko, $out) {
   $Sent[(Link-Show $out).Trim()] = $ko
   $pre = Prefix-For $tg
   $g = Link-Game (Link-Tok $ko) $out
-  Exit-Input $true
+  if (-not $script:dualCur) { Exit-Input $true }
   $parts = Split-Msg $pre $g
   Send-Wow $parts $false $true
   if (@($parts).Count -eq 1 -and $script:swQ.Count -gt 0) { $script:swQ[$script:swQ.Count - 1].echoLocal = @{ tg = $tg; msg = (Link-Show $out).Trim(); ko = $ko } }
@@ -3661,6 +3749,8 @@ function Send-WowNow($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
   $state.sentAt = [DateTime]::Now
   if ($state.hkE) { [void][FTR]::HotkeyEnter($script:hwnd, $false); $state.hkE = $false }
   foreach ($l0 in $lines) { Dbg ("보냄 → " + $l0) }
+  $mach = (Dual-On) -and -not $state.combat
+  if ($mach) { Mach-Signal $true }
   $pend = $script:clipPend; $script:clipPend = $null
   if ($pend) { $old = $pend.old; $oldImg = $pend.img; $oldFiles = $pend.files } else {
   $old = $null; try { if ('FTRK.Clip' -as [type]) { $old = [FTRK.Clip]::Get($script:hwnd) } elseif ([System.Windows.Clipboard]::ContainsText()) { $old = [System.Windows.Clipboard]::GetText() } } catch {}
@@ -3729,6 +3819,7 @@ function Send-WowNow($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
   if ($usedClip) { $script:clipPend = @{ old = $old; img = $oldImg; files = $oldFiles; ours = $lastTx; at = [DateTime]::Now.AddMilliseconds(1500) }; $ClipT.Start() }
   elseif ($pend) { $script:clipPend = $pend }
   if ($usedClip) { Release-Mods }
+  if ($mach) { Start-Sleep -Milliseconds 120; Mach-Signal $false }
   $script:sendEndAt = [DateTime]::Now
 }
 $script:clipPend = $null
@@ -3755,7 +3846,7 @@ function Place-Win {
   $k = $g.s / $dpi
   $Scale.ScaleX = $k; $Scale.ScaleY = $k
   if ([math]::Abs($script:K - $g.s) -gt 0.0001 -or [math]::Abs($script:Dpi - $dpi) -gt 0.0001 -or [math]::Abs($script:PWu - $g.w / $g.s) -gt 0.5) { $script:K = $g.s; $script:Dpi = $dpi; $script:PWu = $g.w / $g.s; if (-not $script:uiDrag -and -not $script:mir) { Redraw-All } }
-  $Sv.Margin = New-Object System.Windows.Thickness((12 * $k), (($TOP + 34) * $k), 0, 0)
+  $Sv.Margin = New-Object System.Windows.Thickness((12 * $k), (($TOP + $script:tipU + 34) * $k), 0, 0)
   $Sv.Width = ($g.w / $g.s - 24) * $k; $Sv.Height = ($g.h / $g.s - 68) * $k
   $script:PWu = $g.w / $g.s
   $ShT.X = 1 / $g.s; $ShT.Y = 1 / $g.s
@@ -3765,7 +3856,7 @@ function Place-Win {
   try { [System.Windows.Controls.Canvas]::SetLeft($FrB.root, $Panel.Width - 52) } catch {}
   [System.Windows.Controls.Canvas]::SetLeft($TrLab, $Panel.Width - 60 - $TrLab.ActualWidth)
   try { Place-Plus } catch {}
-  $topPx = [int]($TOP * $g.s)
+  $topPx = [int](($TOP + $script:tipU) * $g.s)
   $key = "$($cr[0]),$($cr[1]),$($g.x),$($g.y),$($g.w),$($g.h)"
   if ($script:placed -ne $key) {
     $script:placed = $key
@@ -4128,8 +4219,7 @@ function TD-Up {
   else { Game-Cmd ('/ntchat umove ' + $d.key + ' ' + $tg); try { UW-Opt $d.key $d.from $tg $null } catch { Log "탭 옮기기: $_" } }
   return $true
 }
-$TipPop = New-Object System.Windows.Controls.Primitives.Popup; $TipPop.AllowsTransparency = $true; $TipPop.Placement = 'AbsolutePoint'; $TipPop.StaysOpen = $true
-$tipG = New-Object System.Windows.Controls.Grid; $tipSc = New-Object System.Windows.Media.ScaleTransform(1, 1); $tipG.LayoutTransform = $tipSc
+$tipG = New-Object System.Windows.Controls.Grid; $tipG.HorizontalAlignment = 'Left'; $tipG.VerticalAlignment = 'Top'; $tipG.Visibility = 'Collapsed'
 $tipR0 = New-Object System.Windows.Controls.RowDefinition; $tipR1 = New-Object System.Windows.Controls.RowDefinition; $tipR1.Height = New-Object System.Windows.GridLength(7)
 [void]$tipG.RowDefinitions.Add($tipR0); [void]$tipG.RowDefinitions.Add($tipR1)
 $tipB = New-Object System.Windows.Controls.Border; $tipB.CornerRadius = New-Object System.Windows.CornerRadius(8); $tipB.BorderThickness = New-Object System.Windows.Thickness(1); $tipB.BorderBrush = Br '#8CE0B95A'
@@ -4141,8 +4231,14 @@ $tipIc = New-Object System.Windows.Controls.Canvas; $tipIc.Width = 26; $tipIc.He
 foreach ($q in @(@(0, 6, 0.55), @(9, 1, 1.0))) { $r = New-Object System.Windows.Shapes.Rectangle; $r.Width = 14; $r.Height = 10; $r.RadiusX = 2; $r.RadiusY = 2; $r.StrokeThickness = 1.5; $r.Stroke = Br '#FFE0B95A'; $r.Opacity = $q[2]; if ($q[2] -eq 1.0) { $r.Fill = Br '#FF2A2724' }; [System.Windows.Controls.Canvas]::SetLeft($r, $q[0]); [System.Windows.Controls.Canvas]::SetTop($r, $q[1]); [void]$tipIc.Children.Add($r) }
 [void]$tipSp.Children.Add($tipIc)
 $tipTx = New-Object System.Windows.Controls.StackPanel; $tipTx.VerticalAlignment = 'Center'
-$tipT1 = TB '이제 탭 분리가 가능해요' 12.5 (Br '#FFF3E2B3'); UIF $tipT1; [void]$tipTx.Children.Add($tipT1)
+$tipRow = New-Object System.Windows.Controls.StackPanel; $tipRow.Orientation = 'Horizontal'; [void]$tipTx.Children.Add($tipRow)
+$tipBadge = New-Object System.Windows.Controls.Border; $tipBadge.BorderBrush = Br '#FFE0B95A'; $tipBadge.BorderThickness = New-Object System.Windows.Thickness(1); $tipBadge.CornerRadius = New-Object System.Windows.CornerRadius(3); $tipBadge.Padding = New-Object System.Windows.Thickness(4, 0, 4, 0); $tipBadge.Margin = New-Object System.Windows.Thickness(0, 0, 6, 0); $tipBadge.VerticalAlignment = 'Center'; $tipBadge.Visibility = 'Collapsed'
+$tipBt = TB 'TIP' 9 (Br '#FFE0B95A'); $tipBt.FontWeight = 'Bold'; $tipBadge.Child = $tipBt; [void]$tipRow.Children.Add($tipBadge)
+$tipT1 = TB '이제 탭 분리가 가능해요' 12.5 (Br '#FFF3E2B3'); UIF $tipT1; [void]$tipRow.Children.Add($tipT1)
 $tipT2 = TB '탭을 끌어서 밖에 놓으면 따로 창이 생겨요' 10.5 (Br '#FFBDB39A'); UIF $tipT2; $tipT2.Margin = New-Object System.Windows.Thickness(0, 2, 0, 0); [void]$tipTx.Children.Add($tipT2)
+$tipTrack = New-Object System.Windows.Controls.Border; $tipTrack.Height = 2; $tipTrack.CornerRadius = New-Object System.Windows.CornerRadius(1); $tipTrack.Background = Br '#2EE0B95A'; $tipTrack.Margin = New-Object System.Windows.Thickness(0, 6, 0, 0); $tipTrack.Visibility = 'Collapsed'
+$tipBar = New-Object System.Windows.Controls.Border; $tipBar.Background = Br '#B3E0B95A'; $tipBar.CornerRadius = New-Object System.Windows.CornerRadius(1); $tipBarSc = New-Object System.Windows.Media.ScaleTransform(1, 1); $tipBar.RenderTransform = $tipBarSc; $tipBar.RenderTransformOrigin = New-Object System.Windows.Point(0, 0.5); $tipTrack.Child = $tipBar
+[void]$tipTx.Children.Add($tipTrack)
 [void]$tipSp.Children.Add($tipTx)
 $tipX = TB '✕' 12 (Br '#FF8F866F'); $tipX.VerticalAlignment = 'Center'; $tipX.Margin = New-Object System.Windows.Thickness(10, 0, 0, 0); $tipX.Padding = New-Object System.Windows.Thickness(3); $tipX.Background = Br '#01000000'; $tipX.Cursor = [System.Windows.Input.Cursors]::Hand
 $tipX.Add_MouseEnter({ $tipX.Foreground = Br '#FFF3E2B3' }); $tipX.Add_MouseLeave({ $tipX.Foreground = Br '#FF8F866F' })
@@ -4153,48 +4249,130 @@ $tipCv = New-Object System.Windows.Controls.Canvas; [System.Windows.Controls.Gri
 $tipTl = New-Object System.Windows.Shapes.Polygon; $tipTl.Fill = Br '#FF1C1A18'; foreach ($pt in @(@(0, -1), @(12, -1), @(6, 6))) { [void]$tipTl.Points.Add((New-Object System.Windows.Point($pt[0], $pt[1]))) }
 $tipTr = New-Object System.Windows.Shapes.Polyline; $tipTr.Stroke = Br '#8CE0B95A'; $tipTr.StrokeThickness = 1; foreach ($pt in @(@(0, -0.5), @(6, 6), @(12, -0.5))) { [void]$tipTr.Points.Add((New-Object System.Windows.Point($pt[0], $pt[1]))) }
 [void]$tipCv.Children.Add($tipTl); [void]$tipCv.Children.Add($tipTr)
-$TipPop.Child = $tipG
+[void]$Root.Children.Add($tipG)
+$script:tipU = 0
 $script:tipKey = ''
 $script:tipMode = ''
-function Tip-Done { $TipPop.IsOpen = $false; if ($script:tipMode -eq 'alt') { if (-not $S.tipAltEnter) { $S.tipAltEnter = $true; Save-Cfg } } elseif (-not $S.tipUndock) { $S.tipUndock = $true; Save-Cfg } }
+function Tip-Done { Tip-Hide; if ($script:tipMode.StartsWith('sys:')) { if ($script:sysNote) { $script:sysHide = [string]$script:sysNote.k }; $script:tipMode = '' } elseif ($script:tipMode.StartsWith('tip:')) { $script:tipCur = $null; $script:tipMode = '' } elseif ($script:tipMode -eq 'dual') { if (-not $S.tipDual) { $S.tipDual = $true; Save-Cfg } } elseif ($script:tipMode -eq 'alt') { if (-not $S.tipAltEnter) { $S.tipAltEnter = $true; Save-Cfg } } elseif (-not $S.tipUndock) { $S.tipUndock = $true; Save-Cfg } }
 function Tip-Mode([string]$m) {
   if ($script:tipMode -eq $m) { return }
   $script:tipMode = $m; $script:tipKey = ''
-  if ($m -eq 'alt') { $tipT1.Text = '알트 엔터로 전송하면'; $tipT2.Text = '번역 없이 한글로 전송돼요'; $tipIc.Visibility = 'Collapsed' }
+  $isTip = $m.StartsWith('tip:'); $isSys = $m.StartsWith('sys:')
+  $tipBadge.Visibility = $(if ($isTip -or $isSys) { 'Visible' } else { 'Collapsed' }); $tipTrack.Visibility = $(if ($isTip) { 'Visible' } else { 'Collapsed' })
+  $tipT1.Foreground = $(if ($isSys) { Br '#FFFFB36B' } else { Br '#FFF3E2B3' })
+  $tipBt.Text = $(if ($isSys) { '안내' } else { 'TIP' }); $tipBt.Foreground = $(if ($isSys) { Br '#FFFFB36B' } else { Br '#FFE0B95A' }); $tipBadge.BorderBrush = $tipBt.Foreground
+  if ($isSys) { $tipT1.Text = [string]$script:sysNote.t1; $tipT2.Text = [string]$script:sysNote.t2; $tipIc.Visibility = 'Collapsed'; return }
+  if ($isTip) {
+    $tipT1.Text = [string]$script:tipCur.t1; $tipT2.Text = [string]$script:tipCur.t2; $tipIc.Visibility = 'Collapsed'
+    $an = New-Object System.Windows.Media.Animation.DoubleAnimation(1, 0, (New-Object System.Windows.Duration([TimeSpan]::FromSeconds(15)))); $tipBarSc.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $an)
+    return
+  }
+  $script:noticeShown = $true
+  if ($m -eq 'alt') { $tipT1.Text = 'Shift + 엔터로 전송하면'; $tipT2.Text = '번역 없이 한글로 전송돼요'; $tipIc.Visibility = 'Collapsed' }
+  elseif ($m -eq 'dual') { $tipT1.Text = '이제 와우 기본 대화창도 함께 쓰실 수 있어요'; $tipT2.Text = '옵션을 켜실 경우 번역 대화창은 번역 보기 용도로만 사용됩니다'; $tipIc.Visibility = 'Collapsed' }
   else { $tipT1.Text = '이제 탭 분리가 가능해요'; $tipT2.Text = '탭을 끌어서 밖에 놓으면 따로 창이 생겨요'; $tipIc.Visibility = 'Visible' }
 }
-function Tip-Alt([bool]$show) {
-  if (-not $show -or -not $state.inputOn -or $state.off -or -not $state.geo -or $win.Visibility -ne 'Visible' -or $NtP.root.Visibility -ne 'Visible' -or -not $NtP.root.IsVisible) { if ($TipPop.IsOpen) { $TipPop.IsOpen = $false }; return }
-  Tip-Mode 'alt'
-  $dpi = 1.0; try { $dpi = [System.Windows.PresentationSource]::FromVisual($win).CompositionTarget.TransformToDevice.M11 } catch {}
-  $k = [double]$state.geo.s / $dpi; $tipSc.ScaleX = $k; $tipSc.ScaleY = $k
-  $p = $NtP.root.PointToScreen((New-Object System.Windows.Point(($NtP.root.ActualWidth / 2), 0)))
-  $tipG.Measure((New-Object System.Windows.Size([double]::PositiveInfinity, [double]::PositiveInfinity)))
-  $tx = [math]::Max(10, $tipG.DesiredSize.Width / $k - 30); [System.Windows.Controls.Canvas]::SetLeft($tipTl, $tx); [System.Windows.Controls.Canvas]::SetLeft($tipTr, $tx)
-  $key = "a$([int]$p.X),$([int]$p.Y),$k"
-  if ($key -ne $script:tipKey -or -not $TipPop.IsOpen) {
-    $script:tipKey = $key
-    $TipPop.HorizontalOffset = $p.X / $dpi - ($tx + 6) * $k; $TipPop.VerticalOffset = $p.Y / $dpi - $tipG.DesiredSize.Height - 2 * $k
-    if (-not $TipPop.IsOpen) { $TipPop.IsOpen = $true; try { $hs = [System.Windows.PresentationSource]::FromVisual($tipG); if ($hs) { [FTR]::NoActivate($hs.Handle, $true) } } catch {} }
+function Tip-Room([double]$u) {
+  if ([math]::Abs($script:tipU - $u) -lt 0.5) { return }
+  $script:tipU = $u; $Panel.Margin = New-Object System.Windows.Thickness(0, ($TOP + $u), 0, 0); $script:placed = ''
+  try { Place-Win } catch {}
+  foreach ($pp in @($Pop, $RpPop, $TdGhost, $TdBox)) { if ($pp -and $pp.IsOpen -and $pp.Child) { try { $hs = [System.Windows.PresentationSource]::FromVisual($pp.Child); if ($hs) { [void][FTRK.Zo]::SetWindowPos($hs.Handle, [IntPtr](-1), 0, 0, 0, 0, 0x13) } } catch {} } }
+}
+function Tip-Hide { if ($tipG.Visibility -ne 'Collapsed') { $tipG.Visibility = 'Collapsed' }; $script:tipKey = ''; Tip-Room 0 }
+function Tip-Show([string]$m) {
+  if ($Pop.IsOpen -or $RpPop.IsOpen) { if ($tipG.Visibility -ne 'Collapsed') { $tipG.Visibility = 'Collapsed' }; $script:tipKey = ''; return }
+  if (-not $state.geo -or $win.Visibility -ne 'Visible' -or $state.off -or -not $TrM.root.IsVisible) { Tip-Hide; return }
+  Tip-Mode $m
+  $was = ($tipG.Visibility -eq 'Visible'); $tipG.Visibility = 'Visible'
+  $tipB.Measure((New-Object System.Windows.Size([double]::PositiveInfinity, [double]::PositiveInfinity)))
+  $bw = [math]::Ceiling($tipB.DesiredSize.Width); $bh = [math]::Ceiling($tipB.DesiredSize.Height) + 7
+  $gt = $TrM.root.TranslatePoint((New-Object System.Windows.Point(0, 0)), $Panel)
+  $gc = $gt.X + $TrM.root.ActualWidth / 2
+  $key = "$m,$([int]$gc),$([int]$gt.Y),$([int]$bw),$([int]$bh)"
+  if ($key -eq $script:tipKey -and $was) { return }
+  $script:tipKey = $key
+  $x = [math]::Max(0, [math]::Min($gc - $bw + 24, $Panel.Width - $bw)); $tx = [math]::Min($bw - 20, [math]::Max(8, $gc - 6 - $x))
+  [System.Windows.Controls.Canvas]::SetLeft($tipTl, $tx); [System.Windows.Controls.Canvas]::SetLeft($tipTr, $tx)
+  $u = [math]::Max(0, [math]::Ceiling($bh + 2 - $TOP - $gt.Y))
+  $tipG.Margin = New-Object System.Windows.Thickness($x, ($TOP + $u + $gt.Y - 2 - $bh), 0, 0)
+  Tip-Room $u
+}
+$TIPS0 = @(
+  @{ id = 'shift'; t1 = '한글 그대로 보내고 싶을 때'; t2 = 'Shift + 엔터로 보내면 번역 없이 한글 그대로 전송돼요' },
+  @{ id = 'name'; t1 = '이름을 우클릭해 보세요'; t2 = '귓속말 · 파티 초대 · 친구 추가를 바로 할 수 있어요' },
+  @{ id = 'tab'; t1 = '번역창 입력 중에 Tab 키를 눌러 보세요'; t2 = '일반 · 파티 · 길드 · 최근 귓말 순으로 보낼 곳이 바뀌어요' },
+  @{ id = 'flag'; t1 = '번역이 이상한 줄이 있나요?'; t2 = '줄에 마우스를 올리면 나오는 깃발을 눌러 제보해 주세요' },
+  @{ id = 'undock'; t1 = '탭을 끌어서 밖에 놓아 보세요'; t2 = '그 탭만 따로 창으로 띄울 수 있어요' },
+  @{ id = 'plus'; t1 = '+ 를 눌러 채널 탭을 만들 수 있어요'; t2 = '거래 · 파티찾기 등 원하는 채널만 모아 볼 수 있어요' },
+  @{ id = 'lock'; t1 = 'Ctrl + 우클릭으로 창을 잠글 수 있어요'; t2 = '잠그면 실수로 창이 움직이지 않아요' },
+  @{ id = 'center'; t1 = '집중 대화창을 켜 보세요'; t2 = '화면 가운데에 대화와 번역이 크게 떠요 · 전장에서도 번역돼요' },
+  @{ id = 'call'; t1 = '내 이름을 부르면 강조해 드려요'; t2 = '설정에서 켜면 누가 날 부를 때 바로 눈에 띄어요' },
+  @{ id = 'voice'; t1 = '디스코드 음성도 번역돼요'; t2 = '디스코드의 공대장 영어 음성콜도 집중 대화창에 번역해 드려요'; need = 'voice' }
+)
+$script:tipList = $null; $script:tipReq = $null; $script:tipCur = $null; $script:noticeShown = $false; $script:appStart = [DateTime]::Now
+function Tip-List {
+  if (-not $script:tipList -and -not $script:tipReq -and ([DateTime]::Now - $script:appStart).TotalSeconds -gt 20) { try { $script:tipReq = $DictHttp.GetStringAsync('https://zerazine.github.io/nangman-translator/tips.json?t=' + [DateTime]::UtcNow.Ticks) } catch { $script:tipList = $TIPS0 } }
+  if ($script:tipReq -and $script:tipReq.IsCompleted) {
+    $L = @()
+    try { if ($script:tipReq.Status -eq [System.Threading.Tasks.TaskStatus]::RanToCompletion) { foreach ($x in @(([string]$script:tipReq.Result | ConvertFrom-Json).tips)) { if ($x.id -and $x.t1) { $L += @{ id = [string]$x.id; t1 = [string]$x.t1; t2 = [string]$x.t2; need = [string]$x.need } } } } } catch {}
+    $script:tipList = $(if ($L.Count -gt 0) { $L } else { $TIPS0 }); $script:tipReq = $null
   }
+  if ($script:tipList) { return $script:tipList }
+  return $null
+}
+function Tip-Daily {
+  $now = [DateTime]::Now
+  if ($script:tipCur) { if (($now - $script:tipCur.at).TotalSeconds -lt 15) { return $script:tipCur }; $script:tipCur = $null; return $null }
+  $list = Tip-List
+  if (-not $list -or $script:noticeShown -or $state.combat -or $state.inputOn -or $state.off) { return $null }
+  if (($now - $script:appStart).TotalSeconds -lt 90) { return $null }
+  $today = $now.ToString('yyyy-MM-dd'); if ([string]$S.tipDay -eq $today) { return $null }
+  $seen = @($S.tipSeen | Where-Object { $_ })
+  foreach ($t in $list) {
+    if ($seen -contains $t.id) { continue }
+    if ($t.need -eq 'voice' -and -not $VoiceOK) { continue }
+    $script:tipCur = @{ id = $t.id; t1 = $t.t1; t2 = $t.t2; at = $now }
+    $S.tipSeen = @($seen + $t.id); $S.tipDay = $today; try { Save-Cfg } catch {}
+    return $script:tipCur
+  }
+  return $null
+}
+$script:sysNote = $null; $script:sysHide = ''
+function Sys-Note {
+  if ($S.pause -or $state.test) { return $null }
+  if ($script:cfgErrAt -ne [DateTime]::MinValue -and ([DateTime]::Now - $script:cfgErrAt).TotalSeconds -lt 30) { return @{ k = 'cfg'; t1 = '사전 파일에 오류가 있어요'; t2 = '번역은 계속되지만 사전 일부가 빠질 수 있어요' } }
+  $b0 = $(if ($script:BE.Count -gt 0) { $script:BE[0] } else { $null })
+  if (-not $b0 -or $b0.kind -ne 'ollama') { return $null }
+  $e = ''; try { $e = Eng-Label } catch {}; if ($e -eq $b0.short) { $e = '' }
+  $alt = $(if ($e) { '그동안은 ' + $e + ' 엔진으로 번역해요' } else { '' })
+  if ($b0.broken) { return @{ k = 'broken'; t1 = '번역 엔진이 고장 났어요'; t2 = $(if ($alt) { $alt } else { 'Ollama를 다시 설치해 주세요' }) } }
+  if ($b0.noModel) { return @{ k = 'nomodel'; t1 = '번역 모델이 없어요'; t2 = $(if ($alt) { $alt } else { '번역기를 다시 설치해 주세요' }) } }
+  if ($b0.full) { return @{ k = 'full'; t1 = '그래픽 메모리가 부족해요'; t2 = $(if ($alt) { $alt } else { '다른 프로그램을 닫으면 다시 번역해요' }) } }
+  if ($b0.st -eq 'down') { return @{ k = 'down'; t1 = '번역 엔진 준비 중이에요'; t2 = $(if ($alt) { $alt } else { 'PC 사양에 따라 잠시 걸려요 · 준비되면 이 안내는 사라져요' }) } }
+  return $null
 }
 function Tip-Tick([bool]$show) {
-  if (-not $S.tipAltEnter -and $state.inputOn) { Tip-Alt $show; return }
-  if ($script:tipMode -eq 'alt') { if ($TipPop.IsOpen) { $TipPop.IsOpen = $false }; Tip-Mode 'undock' }
-  if ($S.tipUndock) { if ($TipPop.IsOpen) { $TipPop.IsOpen = $false }; return }
-  $m = $Medals['whisper']; if (-not $m) { foreach ($tb in @($script:TABS)) { if ($Medals[$tb.key]) { $m = $Medals[$tb.key] } } }
-  if (-not $show -or -not $m -or -not $state.geo -or $win.Visibility -ne 'Visible' -or $state.off) { if ($TipPop.IsOpen) { $TipPop.IsOpen = $false }; return }
-  $dpi = 1.0; try { $dpi = [System.Windows.PresentationSource]::FromVisual($win).CompositionTarget.TransformToDevice.M11 } catch {}
-  $k = [double]$state.geo.s / $dpi; $tipSc.ScaleX = $k; $tipSc.ScaleY = $k
-  $p = $m.root.PointToScreen((New-Object System.Windows.Point(25, 0)))
-  $tipG.Measure((New-Object System.Windows.Size([double]::PositiveInfinity, [double]::PositiveInfinity)))
-  $tx = 36; [System.Windows.Controls.Canvas]::SetLeft($tipTl, $tx); [System.Windows.Controls.Canvas]::SetLeft($tipTr, $tx)
-  $key = "$([int]$p.X),$([int]$p.Y),$k"
-  if ($key -ne $script:tipKey -or -not $TipPop.IsOpen) {
-    $script:tipKey = $key
-    $TipPop.HorizontalOffset = $p.X / $dpi - ($tx + 6) * $k; $TipPop.VerticalOffset = $p.Y / $dpi - $tipG.DesiredSize.Height - 2 * $k
-    if (-not $TipPop.IsOpen) { $TipPop.IsOpen = $true; try { $hs = [System.Windows.PresentationSource]::FromVisual($tipG); if ($hs) { [FTR]::NoActivate($hs.Handle, $true) } } catch {} }
+  if (-not $show) { Tip-Hide; return }
+  $n = $null; try { $n = Sys-Note } catch {}
+  if ($n -and $script:sysHide -ne $n.k) {
+    if (-not $script:sysNote -or $script:sysNote.k -ne $n.k -or $script:sysNote.t2 -ne $n.t2) { $script:sysNote = $n; $script:tipMode = '' }
+    Tip-Show ('sys:' + $n.k); return
   }
+  if (-not $n) { $script:sysHide = '' }
+  $script:sysNote = $n
+  if (-not $S.tipAltEnter -and $state.inputOn) { Tip-Show 'alt'; return }
+  if (-not $S.tipDual) { Tip-Show 'dual'; return }
+  if (-not $S.tipUndock) {
+    $m = $Medals['whisper']; if (-not $m) { foreach ($tb in @($script:TABS)) { if ($Medals[$tb.key]) { $m = $Medals[$tb.key] } } }
+    if ($m) { Tip-Show 'undock'; return }
+  }
+  $d = $null; try { $d = Tip-Daily } catch {}
+  if ($d) { Tip-Show ('tip:' + $d.id); return }
+  Tip-Hide
+}
+function Tip-Hit {
+  if ($tipG.Visibility -ne 'Visible') { return $false }
+  try { $c = [FTR]::Cursor(); $pt = $tipG.PointFromScreen((New-Object System.Windows.Point($c[0], $c[1]))); return ($pt.X -ge 0 -and $pt.Y -ge 0 -and $pt.X -le $tipG.ActualWidth -and $pt.Y -le ($tipG.ActualHeight - 7)) } catch { return $false }
 }
 function UW-Tick([bool]$show) {
   try { Tip-Tick $show } catch {}
@@ -5137,7 +5315,7 @@ $win.Add_SourceInitialized({
   $script:hwnd = (New-Object System.Windows.Interop.WindowInteropHelper($win)).Handle
   [FTR]::ClickThrough($script:hwnd, $true)
   [FTR]::NoActivate($script:hwnd, $true)
-  [FTR]::OnHotKey = [Action[int]] { param($id) if ($id -eq 7 -or $id -eq 8) { Enter-Input } }
+  [FTR]::OnHotKey = [Action[int]] { param($id) if ($id -eq 7 -or $id -eq 8) { Enter-Input } elseif ($id -eq 9) { Dual-AltEnter } }
   [FTR]::Start()
 })
 $DictBase = 'https://zerazine.github.io/nangman-translator/dict2/'
@@ -5233,7 +5411,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 239
+$APPV = 240
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
@@ -5849,7 +6027,7 @@ function Bg-OcrTick {
   if (-not ('FTRO.Ocr' -as [type])) { return }
   Bg-OcrStart
   if ($BgO.H.err -and $BgO.H.err -ne $BgO.lastErr) { $BgO.lastErr = $BgO.H.err; Log ('전장 읽기: ' + $BgO.H.err) }
-  $w = [FTR]::FindWow(); $g = $state.geo
+  $w = [FTR]::FindWow(); $g = $(if ($script:ocrGeo) { $script:ocrGeo } else { $state.geo })
   if ($w -eq [IntPtr]::Zero -or -not $g -or [FTR]::Foreground() -ne $w) { $BgO.H.run = $false; return }
   $cr = [FTR]::ClientRect($w); if (-not $cr) { return }
   $BgO.H.rect = @{ x = [int]($cr[0] + $g.x); y = [int]($cr[1] + $g.y); w = [int][Math]::Max(50, $g.w); h = [int][Math]::Max(50, $g.h) }
@@ -5979,7 +6157,7 @@ $Main.Add_Tick({
             $j = @{ ko = $p.src }
           }
           if ($j) { $vk = [string]$j.ko; if ($VCache.Count -ge 500) { $VCache.Clear() }; $VCache[$p.src] = $vk; Voice-Show $vk $p.src } }
-        'send' { if ($p.task.fellBack) { Fb-Note ([string]$p.task.fellBack) }; $o = $(if ($j -and $j.text) { [string]$j.text } else { '' }); $o = Ad-Caps $o; if ($o) { Finish-Send $p.tg $p.src $o } else { Send-Fail $p '→  번역 실패 (Enter = 다시)' } }
+        'send' { if ($p.task.fellBack) { Fb-Note ([string]$p.task.fellBack) }; $o = $(if ($j -and $j.text) { [string]$j.text } else { '' }); $o = Ad-Caps $o; $script:dualCur = [bool]$p.dual; try { if ($o) { Finish-Send $p.tg $p.src $o } else { Send-Fail $p '→  번역 실패 (Enter = 다시)' } } finally { $script:dualCur = $false }; if ($p.dual) { Dual-Next } }
       }
     }
     Lfg-Tick
@@ -6031,6 +6209,8 @@ $Main.Add_Tick({
       } catch {}
     }
     $wow = [FTR]::FindWow(); $fg = [FTR]::Foreground()
+    $mineFg = $false; if ($fg -ne $wow -and $fg -ne [IntPtr]::Zero) { try { $mineFg = ($null -ne [System.Windows.Interop.HwndSource]::FromHwnd($fg)) } catch {} }
+    if ($fg -eq $wow -or $mineFg) { if ($script:awayAt -and ([DateTime]::Now - $script:awayAt).TotalSeconds -ge 2) { $script:catchUntil = [DateTime]::Now.AddSeconds(10) }; $script:awayAt = $null } elseif (-not $script:awayAt) { $script:awayAt = [DateTime]::Now }
     if ($wow -ne $script:lastWowH) { $script:lastWowH = $wow; $script:placed = ''; $script:lastFollow = [DateTime]::MinValue }
     $live = [FTR]::SincePacket() -lt 40000
     $show = $live -and (In-Game $fg $wow) -and -not $state.off -and $state.geo -and $wow -ne [IntPtr]::Zero -and ($fg -eq $wow -or $fg -eq $script:hwnd -or $state.inputOn -or $Pop.IsOpen)
@@ -6042,14 +6222,21 @@ $Main.Add_Tick({
       if (([DateTime]::Now - $state.wantInput).TotalSeconds -gt 6) { $state.wantInput = $null }
       elseif ($show) { $state.wantInput = $null; if ($state.inputOn) { Paint-Target; $Inp.Focus() | Out-Null } else { Enter-Input } }
     }
-    $wantHk = ($fg -eq $wow -and $wow -ne [IntPtr]::Zero -and $live -and (-not $state.off -or [bool]$state.bgOcr))
+    $capWant = $(if (Dual-On) { 'Collapsed' } else { 'Visible' })
+    if (-not $CIn.on -and $Cap.Visibility -ne $capWant) { $Cap.Visibility = $capWant; try { Dock-Fit } catch {} }
+    $wantHk = ($fg -eq $wow -and $wow -ne [IntPtr]::Zero -and $live -and (-not $state.off -or [bool]$state.bgOcr) -and -not (Dual-On))
     if ($wantHk -ne $state.hk) { [void][FTR]::Hotkey($script:hwnd, $wantHk); $state.hk = $wantHk }
+    $wantA = ((Dual-On) -and $fg -eq $wow -and $wow -ne [IntPtr]::Zero -and [bool]$state.editing)
+    if ($wantA -ne [bool]$state.hkA) {
+      try { if (-not $script:hkHook) { [void][FTR]::Hotkey($script:hwnd, [bool]$state.hk); $script:hkHook = $true }; if ($wantA) { [void][FTRK.Hk]::RegisterHotKey($script:hwnd, 9, 0x4001, 0x0D) } else { [void][FTRK.Hk]::UnregisterHotKey($script:hwnd, 9) } } catch { Log "알트 엔터 키: $_" }
+      $state.hkA = $wantA
+    }
     $wantE = ($wantHk -and -not $state.kb -and -not $state.editing -and -not $state.sending)
     if ($wantE -ne $state.hkE) { [void][FTR]::HotkeyEnter($script:hwnd, $wantE); $state.hkE = $wantE }
     $c = [FTR]::Cursor()
     $hov = $false
     if ($show) {
-      $p0 = $win.PointToScreen((New-Object System.Windows.Point(0, 0)))
+      $p0 = $win.PointToScreen((New-Object System.Windows.Point(0, ($script:tipU * $Scale.ScaleY))))
       $p1 = $win.PointToScreen((New-Object System.Windows.Point($win.ActualWidth, $win.ActualHeight)))
       $hov = ($c[0] -ge $p0.X -and $c[0] -le $p1.X -and $c[1] -ge $p0.Y -and $c[1] -le $p1.Y)
       if ($hov -and -not $state.hover -and -not $script:uiDrag -and -not $script:tdrag -and ((([FTRK.Keys]::GetAsyncKeyState(0x01) -band 0x8000) -ne 0) -or (([FTRK.Keys]::GetAsyncKeyState(0x02) -band 0x8000) -ne 0))) { $hov = $false }
@@ -6082,7 +6269,7 @@ $Main.Add_Tick({
       if (Geo-Same $script:geoOv $state.geo) { $script:geoOv = $null; Place-Win }
       elseif ([DateTime]::Now -gt $script:ovUntil) { if ($script:geoTry -lt 6) { Geo-Push } elseif (-not $script:geoWarned) { $script:geoWarned = $true; $o0 = $script:geoOv; $g1 = $state.geo; Log ('대화창 자리: 게임에 안 들어감 (보냄 {0},{1},{2},{3} · 게임 {4},{5},{6},{7})' -f $o0.x, $o0.y, $o0.w, $o0.h, $g1.x, $g1.y, $g1.w, $g1.h) } }
     }
-    $ctv = $(if ($pass) { $true } else { -not ($hov -or $inUse) })
+    $ctv = $(if ($pass) { $true } else { -not ($hov -or $inUse -or (Tip-Hit)) })
     if ($hov -ne $state.hover -or $inUse -ne $state.inUse -or $ctv -ne $state.ctv) { $state.hover = $hov; $state.inUse = $inUse; $state.ctv = $ctv; [FTR]::ClickThrough($script:hwnd, $ctv) }
     try { UW-Tick $show } catch { Log "떨어진 창 타이머: $_" }
     $want = ($hov -or $inUse -or $Pop.IsOpen)

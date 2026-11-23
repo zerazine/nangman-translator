@@ -334,7 +334,7 @@ local function applyHide()
   if on then
     local kb = (GetCurrentKeyBoardFocus and GetCurrentKeyBoardFocus() ~= nil) and true or false
     if kb ~= T.lastKb then T.lastKb = kb pushS("K", kb and 1 or 0) end
-    local vis = p:IsVisible() and true or false
+    local vis = (p:IsVisible() or (NT.chatDual and NT.chatDual())) and true or false
     if vis ~= lastVis then lastVis = vis pushS("V", vis and 1 or 0) end
   end
 end
@@ -380,6 +380,13 @@ local function geo()
   if g ~= lastGeo then lastGeo = g push("G", g) end
   local ug = NT.undockGeo and NT.undockGeo() or ""
   if ug ~= T.lastUG then T.lastUG = ug push("Z", ug) end
+  local og = ""
+  local cf = ChatFrame1
+  if NT.chatNative and NT.chatNative() and cf and cf:IsVisible() and cf:GetLeft() then
+    local cs = cf:GetEffectiveScale() * ph / 768
+    og = string.format("%d\t%d\t%d\t%d", math.floor(cf:GetLeft() * cs + 0.5), math.floor(sh - cf:GetTop() * cs + 0.5), math.floor(cf:GetWidth() * cs + 0.5), math.floor(cf:GetHeight() * cs + 0.5))
+  end
+  if og ~= T.lastOG then T.lastOG = og push("GO", og) end
 end
 function NT.geoNow() lastGeo = "" pcall(geo) end
 function NT.pushUG()
@@ -408,7 +415,7 @@ NT.onUpdate(drv, function(_, el)
   if tick > 1 then
     tick = 0
     geo()
-    if now > infoAt then infoAt = now + 12 lastGeo = "" T.lastUG = nil lastEdit = nil lastVis = nil T.lastFeed = nil T.lastKb = nil info() if (T.chanN or 0) <= 0 then T.chanN = 5 lastChan = "" end T.chanN = T.chanN - 1 pcall(chans) end
+    if now > infoAt then infoAt = now + 12 lastGeo = "" T.lastUG = nil T.lastOG = nil lastEdit = nil lastVis = nil T.lastFeed = nil T.lastKb = nil info() if (T.chanN or 0) <= 0 then T.chanN = 5 lastChan = "" end T.chanN = T.chanN - 1 pcall(chans) end
     local fg = NT.feedGeo and NT.feedGeo()
     local fon = (NT.feedEnabled and NT.feedEnabled()) and "1" or "0"
     if fg and (fg .. fon) ~= T.lastFeed then
@@ -627,6 +634,7 @@ do
     push("H", nid, text)
     swallowAt = GetTime()
     hideSplit()
+    return nid
   end
   T.linkSend = send
   local function onLink(text)
@@ -757,6 +765,21 @@ do
       pasted, pastedEb, pastedAt = (type(now) == "string" and not secret(now)) and now or nt, eb, GetTime()
     end
   end
+  local mUntil = 0
+  local function ebList() local t = {} for i = 1, (NUM_CHAT_WINDOWS or 10) do local e = _G["ChatFrame" .. i .. "EditBox"] if e then t[#t + 1] = e end end return t end
+  local function machShow() mUntil = 0 for _, e in ipairs(ebList()) do if e.__ntMt then pcall(e.SetAlpha, e, e.__ntMt) e.__ntMt = nil end end end
+  local mOn = CreateFrame("Button", "NangmanTrMachOn")
+  mOn:SetScript("OnClick", function()
+    mUntil = GetTime() + 6
+    for _, e in ipairs(ebList()) do if e.__ntMt == nil then e.__ntMt = e:GetAlpha() end pcall(e.SetAlpha, e, 0) end
+    C_Timer.After(6.2, function() if mUntil > 0 and GetTime() >= mUntil then machShow() end end)
+  end)
+  local mOff = CreateFrame("Button", "NangmanTrMachOff")
+  mOff:SetScript("OnClick", function() machShow() end)
+  local function machBind()
+    for _, k in ipairs({ "CTRL-F10", "CTRL-SHIFT-F10" }) do SetOverrideBindingClick(mOn, true, k, "NangmanTrMachOn") end
+    for _, k in ipairs({ "CTRL-F9", "CTRL-SHIFT-F9" }) do SetOverrideBindingClick(mOff, true, k, "NangmanTrMachOff") end
+  end
   local bound, hooked = false, false
   local w = CreateFrame("Frame")
   w:RegisterEvent("PLAYER_LOGIN") w:RegisterEvent("PLAYER_REGEN_ENABLED") w:RegisterEvent("UPDATE_BINDINGS")
@@ -764,6 +787,7 @@ do
     if InCombatLockdown() or not SetOverrideBindingClick then return end
     for _, k in ipairs({ "CTRL-F11", "CTRL-SHIFT-F11" }) do SetOverrideBindingClick(on, true, k, "NangmanTrTypingOn") end
     for _, k in ipairs({ "CTRL-F12", "CTRL-SHIFT-F12" }) do SetOverrideBindingClick(off, true, k, "NangmanTrTypingOff") end
+    machBind()
   end
   NT.onEvent(w, function(_, e)
     if e == "UPDATE_BINDINGS" then if bound then pcall(sigBind) end return end
@@ -778,6 +802,7 @@ do
       bound = true
       for _, k in ipairs({ "CTRL-F11", "CTRL-SHIFT-F11" }) do SetOverrideBindingClick(on, true, k, "NangmanTrTypingOn") end
       for _, k in ipairs({ "CTRL-F12", "CTRL-SHIFT-F12" }) do SetOverrideBindingClick(off, true, k, "NangmanTrTypingOff") end
+      machBind()
       local nop = CreateFrame("Button", "NangmanTrCtrlV")
       nop:SetScript("OnClick", function()
         if db().on or InCombatLockdown() or not GetCVar then return end
@@ -812,6 +837,7 @@ do
   local function onTell(name)
     if type(name) ~= "string" or name == "" or secret(name) then return end
     if not db().on or not NT.alive() then return end
+    if NT.chatDual and NT.chatDual() then return end
     local now = GetTime()
     if name == lastN and now - lastT < 0.5 then return end
     lastN, lastT = name, now
@@ -844,6 +870,7 @@ do
   end
   local function onBNTell(name)
     if not db().on or not NT.alive() then return end
+    if NT.chatDual and NT.chatDual() then return end
     local now = GetTime()
     if name == lastN and now - lastT < 0.5 then return end
     lastN, lastT = name, now
@@ -872,6 +899,7 @@ end
 do
   local lastAct = 0
   local function check(eb)
+    if NT.chatDual and NT.chatDual() then return end
     if not (db().on and NT.alive()) then return end
     if not (eb and eb.IsShown and eb:IsShown() and eb:HasFocus()) then return end
     local t = eb:GetText() or ""
@@ -936,10 +964,71 @@ do
       if _G["SLASH_" .. k .. "1"] == c then pcall(h, rest) return end
     end
   end
-  local function wrap(fn) return function(msg, ...) if inner(msg) then run(msg) return end return fn(msg, ...) end end
-  if C_ChatInfo and type(C_ChatInfo.SendChatMessage) == "function" then C_ChatInfo.SendChatMessage = wrap(C_ChatInfo.SendChatMessage) end
-  if type(SendChatMessage) == "function" then SendChatMessage = wrap(SendChatMessage) end
-  if type(BNSendWhisper) == "function" then local o = BNSendWhisper BNSendWhisper = function(id, msg, ...) if inner(msg) then run(msg) return end return o(id, msg, ...) end end
+  local CAT = { SAY = "say", YELL = "say", PARTY = "party", PARTY_LEADER = "party", RAID = "raid", RAID_LEADER = "raid", RAID_WARNING = "raid", INSTANCE_CHAT = "inst", INSTANCE_CHAT_LEADER = "inst", GUILD = "guild", OFFICER = "guild", WHISPER = "whisper" }
+  local function chCat(num)
+    local name = ""
+    if GetChannelName then local ok, _, nm = pcall(GetChannelName, num) if ok and type(nm) == "string" and not secret(nm) then name = nm end end
+    local l = name:lower()
+    if l:find("lookingforgroup", 1, true) or l:find("lfg", 1, true) or name:find("파티찾기", 1, true) or name:find("파티 찾기", 1, true) or name:find("구인", 1, true) then return "lfg", name end
+    if l:find("trade", 1, true) or name:find("거래", 1, true) then return "trade", name end
+    if l:find("general", 1, true) or l:find("localdefense", 1, true) or l:find("worlddefense", 1, true) or name:find("공개", 1, true) or name:find("일반", 1, true) or name:find("수비", 1, true) then return "general", name end
+    return "otherch", name
+  end
+  local function wantTr(ct, target)
+    local st = NT.db().trState
+    if type(st) ~= "table" or type(st.tr) ~= "table" then return false end
+    if ct == "CHANNEL" then
+      local cat, name = chCat(tonumber(target) or target)
+      if cat == "otherch" and type(st.och) == "table" then
+        local l = name:lower()
+        for _, oc in ipairs(st.och) do if type(oc.n) == "string" and oc.n ~= "" and l:find(oc.n:lower(), 1, true) then return oc.on and true or false end end
+      end
+      return st.tr[cat] and true or false
+    end
+    local c = CAT[ct]
+    return (c and st.tr[c]) and true or false
+  end
+  local fwd = {}
+  local function dualGrab(msg, ct, target)
+    if not (NT.chatDual and NT.chatDual()) then return false end
+    if not ((db().on or db().bgOff) and NT.alive()) then return false end
+    if type(msg) ~= "string" or msg == "" or secret(msg) or type(ct) ~= "string" or secret(ct) then return false end
+    if msg:find("{fk", 1, true) then return false end
+    local plain = msg:gsub("|c[^|]*|H.-|h.-|h|r", ""):gsub("|H.-|h.-|h", "")
+    if not (plain:find("[\234-\237][\128-\191][\128-\191]") or plain:find("\227[\132-\134][\128-\191]")) then return false end
+    if not wantTr(ct, target) then return false end
+    local okS, sh = pcall(IsShiftKeyDown)
+    if okS and not secret(sh) and sh then return false end
+    local now = GetTime()
+    if fwd[msg] and now - fwd[msg] < 10 then fwd[msg] = nil return false end
+    for k, t in pairs(fwd) do if now - t > 60 then fwd[k] = nil end end
+    fwd[msg] = now
+    local function tok(l) local id = T.linkSend and T.linkSend(l) return id and ("{L" .. id .. "}") or "" end
+    local text = msg:gsub("(|c[^|]*|H.-|h.-|h|r)", tok):gsub("(|H.-|h.-|h)", tok)
+    local tg = ""
+    if (ct == "WHISPER" or ct == "CHANNEL") and target ~= nil and not secret(target) then tg = tostring(target) end
+    push("KS", ct, tg, text)
+    return true
+  end
+  local function preSend(eb)
+    if not eb or not eb.GetText then return end
+    local t = eb:GetText()
+    if type(t) ~= "string" or t == "" or secret(t) then return end
+    if inner(t) then eb:SetText("") run(t) return end
+    local ct = eb.GetAttribute and eb:GetAttribute("chatType")
+    local target
+    if ct == "WHISPER" or ct == "BN_WHISPER" then target = eb:GetAttribute("tellTarget") elseif ct == "CHANNEL" then target = eb:GetAttribute("channelTarget") end
+    local ok, grab = pcall(dualGrab, t, ct, target)
+    if ok and grab then eb:SetText("") end
+  end
+  local hooked = {}
+  local function hookEB(eb)
+    if not eb or hooked[eb] or type(eb.ParseText) ~= "function" then return end
+    hooked[eb] = true
+    hooksecurefunc(eb, "ParseText", function(self, send) if send == 1 then pcall(preSend, self) end end)
+  end
+  if EventRegistry and EventRegistry.RegisterCallback then pcall(EventRegistry.RegisterCallback, EventRegistry, "ChatFrame.OnEditBoxPreSendText", function(_, eb) pcall(preSend, eb) end, IN) end
+  if type(ChatEdit_ParseText) == "function" then hooksecurefunc("ChatEdit_ParseText", function(eb, send) if send == 1 then pcall(preSend, eb) end end) end
   local seen = {}
   local function quiet(eb)
     if not eb or seen[eb] or not eb.HookScript then return end
@@ -957,6 +1046,6 @@ do
   local qf = CreateFrame("Frame")
   qf:RegisterEvent("PLAYER_LOGIN")
   qf:SetScript("OnEvent", function()
-    for i = 1, (NUM_CHAT_WINDOWS or 10) do quiet(_G["ChatFrame" .. i .. "EditBox"]) end
+    for i = 1, (NUM_CHAT_WINDOWS or 10) do local e = _G["ChatFrame" .. i .. "EditBox"] quiet(e) hookEB(e) end
   end)
 end

@@ -776,7 +776,10 @@ do
   local function unbury(x)
     if x and x.__ntPar and x.GetParent and x:GetParent() == grave then pcall(x.SetParent, x, x.__ntPar) end
   end
-  function NT.chatNative() return cfg().native and not NT.trOn() end
+  local function bgOffG() local d = NangmanTranslatorDB return d and type(d.translate) == "table" and d.translate.bgOff and true or false end
+  function NT.chatDual() return (cfg().dual and (NT.trOn() or bgOffG())) and true or false end
+  function NT.chatNativeOff() return (cfg().native and not NT.trOn()) and true or false end
+  function NT.chatNative() return (cfg().native and not NT.trOn()) or NT.chatDual() end
   local function showBlizz()
     for i = 1, (NUM_CHAT_WINDOWS or 10) do unbury(_G["ChatFrame" .. i .. "Tab"]) unbury(_G["ChatFrame" .. i .. "ButtonFrame"]) end
     unbury(_G.GeneralDockManager) unbury(_G.ChatFrameMenuButton) unbury(_G.ChatFrameChannelButton) unbury(_G.QuickJoinToastButton)
@@ -865,7 +868,15 @@ do
     if cmd == "hi" then if NT.trAck then NT.trAck("hi") end return end
     if cmd == "uplace" or cmd == "ulock" or cmd == "undock" or cmd == "lock" or cmd == "nudge" then rest = rest:gsub("(%d)[%a\128-\255]+$", "%1") end
     local c = cfg()
-    if cmd == "friends" then
+    if cmd == "tell" then
+      if rest and rest ~= "" then
+        local who = rest
+        C_Timer.After(0.15, function()
+          local fn = ChatFrame_SendTell or (ChatFrameUtil and ChatFrameUtil.SendTell)
+          if fn then pcall(fn, who) end
+        end)
+      end
+    elseif cmd == "friends" then
       if ToggleFriendsFrame then pcall(ToggleFriendsFrame, 1) elseif FriendsFrame then if FriendsFrame:IsShown() then HideUIPanel(FriendsFrame) else ShowUIPanel(FriendsFrame) end end
     elseif cmd == "feed" then
       NT.db().partyFeedOn = (rest == "1")
@@ -886,12 +897,12 @@ do
       NT.db().trState = st
       if NT.chatSettingsRefresh then NT.chatSettingsRefresh() end
     elseif cmd == "ui" then
-      local ver, k, bg, nat, face, th, fade, fz = rest:match("^(%d+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
+      local ver, k, bg, nat, face, th, fade, fz, du = rest:match("^(%d+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s*(%S*)")
       ver = tonumber(ver)
       if ver then
         if (c.uiv or 0) > ver then
           if NT.push then
-            for _, kv in ipairs({ { "keep", c.keep and "1" or "0" }, { "bg", string.format("%.2f", c.bg) }, { "native", c.native and "1" or "0" }, { "face", c.face or "maple" }, { "thin", c.thin and "1" or "0" }, { "fade", tostring(c.fade or 60) }, { "fz", tostring(c.font) } }) do pcall(NT.push, "D", "ui", kv[1], kv[2]) end
+            for _, kv in ipairs({ { "keep", c.keep and "1" or "0" }, { "bg", string.format("%.2f", c.bg) }, { "native", c.native and "1" or "0" }, { "face", c.face or "maple" }, { "thin", c.thin and "1" or "0" }, { "fade", tostring(c.fade or 60) }, { "fz", tostring(c.font) }, { "dual", c.dual and "1" or "0" } }) do pcall(NT.push, "D", "ui", kv[1], kv[2]) end
           end
         else
           c.uiv = ver
@@ -901,6 +912,7 @@ do
           local f2 = tonumber(fade) if f2 then c.fade = f2 pcall(applyFade) end
           local z = tonumber(fz) if z and z >= 9 and z <= 20 then c.font = z end
           pcall(applyFont)
+          if du and du ~= "" then c.dual = (du == "1") end
           c.native = (nat == "1") if NT.syncNative then NT.syncNative() end
           lookSave()
         end
@@ -1144,6 +1156,14 @@ do
         if on then o.bg({ COPPER[1], COPPER[2], COPPER[3] }, 230 / 255) else o.bg({ 1, 1, 1 }, 13 / 255) end
         o.l:SetFont(it[3] or fontFile(), it[4] or 11.5, "") o.l:SetText(it[2]) col(o.l, on and SX.dark or SX.seg)
         act(o, function() f(it[1]) end)
+        if it.new and not o.nb then o.nb = o:CreateTexture(nil, "OVERLAY", nil, 6) o.nt = o:CreateFontString(nil, "OVERLAY") o.nt:SetDrawLayer("OVERLAY", 7) end
+        if o.nb then
+          if it.new then
+            o.nt:SetFont(STANDARD_TEXT_FONT, 7.5, "") o.nt:SetText("NEW") o.nt:SetTextColor(0.08, 0.08, 0.09, 1)
+            o.nb:SetColorTexture(0.878, 0.725, 0.353, 1) o.nb:ClearAllPoints() o.nb:SetPoint("TOPRIGHT", o, "TOPRIGHT", 4, 6) o.nb:SetSize(math.floor(o.nt:GetStringWidth() + 9), 11)
+            o.nt:ClearAllPoints() o.nt:SetPoint("CENTER", o.nb, "CENTER", 0, 0) o.nb:Show() o.nt:Show()
+          else o.nb:Hide() o.nt:Hide() end
+        end
       end
       y = y + math.ceil(#items / n) * 35 - 5
     end
@@ -1177,7 +1197,8 @@ do
       elseif kind == "bg" then c.bg = v applyBg()
       elseif kind == "fade" then c.fade = v applyFade()
       elseif kind == "keep" then c.keep = v
-      elseif kind == "native" then c.native = v if NT.syncNative then NT.syncNative() end end
+      elseif kind == "native" then c.native = v if NT.syncNative then NT.syncNative() end
+      elseif kind == "dual" then c.dual = v if NT.syncNative then NT.syncNative() end end
       uiVer() lookSave()
       local sv = v
       if type(v) == "boolean" then sv = v and "1" or "0" elseif type(v) == "number" then sv = string.format("%.2f", v) end
@@ -1308,6 +1329,8 @@ do
       seg({ { false, "가만히 두면 투명" }, { true, "항상 보이기" } }, c.keep and true or false, function(v) setUI("keep", v) end)
       lbl("번역 끈 동안 대화창")
       seg({ { false, "낭만 대화창" }, { true, "와우 기본 대화창" } }, c.native and true or false, function(v) setUI("native", v) end)
+      lbl("번역 중 입력")
+      seg({ { false, "번역창으로 입력" }, { true, "와우 기본 대화창 같이 쓰기", new = true } }, c.dual and true or false, function(v) setUI("dual", v) end)
       do
         y = y + 14
         local fon = NT.feedEnabled and NT.feedEnabled() or false
@@ -2016,9 +2039,7 @@ do
         for _, r in ipairs({ eb:GetRegions() }) do if r.GetObjectType and r:GetObjectType() == "Texture" then r:SetAlpha(on and 0 or 1) end end
         local lang = _G["ChatFrame1EditBoxLanguage"] if lang then lang:SetAlpha(on and 0 or 1) lang:EnableMouse(not on) end
       end
-      local function placeEB()
-        if guard then return end
-        guard = true
+      local function placeEB0()
         if NT.chatNative() then
           CIN:Hide()
           if eb.__ntPar and eb:GetParent() ~= eb.__ntPar then
@@ -2026,7 +2047,6 @@ do
             if eb.__ntPts then eb:ClearAllPoints() for _, pt in ipairs(eb.__ntPts) do pcall(eb.SetPoint, eb, unpack(pt)) end end
             ebSkin(false)
           end
-          guard = false
           return
         end
         ebSkin(true)
@@ -2046,6 +2066,11 @@ do
           if eb:GetParent() ~= P then pcall(eb.SetParent, eb, P) eb:SetFrameLevel(cap:GetFrameLevel() + 3) end
           eb:SetPoint("TOPLEFT", cap, "TOPLEFT", 44, -4) eb:SetPoint("BOTTOMRIGHT", cap, "BOTTOMRIGHT", -112, 4)
         end
+      end
+      local function placeEB()
+        if guard then return end
+        guard = true
+        pcall(placeEB0)
         guard = false
       end
       eb:HookScript("OnEditFocusGained", function() C_Timer.After(0, placeEB) end)
@@ -2056,6 +2081,11 @@ do
       ebSkin(true)
       placeEB()
       P.placeEB = placeEB
+      C_Timer.NewTicker(1, function()
+        if NT.chatNative() or eb:HasFocus() then return end
+        local par = eb:GetParent()
+        if par ~= P and par ~= CIN then pcall(placeEB) end
+      end)
       NT.hsf(eb, "SetPoint", function() if not guard then C_Timer.After(0, placeEB) end end)
     end
     local n = ChatFrame1.GetNumMessages and ChatFrame1:GetNumMessages() or 0
@@ -2127,7 +2157,7 @@ do
       if nat then P:Hide() else P:Show() end
       if P.placeEB then pcall(P.placeEB) end
       if nat then pcall(showBlizz) else pcall(hideBlizz) end
-      if nat and NT.feedClear then pcall(NT.feedClear) end
+      if nat and not NT.chatDual() and NT.feedClear then pcall(NT.feedClear) end
       if not nat then pcall(applyBg) end
     end
     NT.syncNative = function() lastNat = nil pcall(syncNative) end

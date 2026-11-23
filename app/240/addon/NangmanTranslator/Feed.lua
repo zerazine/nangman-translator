@@ -262,7 +262,7 @@ NT.onEvent(ev, function(_, e, msg, sender, ...)
   end
   if secret(msg) or secret(sender) then return end
   if not NT.feedEnabled() and not test then return end
-  if NT.chatNative and NT.chatNative() and not test then return end
+  if NT.chatNativeOff and NT.chatNativeOff() and not test then return end
   if NT.centerOn then if not NT.centerOn(CKEY[e]) then return end
   elseif not (CKEY[e] == "party" or CKEY[e] == "raid" or CKEY[e] == "inst" or CKEY[e] == "whisper") then return end
   if CKEY[e] == "channel" and NT.centerChOn and not NT.centerChOn(select(2, ...)) then return end
