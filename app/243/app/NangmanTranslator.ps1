@@ -2736,7 +2736,7 @@ function Eng-Tick {
         $nm = [bool]($models -and $models -notmatch ('"' + [regex]::Escape($mn) + '"'))
         if (-not $nm -and $b.noModelAt -and ([DateTime]::Now - $b.noModelAt).TotalSeconds -lt 120) { $nm = $true }
         $b.noModel = $nm
-        if ($was -ne 'up') { $b.lastOk = $null }
+        if ($was -ne 'up') { $b.lastOk = $null; Ollama-NoUpd }
         if ($b.broken -and ($was -ne 'up' -or $b.noModel)) { $b.broken = $null }
         if ($was -ne 'up') { Log ("{0} Ollama 연결됨 ({1}){2}" -f $b.short, $b.host, $(if ($b.noModel) { " · 모델 $($b.model) 없음" } else { '' })); if ($b.warm -and -not $b.noModel -and -not $b.full) { Warm-Up $b } }
       } elseif ($was -eq 'up') { Log ("{0} Ollama 응답 없음 → 다음 엔진 사용" -f $b.short) }
@@ -2766,12 +2766,25 @@ function Ollama-Kick {
     $script:olChk = @{ t = $Http.GetAsync(([string]$S.localHost).TrimEnd('/') + '/api/version', $cts.Token); cts = $cts }
   } catch { $script:olChk = $null; Ollama-Start }
 }
+function Ollama-NoUpd {
+  if ($script:olNoUpd) { return }
+  try {
+    $od = Join-Path $env:LOCALAPPDATA 'Ollama'
+    if (-not (Test-Path -LiteralPath $od -PathType Container)) { return }
+    $d = Join-Path $od 'updates_v2'
+    if (Test-Path -LiteralPath $d -PathType Container) { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction Stop }
+    if (-not (Test-Path -LiteralPath $d)) { [IO.File]::WriteAllBytes($d, [byte[]]@()); Log 'Ollama 자동 업데이트 멈춤' }
+    $script:olNoUpd = $true
+  } catch {}
+}
+
 function Ollama-Dirs {
   $d = @(); foreach ($r in @($env:LOCALAPPDATA + '\Programs', $env:ProgramFiles, $env:ProgramW6432, ${env:ProgramFiles(x86)})) { if ($r) { $d += (Join-Path $r 'Ollama') } }
   return $d
 }
 function Ollama-Start {
   if (([DateTime]::Now - $script:olStartAt).TotalSeconds -lt 120) { return }
+  if (Get-Process -Name 'OllamaSetup*' -ErrorAction SilentlyContinue) { Log '사비 엔진(Ollama) 업데이트 중 → 끝나면 켬'; return }
   $script:olStartAt = [DateTime]::Now
   try {
     foreach ($od in @(Ollama-Dirs)) { $app = Join-Path $od 'ollama app.exe'; if (Test-Path -LiteralPath $app) { Start-Process -FilePath $app -WindowStyle Hidden | Out-Null; Log ('사비 엔진(Ollama) 켜는 중 (ollama app · ' + $od + ')'); return } }
@@ -5417,7 +5430,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 242
+$APPV = 243
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
