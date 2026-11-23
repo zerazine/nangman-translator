@@ -4783,6 +4783,8 @@ function Bar-Make {
   $miR.Add_Click({ try { Self-Restart } catch { Log "도우미 재시작 메뉴: $_" } })
   $miQ = New-Object System.Windows.Controls.MenuItem; $miQ.Header = '번역기 끄기'
   $miQ.Add_Click({ try { Tr-Quit } catch { Log "번역기 끄기 메뉴: $_" } })
+  $miDon = New-Object System.Windows.Controls.MenuItem; $miDon.Header = '제작자 후원'; $miDon.Foreground = Br '#FFE0B95A'
+  $miDon.Add_Click({ try { Start-Process 'https://nangman-translator.tistory.com/7' } catch { Log "후원 열기: $_" } })
   $miV = New-Object System.Windows.Controls.MenuItem; $miV.StaysOpenOnClick = $true; $miV.Header = '버전'
   $miV.Add_PreviewMouseDoubleClick({ param($snd, $e) $e.Handled = $true; try { $id0 = My-Id; if ($id0) { [void](Set-Clip $id0); [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = '문의용 ID를 복사했어요 (Ctrl+V로 붙여넣기)' }) } } catch { Log "ID 복사: $_" } })
   $miDV = New-Object System.Windows.Controls.MenuItem; $miDV.IsEnabled = $false; $miDV.Header = '번역 사전'
@@ -4806,7 +4808,7 @@ function Bar-Make {
     if (-not $d) { try { $d = (Get-Item -LiteralPath $TrCfgFile).LastWriteTime.ToString('yyyy-MM-dd') } catch { $d = '' } }
     return ($d -replace '-', '.')
   }
-  [void]$cm.Items.Add($miV); [void]$cm.Items.Add((New-Object System.Windows.Controls.Separator)); [void]$cm.Items.Add($miA); [void]$cm.Items.Add($miU); [void]$cm.Items.Add((New-Object System.Windows.Controls.Separator)); [void]$cm.Items.Add($miHide); [void]$cm.Items.Add($miLock); [void]$cm.Items.Add((New-Object System.Windows.Controls.Separator)); [void]$cm.Items.Add($miR); [void]$cm.Items.Add($miQ); [void]$cm.Items.Add($miH)
+  [void]$cm.Items.Add($miV); [void]$cm.Items.Add((New-Object System.Windows.Controls.Separator)); [void]$cm.Items.Add($miA); [void]$cm.Items.Add($miU); [void]$cm.Items.Add((New-Object System.Windows.Controls.Separator)); [void]$cm.Items.Add($miHide); [void]$cm.Items.Add($miLock); [void]$cm.Items.Add((New-Object System.Windows.Controls.Separator)); [void]$cm.Items.Add($miH); [void]$cm.Items.Add($miR); [void]$cm.Items.Add($miQ); [void]$cm.Items.Add((New-Object System.Windows.Controls.Separator)); [void]$cm.Items.Add($miDon)
   $cm.Add_Opened({ try { $Bar.miV.Header = (Menu-Info '낭만타우렌 번역기' ('버전 ' + $APPVS) $false) } catch {}; try { $na = $false; try { $na = (([DateTime]::Now - [DateTime]::Parse([string]$S.dictAt)).TotalHours -lt 24) } catch {}; } catch {}; try { Upd-Paint } catch {}; try { $Bar.miA.IsChecked = (Auto-IsOn) } catch {}; try { $Bar.miU.IsChecked = ($S.dictAuto -ne $false) } catch {}; try { $Bar.miHide.IsChecked = [bool]$S.barAuto; $Bar.miLock.IsChecked = -not [bool]$S.barFree } catch {} })
   $root.ContextMenu = $cm; $Bar.miA = $miA; $Bar.miU = $miU; $Bar.cm = $cm; $Bar.miHide = $miHide; $Bar.miLock = $miLock; $Bar.miHome = $miHome; $Bar.miV = $miV; $Bar.miDV = $miDV; $Bar.updS = $us0; $Bar.updR = $ur0
   $Bar.root = $root
@@ -5198,7 +5200,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 237
+$APPV = 238
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
