@@ -730,11 +730,12 @@ do
   local off = CreateFrame("Button", "NangmanTrTypingOff")
   off:SetScript("OnClick", function() typingAt = nil pendLink = nil end)
   local pasted, pastedEb, pastedAt = nil, nil, 0
+  NT.ours = NT.ours or {}
   local function swap(eb)
     if busy then return end
     local t = eb:GetText()
     if type(t) ~= "string" or secret(t) then return end
-    if t == "" then pasted = nil end
+    if t == "" then pasted = nil NT.ours[eb] = nil end
     if NangmanTranslator_LinkEN and not t:find("{fk", 1, true) then
       local c = NangmanTranslator_LinkEN(t)
       if c ~= t then busy = true pcall(eb.SetText, eb, c) busy = false t = c end
@@ -755,6 +756,7 @@ do
     end
     local nt = t
     local mark = nt:find("{fks}", 1, true)
+    if mark then NT.ours[eb] = GetTime() end
     if mark then nt = nt:match("{fks}(.*)$") or "" end
     if not nt:find("{fkl", 1, true) and nt == t then return end
     nt = nt:gsub("{fkl(%d+)}", function(i) return links[tonumber(i)] or "" end)
@@ -1015,6 +1017,8 @@ do
     local t = eb:GetText()
     if type(t) ~= "string" or t == "" or secret(t) then return end
     if inner(t) then eb:SetText("") run(t) return end
+    local o = NT.ours and NT.ours[eb]
+    if o and GetTime() - o < 8 then return end
     local ct = eb.GetAttribute and eb:GetAttribute("chatType")
     local target
     if ct == "WHISPER" or ct == "BN_WHISPER" then target = eb:GetAttribute("tellTarget") elseif ct == "CHANNEL" then target = eb:GetAttribute("channelTarget") end
