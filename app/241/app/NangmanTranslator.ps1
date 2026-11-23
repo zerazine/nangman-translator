@@ -3278,7 +3278,7 @@ $PrevTimer.Add_Tick({
   $lg = Out-Lang $tg
   if ($lg -eq 'EN') { $wq = Word-Out $txt; if ($wq) { Set-Prev ('→  ' + $wq); $PrevG.Visibility = 'Visible'; return } }
   if ($state.prevText -eq $txt -and $state.prevLang -eq $lg -and $state.prevOut) { return }
-  $task = Gem-Send ((Sys-Out $lg $txt) + (Link-Rule (Link-Tok $txt)) + (Slang-Out $txt)) (Link-Tok $txt) $false 'out'
+  $core = Link-Core $txt; $task = Gem-Send ((Sys-Out $lg $core) + (Slang-Out $core)) $core $false 'out'
   if ($task) { [void]$Pending.Add(@{ kind = 'prev'; task = $task; src = $txt; lang = $lg }) }
 })
 $Inp.Add_PreviewKeyDown({ param($snd, $e)
@@ -3389,8 +3389,13 @@ function Tr-Signal([bool]$on) {
 }
 function Link-Tok([string]$t) { foreach ($k in $LinkByName.Keys) { $t = $t.Replace($k, '{L' + $LinkByName[$k] + '}') }; return $t }
 function Link-Show([string]$t) { foreach ($k in $LinkByName.Keys) { $t = $t.Replace('{L' + $LinkByName[$k] + '}', $k) }; return $t }
+function Link-Core([string]$t) { return (((Link-Tok $t) -replace '\{L\d+\}', ' ') -replace '\s{2,}', ' ').Trim() }
 function Link-Game([string]$src, [string]$out) {
-  foreach ($m in [regex]::Matches($src, '\{L(\d+)\}')) { if (-not $out.Contains($m.Value)) { $out = $out.TrimEnd() + ' ' + $m.Value } }
+  $lead = [regex]::Match($src, '^\s*(?:\{L\d+\}\s*)+').Value
+  foreach ($m in [regex]::Matches($src, '\{L(\d+)\}')) {
+    if ($out.Contains($m.Value)) { continue }
+    if ($lead.Contains($m.Value)) { $out = $m.Value + ' ' + $out.TrimStart() } else { $out = $out.TrimEnd() + ' ' + $m.Value }
+  }
   return [regex]::Replace($out, '\{L(\d+)\}', '{fkl$1}')
 }
 function Link-Rule([string]$t) { if ($t -match '\{L\d+\}') { return "`n- {L1}처럼 중괄호로 된 표시는 아이템 링크 자리다. 번역하지 말고 글자 그대로 알맞은 자리에 둔다." }; return '' }
@@ -3481,7 +3486,7 @@ function Do-Send {
   if ($lg -eq 'EN') { $wq = Word-Out $txt; if ($wq) { Finish-Send $tg $txt $wq; return } }
   if ($state.prevText -eq $txt -and $state.prevLang -eq $lg -and $state.prevOut) { Finish-Send $tg $txt $state.prevOut; return }
   if ($state.sending) { Set-Prev '앞 글을 번역해서 보내는 중이에요 · 잠시 뒤 Enter'; $PrevG.Visibility = 'Visible'; return }
-  $task = Gem-Send ((Sys-Out $lg $txt) + (Link-Rule (Link-Tok $txt)) + (Slang-Out $txt)) (Link-Tok $txt) $false 'out'
+  $core = Link-Core $txt; $task = Gem-Send ((Sys-Out $lg $core) + (Slang-Out $core)) $core $false 'out'
   if (-not $task) { Set-Prev $(if ($script:ctlBlock) { [string]$script:ctlBlock } else { '번역 엔진 연결 안 됨' }); $PrevG.Visibility = 'Visible'; return }
   $state.sending = $true
   [void]$Pending.Add(@{ kind = 'send'; task = $task; src = $txt; lang = $lg; tg = $tg })
@@ -3507,7 +3512,7 @@ function Dual-Send([string]$t, [string]$who, [string]$txt) {
     if ($lq) { Finish-Send $tg $txt $lq; return }
     $lg = Out-Lang $tg
     if ($lg -eq 'EN') { $wq = Word-Out $txt; if ($wq) { Finish-Send $tg $txt $wq; return } }
-    $task = Gem-Send ((Sys-Out $lg $txt) + (Link-Rule (Link-Tok $txt)) + (Slang-Out $txt)) (Link-Tok $txt) $false 'out'
+    $core = Link-Core $txt; $task = Gem-Send ((Sys-Out $lg $core) + (Slang-Out $core)) $core $false 'out'
     if (-not $task) { Dual-Fail $txt '번역 엔진 연결 안 됨'; return }
     $state.sending = $true
     [void]$Pending.Add(@{ kind = 'send'; task = $task; src = $txt; lang = $lg; tg = $tg; dual = $true })
@@ -5411,7 +5416,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 240
+$APPV = 241
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
