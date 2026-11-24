@@ -65,6 +65,19 @@ do
     if ok and out ~= msg then return false, out, ... end
     return false
   end
+  local function dataJunk(msg)
+    local p = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1")
+    for w in p:gmatch("[%w%+/=]+") do
+      if #w >= 24 and w:find("%l") and select(2, w:gsub("%u", "")) >= 3 and select(2, w:gsub("%d", "")) >= 2 then return true end
+    end
+    return false
+  end
+  local function junkFilter(_, _, msg)
+    if type(msg) ~= "string" or secret(msg) then return false end
+    local ok, j = pcall(dataJunk, msg)
+    return ok and j or false
+  end
+  if addFilter then for _, e in ipairs(EVENTS) do pcall(addFilter, e, junkFilter) end end
   if addFilter and LinkUtil and LinkUtil.RegisterLinkHandler then for _, e in ipairs(EVENTS) do pcall(addFilter, e, urlFilter) end end
 end
 

@@ -1898,6 +1898,7 @@ function Parse-Wow([string]$s, [string]$base) {
   return ,$out
 }
 function Lk-Norm($lk, [string]$txt) { if ($lk -and ([string]$lk) -match '^questie:(\d+)') { $qid = $Matches[1]; $lv = '0'; if ($txt -match '^\[\[(\d+)') { $lv = $Matches[1] }; return ('quest:' + $qid + ':' + $lv) }; return $lk }
+function Data-Junk([string]$s) { foreach ($m in [regex]::Matches($s, '[A-Za-z0-9+/=]{24,}')) { $w = $m.Value; if ($w -cmatch '[a-z]' -and ([regex]::Matches($w, '[A-Z]')).Count -ge 3 -and ([regex]::Matches($w, '[0-9]')).Count -ge 2) { return $true } }; return $false }
 function Plain([string]$s) { return (((Parse-Wow $s 'ffffff') | ForEach-Object { $_[0] }) -join '') }
 $NameTag = @{ who = $true }
 function Add-Run($tb, $text, $hex, $tag) {
@@ -2741,7 +2742,7 @@ function Job-Ready($job) {
   if ($r.err) {
     Dbg ("엔진 실패 · " + $r.err)
     if ($r.down -and $b.kind -eq 'ollama' -and $b.st -ne 'down') { $b.st = 'down'; $b.probeAt = [DateTime]::Now; Log ($r.err + ' → 다음 엔진으로') ; Paint-Status }
-    if ($b.kind -eq 'gemini') { $job.fellBack = [string]$r.err }
+    if ($b.kind -eq 'gemini') { $job.fellBack = [string]$r.err; $ge = [string]$r.err; if ($ge -match '오류 429' -and $ge -match 'free_tier') { $script:gemQ = [int]$script:gemQ + 1; if ($script:gemQ -ge 3) { $script:gemErr = 'quota' } } elseif ($ge -match '오류 (401|403)' -or ($ge -match '오류 400' -and $ge -match 'API.?key')) { $script:gemErr = 'key' } elseif ($ge -match '연결 안 됨|시간 초과|오류 5\d\d') { $script:gemNet = [int]$script:gemNet + 1; if ($script:gemNet -ge 2) { $script:gemErr = 'net' } } }
     if ($b.kind -eq 'gemini' -and $Tier -eq 'low' -and [int]$job.retry -lt 2 -and [string]$r.err -notmatch '오류 (400|401|403|404)') {
       $job.retry = [int]$job.retry + 1; $job.retryAt = [DateTime]::Now.AddSeconds($(if ([string]$r.err -match '429') { 8 * $job.retry } else { 3 }))
       Dbg ('제미나이 다시 보내기 ' + $job.retry + '번째 · ' + $r.err); return $false
@@ -2750,6 +2751,7 @@ function Job-Ready($job) {
     if ($job.spare -and [string]$r.err -match '영어가 많이 남은|반복 고장') { $job.res = $job.spare; $job.done = $true; return $true }
     $job.res = $r; $job.done = $true; return $true
   }
+  if ($b.kind -eq 'gemini' -and ($script:gemErr -or $script:gemNet -or $script:gemQ)) { $script:gemErr = $null; $script:gemNet = 0; $script:gemQ = 0 }
   if ($b.kind -eq 'ollama') {
     if ($b.st -ne 'up') { $b.st = 'up' }
     $b.lastOk = [DateTime]::Now
@@ -3139,6 +3141,7 @@ function Handle($line) {
     'M' { if ($script:sendEndAt -and ([DateTime]::Now - $script:sendEndAt).TotalSeconds -lt 3) { return }; $mt = $(if ($f.Count -gt 1) { (($f[1..($f.Count - 1)]) -join "`t") } else { '' }); if ($mt) { $Inp.Text = $mt; $Inp.CaretIndex = $mt.Length }; $script:mOpen = [DateTime]::Now; $state.wantInput = [DateTime]::Now }
     'C' {
       $rec = @{ kind = 'C'; t = $f[1]; cnum = $f[2]; cname = $f[3]; sender = $f[4]; cls = $f[5]; col = $f[6]; msg = $f[7]; me = ($f[8] -eq '1'); test = ($f[9] -eq '1') }
+      if (-not $rec.me -and (Data-Junk (Plain $rec.msg))) { return }
       $before = $null
       if ($f.Count -gt 11 -and $f[11]) {
         $rec.sid = [string]$f[11]; $no = 0; [void][int]::TryParse([string]$f[10], [ref]$no); $rec.no = $no
@@ -4430,11 +4433,16 @@ function Tip-Daily {
   }
   return $null
 }
-$script:sysNote = $null; $script:sysHide = ''
+$script:sysNote = $null; $script:sysHide = ''; $script:gemErr = $null; $script:gemNet = 0; $script:gemQ = 0
 function Sys-Note {
   if ($S.pause -or $state.test) { return $null }
   if ($script:cfgErrAt -ne [DateTime]::MinValue -and ([DateTime]::Now - $script:cfgErrAt).TotalSeconds -lt 30) { return @{ k = 'cfg'; t1 = '사전 파일에 오류가 있어요'; t2 = '번역은 계속되지만 사전 일부가 빠질 수 있어요' } }
   $b0 = $(if ($script:BE.Count -gt 0) { $script:BE[0] } else { $null })
+  if ($b0 -and $b0.kind -eq 'gemini' -and $script:gemErr) {
+    if ($script:gemErr -eq 'quota') { return @{ k = 'gquota'; t1 = '제미나이 무료 사용량 한도에 걸렸어요'; t2 = '풀리면 이 안내는 사라져요' } }
+    if ($script:gemErr -eq 'key') { return @{ k = 'gkey'; t1 = '제미나이 API 키를 확인해 주세요'; t2 = '톱니 → 번역 엔진에서 키를 다시 넣어 주세요' } }
+    return @{ k = 'gnet'; t1 = '제미나이 연결이 잠시 안 돼요'; t2 = '연결되면 이 안내는 사라져요' }
+  }
   if (-not $b0 -or $b0.kind -ne 'ollama') { return $null }
   $e = ''; try { $e = Eng-Label } catch {}; if ($e -eq $b0.short) { $e = '' }
   $alt = $(if ($e) { '그동안은 ' + $e + ' 엔진으로 번역해요' } else { '' })
@@ -5337,7 +5345,7 @@ function Key-Commit {
   $kpw = $script:keyPw; if (-not $kpw) { return }
   $k = [string]$kpw.Password
   if (-not $k.Trim()) { Key-Close; return }
-  if (Key-Save $k) { [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = '제미나이 API 키를 저장했어요 (보내기 번역에서 제미나이를 고르면 써요)' }) }
+  if (Key-Save $k) { $script:gemErr = $null; $script:gemNet = 0; $script:gemQ = 0; [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = '제미나이 API 키를 저장했어요 (보내기 번역에서 제미나이를 고르면 써요)' }) }
   else { [void](Add-Line @{ kind = 'S'; col = 'ff7a5c'; text = '제미나이 API 키를 저장하지 못했어요' }) }
   Key-Close
 }
@@ -5518,7 +5526,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 249
+$APPV = 250
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
