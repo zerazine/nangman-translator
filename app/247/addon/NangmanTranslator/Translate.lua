@@ -383,6 +383,16 @@ local function geo()
   if ug ~= T.lastUG then T.lastUG = ug push("Z", ug) end
   local og = ""
   local cf = ChatFrame1
+  local has = ChatFrame_ContainsMessageGroup or (ChatFrameUtil and ChatFrameUtil.ContainsMessageGroup)
+  if has then
+    for i = 1, (NUM_CHAT_WINDOWS or 10) do
+      local f = _G["ChatFrame" .. i]
+      if f and f:IsVisible() then
+        local ok, yes = pcall(has, f, "INSTANCE_CHAT")
+        if ok and yes then cf = f break end
+      end
+    end
+  end
   if NT.chatNative and NT.chatNative() and cf and cf:IsVisible() and cf:GetLeft() then
     local cs = cf:GetEffectiveScale() * ph / 768
     og = string.format("%d\t%d\t%d\t%d", math.floor(cf:GetLeft() * cs + 0.5), math.floor(sh - cf:GetTop() * cs + 0.5), math.floor(cf:GetWidth() * cs + 0.5), math.floor(cf:GetHeight() * cs + 0.5))
@@ -520,7 +530,7 @@ do
 end
 
 do
-  local alive
+  local alive, waited
   function NT.alive() return alive and true or false end
   local hf = CreateFrame("Frame")
   hf:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -528,6 +538,10 @@ do
   function NT.seen()
     local was = alive
     alive = true
+    if not was and waited then
+      waited = nil
+      if RaidNotice_AddMessage and RaidWarningFrame then pcall(RaidNotice_AddMessage, RaidWarningFrame, "번역기 연결됨 · 번역을 시작합니다", { r = 0.55, g = 0.9, b = 0.55 }, 3) end
+    end
     if not was and NT.chatSettingsRefresh then C_Timer.After(0, NT.chatSettingsRefresh) end
     local d = db()
     if d.autoOff then
@@ -543,9 +557,10 @@ do
       if alive then return end
       local d = db()
       if d.on then setOn(false) d.autoOff = true end
-      NT.say("번역기 프로그램이 꺼져 있어요 · 바탕화면 '낭만타우렌 와우 포에버 번역기' 아이콘을 눌러 켜 주세요")
+      waited = true
+      NT.say("번역기가 꺼져 있다면 바탕화면 '낭만타우렌 와우 포에버 번역기'를 켜 주세요")
       if RaidNotice_AddMessage and RaidWarningFrame then
-        pcall(RaidNotice_AddMessage, RaidWarningFrame, "번역기 프로그램이 꺼져 있어요", { r = 1, g = 0.82, b = 0.4 })
+        pcall(RaidNotice_AddMessage, RaidWarningFrame, "번역기 연결을 기다리는 중이에요", { r = 1, g = 0.82, b = 0.4 })
       end
     end)
   end)
