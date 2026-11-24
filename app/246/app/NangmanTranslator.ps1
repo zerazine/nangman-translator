@@ -2344,9 +2344,10 @@ function TrCfg-Read([string]$path) {
 }
 function TrCfg-Load([bool]$first = $false) {
   if ($first) { Dict-Migrate }
-  try { $script:cfgStamp = [string](Get-Item -LiteralPath $TrCfgFile -ErrorAction Stop).LastWriteTimeUtc.Ticks } catch { $script:cfgStamp = 'none' }
+  $script:cfgStamp = Cfg-Stamp
   try {
     TrCfg-Read $TrCfgFile
+    try { Base-Keep; Retail-Load } catch { Log "본섭 사전 맞추기: $_" }
     try { Copy-Item -LiteralPath $TrCfgFile -Destination $TrCfgGood -Force } catch {}
     Log ("번역 사전 읽음: 은어 {0} · 영어 표현 {1} · 지명 {2} · 음성 콜 {3} · 이름 {4}" -f $SLANG_IN.Count, $SLANG_OUT.Count, $GLOSS_E.Count, @($script:VCALLS).Count, $script:NAMES_EN.Count)
     $script:cfgErrAt = [DateTime]::MinValue
@@ -2354,7 +2355,7 @@ function TrCfg-Load([bool]$first = $false) {
   } catch {
     Log ("번역 사전 읽기 실패 → " + $(if ($first) { '예비본으로 켬' } else { '이전 내용 그대로 씀' }) + " · $_")
     $script:cfgErrAt = [DateTime]::Now
-    if ($first -and (Test-Path -LiteralPath $TrCfgGood)) { try { TrCfg-Read $TrCfgGood } catch { Log "예비본도 읽기 실패: $_" } }
+    if ($first -and (Test-Path -LiteralPath $TrCfgGood)) { try { TrCfg-Read $TrCfgGood; Base-Keep; Retail-Load } catch { Log "예비본도 읽기 실패: $_" } }
   }
   try { Paint-Status } catch {}
 }
@@ -2481,6 +2482,76 @@ function Gloss-For([string]$t) {
   $nh = ''; try { $nh = Name-For $t } catch {}
   if ($hit.Count -eq 0) { return $nh }
   return "`n" + $GLOSS_HEAD + "`n" + ($hit -join "`n") + $nh
+}
+$RetailFile = Join-Path $Dir 'dict.retail.dat'
+function Retail-Text { return [Text.Encoding]::UTF8.GetString((Dict-Open ([IO.File]::ReadAllBytes($RetailFile)))).TrimStart([char]0xFEFF) }
+if ($null -eq $S.retailV) { $S.retailV = 0 }
+$script:RT = $null; $script:BASE = $null; $script:wowPid = 0; $script:OUT_FIX = @()
+function Out-Fix([string]$t) { if (-not $t -or -not $state.retail) { return $t }; foreach ($f in @($script:OUT_FIX)) { $t = $f[0].Replace($t, $f[1]) }; return $t }
+function Base-Keep { $script:BASE = @{ gl = $script:GLOSS_E; sl = $script:SLANG_IN; sw = $script:SLANG_OUT; pf = $script:PRE_FIX; ne = $script:NAMES_EN; nk = $script:NAMES_KO } }
+function Retail-Parse($c) {
+  $gl = New-Object System.Collections.ArrayList
+  foreach ($e in @($c.gloss)) { $a = @($e); if ($a.Count -lt 2) { continue }; try { [void]$gl.Add(@([string]$a[0], [string]$a[1], (New-Object Text.RegularExpressions.Regex([string]$a[0], 'IgnoreCase')))) } catch { Log ('본섭 사전 지명 틀림: ' + $a[0]) } }
+  $sl = New-Object System.Collections.ArrayList
+  foreach ($e in @($c.slang_in)) {
+    $a = @($e); if ($a.Count -lt 2) { continue }
+    $opt = 'IgnoreCase'; if ($a.Count -gt 2 -and [string]$a[2] -eq 'cs') { $opt = 'None' }
+    try { [void]$sl.Add(@([string]$a[0], [string]$a[1], (New-Object Text.RegularExpressions.Regex(('(?<![\p{L}\p{N}])(' + [string]$a[0] + ')(?![\p{L}\p{N}])'), $opt)))) } catch { Log ('본섭 사전 은어 틀림: ' + $a[0]) }
+  }
+  $sw = New-Object System.Collections.ArrayList
+  foreach ($e in @($c.slang_out)) { $a = @($e); if ($a.Count -ge 2 -and [string]$a[0]) { [void]$sw.Add(@([string]$a[0], [string]$a[1])) } }
+  $pf = New-Object System.Collections.ArrayList
+  foreach ($e in @($c.pre_fix)) {
+    if ($null -eq $e) { continue }
+    $a = @($e); if ($a.Count -lt 2) { continue }
+    $fl = $(if ($a.Count -gt 2) { [string]$a[2] } else { '' })
+    $opt = 'IgnoreCase'; if ($fl -match 'cs') { $opt = 'None' }
+    try { [void]$pf.Add(@((New-Object Text.RegularExpressions.Regex(('(?<![\p{L}\p{N}])(?<![가-힣]\([^()]*)(' + [string]$a[0] + ')(?![\p{L}\p{N}])'), $opt)), [string]$a[1], ($fl -match 'voice'))) } catch { Log ('본섭 사전 앞고침 틀림: ' + $a[0]) }
+  }
+  $ne = @{}; $nk = @{}
+  foreach ($e in @($c.names)) { if ($null -eq $e -or @($e).Count -lt 2) { continue }; $en = [string]$e[0]; $ko = [string]$e[1]; if (-not $en -or -not $ko) { continue }; $v = @($en, $ko); $ne[$en.ToLowerInvariant()] = $v; if (-not $nk.ContainsKey($ko)) { $nk[$ko] = $v } }
+  $of = New-Object System.Collections.ArrayList
+  foreach ($e in @($c.out_fix)) { $a = @($e); if ($a.Count -lt 2) { continue }; try { [void]$of.Add(@((New-Object Text.RegularExpressions.Regex(('(?<![가-힣])(?:' + [string]$a[0] + ')'), 'IgnoreCase')), [string]$a[1])) } catch { Log ('본섭 사전 보내기 고침 틀림: ' + $a[0]) } }
+  return @{ gl = $gl.ToArray(); sl = $sl.ToArray(); sw = $sw.ToArray(); pf = $pf.ToArray(); ne = $ne; nk = $nk; of = $of.ToArray() }
+}
+function Retail-Mix {
+  $b = $script:BASE; if (-not $b) { return }
+  $r = $script:RT
+  if ($state.retail -and $r) {
+    $keys = @{}; foreach ($x in $r.sw) { $keys[[string]$x[0]] = 1 }
+    $ak = @{}; foreach ($x in $r.gl) { $h = [string]$x[1]; $i = $h.IndexOf('='); if ($i -gt 0 -and $h.Contains('(쐐기 던전)')) { foreach ($w in ($h.Substring(0, $i) -split '[/,() ]')) { if ($w -cmatch '^[A-Z]{2,5}$') { $ak[$w] = 1 } } } }
+    $bgl = @($b.gl | Where-Object { $h = [string]$_[1]; $i = $h.IndexOf('='); $keep = $true; if ($i -gt 0 -and $i -lt 40) { foreach ($w in ($h.Substring(0, $i) -split '[/,() ]')) { if ($ak.ContainsKey($w)) { $keep = $false } } }; $keep })
+    $script:GLOSS_E = @($r.gl) + $bgl; $script:SLANG_IN = @($r.sl) + @($b.sl); $script:PRE_FIX = @($r.pf) + @($b.pf)
+    $script:SLANG_OUT = @($r.sw) + @($b.sw | Where-Object { -not $keys.ContainsKey([string]$_[0]) })
+    $ne = $b.ne.Clone(); foreach ($k in $r.ne.Keys) { $ne[$k] = $r.ne[$k] }
+    $nk = $b.nk.Clone(); foreach ($k in $r.nk.Keys) { $nk[$k] = $r.nk[$k] }
+    $script:NAMES_EN = $ne; $script:NAMES_KO = $nk; $script:OUT_FIX = @($r.of)
+  } else {
+    $script:GLOSS_E = $b.gl; $script:SLANG_IN = $b.sl; $script:SLANG_OUT = $b.sw; $script:PRE_FIX = $b.pf; $script:NAMES_EN = $b.ne; $script:NAMES_KO = $b.nk; $script:OUT_FIX = @()
+  }
+  try { $Cache.Clear() } catch {}; try { $VCache.Clear() } catch {}
+}
+function Retail-Load {
+  $script:RT = $null
+  if ($state.retail -and (Test-Path -LiteralPath $RetailFile)) {
+    try {
+      $c = (Retail-Text) | ConvertFrom-Json
+      $script:RT = Retail-Parse $c
+      Log ("본섭 사전 읽음: 은어 {0} · 영어 표현 {1} · 지명 {2} · 이름 {3}" -f $script:RT.sl.Count, $script:RT.sw.Count, $script:RT.gl.Count, $script:RT.ne.Count)
+    } catch { Log "본섭 사전 읽기 실패: $_" }
+  }
+  Retail-Mix
+}
+function Retail-Detect {
+  $p = [FTRK.Fg]::Pid(); if (-not $p -or $p -eq $script:wowPid) { return }
+  $script:wowPid = $p
+  $rt = $false; try { $rt = ([string](Get-Process -Id $p -ErrorAction Stop).Path) -match '\\_retail_\\' } catch {}
+  if ($rt -ne [bool]$state.retail) { $state.retail = $rt; Log ($(if ($rt) { '본섭 와우 → 본섭 사전 같이 씀' } else { '포에버 와우 → 포에버 사전만 씀' })); if ($rt -and -not $script:RT) { Retail-Load } elseif (-not $rt) { $script:RT = $null; Retail-Mix } else { Retail-Mix } }
+}
+function Cfg-Stamp {
+  $s = 'none'; try { $s = [string](Get-Item -LiteralPath $TrCfgFile -ErrorAction Stop).LastWriteTimeUtc.Ticks } catch {}
+  try { if (Test-Path -LiteralPath $RetailFile) { $s += '|' + [string](Get-Item -LiteralPath $RetailFile).LastWriteTimeUtc.Ticks } } catch {}
+  return $s
 }
 TrCfg-Load $true
 
@@ -2753,7 +2824,7 @@ function Eng-Tick {
   for ($i = $script:warmTasks.Count - 1; $i -ge 0; $i--) { $wt = $script:warmTasks[$i]; if ($wt.IsCompleted) { try { if ($wt.Status -eq 'RanToCompletion') { $wt.Result.Dispose() } } catch {}; $script:warmTasks.RemoveAt($i) } }
   if (($now - $script:cfgTickAt).TotalSeconds -ge 2) {
     $script:cfgTickAt = $now
-    $st = 'none'; try { $st = [string](Get-Item -LiteralPath $TrCfgFile -ErrorAction Stop).LastWriteTimeUtc.Ticks } catch {}
+    $st = Cfg-Stamp
     if ($st -ne $script:cfgStamp) { TrCfg-Load }
     if ($script:cfgErrAt -ne [DateTime]::MinValue -and ($now - $script:cfgErrAt).TotalSeconds -ge 30) { $script:cfgErrAt = [DateTime]::MinValue; Paint-Status }
   }
@@ -2938,6 +3009,7 @@ function Handle($line) {
       if ($f[1] -and [string]$S.lastChar -ne $ck0) {
         $S.lastChar = $ck0; $S.lastTarget = $null; $S.chanNames = @{}; $state.lastTarget = $null; $state.target = $null; $state.lastForeign = $null; $ChanNames.Clear()
         Save-Cfg; Log '캐릭 바뀜 → 채널 번호·보낼 곳 새로'
+        try { UI-Hello } catch { Log "캐릭 바뀜 대화창 설정: $_" }
       }
       $state.me = $f[1]; $state.realm = $f[2]; if ($f[3]) { $state.myHex = $f[3] }
       if ($f[1] -and [string]$S.lastMe -ne [string]$f[1]) { $S.lastMe = [string]$f[1]; Save-Cfg }
@@ -3403,7 +3475,7 @@ function Tr-Signal([bool]$on) {
 }
 function Link-Tok([string]$t) { foreach ($k in $LinkByName.Keys) { $t = $t.Replace($k, '{L' + $LinkByName[$k] + '}') }; return $t }
 function Link-Show([string]$t) { foreach ($k in $LinkByName.Keys) { $t = $t.Replace('{L' + $LinkByName[$k] + '}', $k) }; return $t }
-function Link-Core([string]$t) { return (((Link-Tok $t) -replace '\{L\d+\}', ' ') -replace '\s{2,}', ' ').Trim() }
+function Link-Core([string]$t) { return (Out-Fix ((((Link-Tok $t) -replace '\{L\d+\}', ' ') -replace '\s{2,}', ' ').Trim())) }
 function Link-Game([string]$src, [string]$out) {
   $lead = [regex]::Match($src, '^\s*(?:\{L\d+\}\s*)+').Value
   foreach ($m in [regex]::Matches($src, '\{L(\d+)\}')) {
@@ -5404,6 +5476,7 @@ $DictT.Interval = [TimeSpan]::FromMilliseconds(500)
 $DictT.Add_Tick({
   try {
     if (-not $Dict.task) {
+      if ($Dict.rPend -and -not $Dict.busy) { $Dict.kind = 'rbin'; $Dict.task = $DictHttp.GetByteArrayAsync($DictBase + 'retail.bin?t=' + [DateTime]::UtcNow.Ticks); return }
       if (([DateTime]::Now - $Dict.checkAt).TotalHours -ge 3) { Dict-Check }
       if ($Dict.msg -and ([DateTime]::Now - $Dict.msgAt).TotalSeconds -ge 6) { Dict-Paint }
       return
@@ -5413,6 +5486,7 @@ $DictT.Add_Tick({
     if ($t.Status -ne [System.Threading.Tasks.TaskStatus]::RanToCompletion) {
       $why = ''; try { $why = [string]$t.Exception.InnerException.Message } catch {}
       Log ('사전 ' + $k + ' 받기 실패: ' + $why)
+      if ($k -eq 'rbin') { $Dict.rPend = $null }
       if ($k -eq 'bin' -or $Dict.manual) { $Dict.busy = $false; Dict-Msg '받기 실패' }
       return
     }
@@ -5424,14 +5498,26 @@ $DictT.Add_Tick({
       if ([int]$Dict.remote -gt [int]$S.dictV) { if ($S.dictAuto -ne $false -or $Dict.manual) { Log ('새 사전 ' + $Dict.remote + ' 적용'); Dict-Update } }
       elseif ($Dict.manual) { Dict-Msg '최신' }
       if ([int]$Dict.remote -eq [int]$S.dictV -and -not $S.dictDate -and $Dict.rdate) { $S.dictDate = [string]$Dict.rdate; Save-Cfg }
+      if ($j.retail -and (Retail-Dir) -and ([int]$j.retail.v -gt [int]$S.retailV -or -not (Test-Path -LiteralPath $RetailFile))) { $Dict.rPend = $j.retail }
     } elseif ($k -eq 'bin') {
       try { Dict-Apply ([byte[]]$t.Result); Dict-Msg '사전 ✓' } catch { Log ('사전 업데이트 실패: ' + $_); Dict-Msg '실패 · 그대로' }
       $Dict.busy = $false; try { Bar-Paint } catch {}
+    } elseif ($k -eq 'rbin') {
+      $rp = $Dict.rPend; $Dict.rPend = $null
+      try {
+        $rb = [byte[]]$t.Result; if (-not (Dict-IsV2 $rb)) { throw '받은 파일 모양이 이상함' }
+        $plain = Dict-Dec2 $rb
+        if ((Dict-Sha $plain) -ne ([string]$rp.sha256).ToLower()) { throw '검사값이 안 맞음' }
+        $null = [Text.Encoding]::UTF8.GetString($plain).TrimStart([char]0xFEFF) | ConvertFrom-Json
+        $tmp = $RetailFile + '.new'; [IO.File]::WriteAllBytes($tmp, $rb); Move-Item -LiteralPath $tmp -Destination $RetailFile -Force
+        $S.retailV = [int]$rp.v; Save-Cfg
+        Log ('본섭 사전 업데이트: ' + $rp.v)
+      } catch { Log ('본섭 사전 받기 실패: ' + $_) }
     }
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 245
+$APPV = 246
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
@@ -5440,6 +5526,49 @@ function Upd-AddonDir {
   return $null
 }
 if ([string]$S.chatFont -eq 'malgun') { Malgun-Copy }
+function Retail-Dir {
+  $ad = Upd-AddonDir; if (-not $ad) { return $null }
+  $root = Split-Path (Split-Path (Split-Path (Split-Path $ad -Parent) -Parent) -Parent) -Parent
+  $r = Join-Path $root '_retail_'
+  if (-not (Test-Path -LiteralPath (Join-Path $r 'Wow.exe'))) { return $null }
+  return (Join-Path $r 'Interface\AddOns\NangmanTranslator')
+}
+function Retail-Iface {
+  try {
+    $ad = Upd-AddonDir; if (-not $ad) { return $null }
+    $bi = Join-Path (Split-Path (Split-Path (Split-Path (Split-Path $ad -Parent) -Parent) -Parent) -Parent) '.build.info'
+    if (-not (Test-Path -LiteralPath $bi)) { return $null }
+    $ls = [IO.File]::ReadAllLines($bi); if ($ls.Count -lt 2) { return $null }
+    $h = $ls[0].Split('|'); $vi = -1; $pi = -1
+    for ($i = 0; $i -lt $h.Count; $i++) { $n0 = ($h[$i] -split '!')[0]; if ($n0 -eq 'Version') { $vi = $i } elseif ($n0 -eq 'Product') { $pi = $i } }
+    if ($vi -lt 0 -or $pi -lt 0) { return $null }
+    foreach ($l in $ls[1..($ls.Count - 1)]) { $c = $l.Split('|'); if ($c.Count -gt [math]::Max($vi, $pi) -and $c[$pi] -eq 'wow' -and $c[$vi] -match '^(\d+)\.(\d+)\.(\d+)') { return ([int]$Matches[1] * 10000 + [int]$Matches[2] * 100 + [int]$Matches[3]) } }
+  } catch {}
+  return $null
+}
+function Retail-Sync {
+  try {
+    $src = Upd-AddonDir; $dst = Retail-Dir; if (-not $src -or -not $dst) { return }
+    $n = 0
+    $iv = Retail-Iface
+    foreach ($f in @(Get-ChildItem -LiteralPath $src -Recurse -File)) {
+      $d = Join-Path $dst ($f.FullName.Substring($src.Length).TrimStart('\'))
+      if ($iv -and $f.Name -eq 'NangmanTranslator_Mainline.toc') {
+        $tx = [regex]::Replace([IO.File]::ReadAllText($f.FullName), '(?m)^## Interface:[^\r\n]*', ('## Interface: ' + $iv))
+        $old = $(if (Test-Path -LiteralPath $d) { [IO.File]::ReadAllText($d) } else { '' })
+        if ($old -ne $tx) { $dd = Split-Path -Parent $d; if (-not (Test-Path -LiteralPath $dd)) { [void](New-Item -ItemType Directory -Path $dd -Force) }; [IO.File]::WriteAllText($d, $tx, (New-Object Text.UTF8Encoding($false))); $n++ }
+        continue
+      }
+      if ((Test-Path -LiteralPath $d) -and (Get-Item -LiteralPath $d).Length -eq $f.Length -and (Upd-FileSha $d) -eq (Upd-FileSha $f.FullName)) { continue }
+      $dd = Split-Path -Parent $d; if (-not (Test-Path -LiteralPath $dd)) { [void](New-Item -ItemType Directory -Path $dd -Force) }
+      Copy-Item -LiteralPath $f.FullName -Destination $d -Force; $n++
+    }
+    if ($n -gt 0) { Log ('본섭 애드온 맞춤: 파일 ' + $n + '개 (' + $dst + ')') }
+  } catch { Log "본섭 애드온 맞춤: $_" }
+}
+$RtT = New-Object Windows.Threading.DispatcherTimer; $RtT.Interval = [TimeSpan]::FromSeconds(20)
+$RtT.Add_Tick({ $RtT.Stop(); Retail-Sync })
+$RtT.Start()
 function Upd-Target([string]$p) {
   if ($p -match '\.\.' -or $p -notmatch '^(app|addon)/[A-Za-z0-9_\-/]+(\.[A-Za-z0-9]+)?$') { return $null }
   if ($p -match '^app/(.+)$') { $rel = $Matches[1]; if ($rel -match '(?i)^(settings\.json|translate-config.*|dict(\.good|\.bak)?\.dat|tier\.txt|installed\.txt)$') { return $null }; return (Join-Path $Dir ($rel -replace '/', '\')) }
@@ -5492,6 +5621,7 @@ function Upd-Apply {
     if ($Upd.j.ver -and (Test-Path -LiteralPath $rf)) { $ls = @([IO.File]::ReadAllLines($rf) | ForEach-Object { if ($_ -match '^\W*version=') { 'version=' + [string]$Upd.j.ver } else { $_ } }); [IO.File]::WriteAllLines($rf, [string[]]$ls, (New-Object Text.UTF8Encoding($true))) }
   } catch { Log "설치 기록 버전: $_" }
   Log ('프로그램 업데이트 끝: ' + $Upd.j.v + ' (' + [string]$Upd.j.ver + ') · 파일 ' + $items.Count + '개')
+  Retail-Sync
   try {
     $vreq = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Post, 'https://wxnvgbeahpjudaxjsjmg.supabase.co/rest/v1/rpc/usage_ver')
     [void]$vreq.Headers.TryAddWithoutValidation('apikey', 'sb_publishable_c6JUbaSwz1LAvxH9nenYXw_hkZOYEkt')
@@ -5898,7 +6028,9 @@ function Bg-Hint([string]$t) {
 }
 function Bg-OcrShow($c) {
   $p = [string]$c.msg
-  $FL = $null; try { $FL = Feed-Add @{ t = 'INSTANCE_CHAT'; sender = [string]$c.who; msg = $p; cls = ''; me = $false } } catch {}
+  $rec = @{ t = $(if ($c.t) { [string]$c.t } else { 'INSTANCE_CHAT' }); cnum = [string]$c.cnum; cname = [string]$c.cname; sender = [string]$c.who; msg = $p; cls = ''; me = $false }
+  if ($rec.t -ne 'INSTANCE_CHAT' -and -not (Feed-Want $rec)) { return }
+  $FL = $null; try { $FL = Feed-Add $rec } catch {}
   Dbg ('전장 읽기 · ' + $c.who + ': ' + $p)
   if (-not $FL) { return }
   $ck = 'bg|' + $p
@@ -5906,7 +6038,7 @@ function Bg-OcrShow($c) {
   $bh = Bg-Hint $p
   $sl = Slang-In $p
   $bt = ''
-  if ($bh.Count -gt 0) {
+  if ($rec.t -notmatch '^(INSTANCE_CHAT|PARTY|RAID)$') { $bt = '' } elseif ($bh.Count -gt 0) {
     $ws = New-Object System.Collections.ArrayList; $bl = New-Object System.Collections.ArrayList
     foreach ($h in $bh) { [void]$ws.Add(([string]$h[2]).ToLower()); [void]$bl.Add('- ' + $h[2] + ' = ' + $h[3]) }
     $sk = New-Object System.Collections.ArrayList
@@ -5990,8 +6122,14 @@ function Bg-OcrParse([string]$txt) {
   $msgs = New-Object System.Collections.ArrayList; $cur = $null
   foreach ($ln in ($txt -split "`n")) {
     $t = $ln.Trim(); if (-not $t) { continue }
-    $m = [regex]::Match($t, '^[\[\(（{]?\s*(인스\S*|인던\S*|전장\S*|파티\S*|공격대\S*|공대\S*)(\s+[가-힣]{2,4})?\s*[\]\)）}]?\s*[\[\(（{]?\s*([^\]\)）}:：;；•·]{2,40}?)\s*[\]\)）}]?\s*[:：;；•·]\s*(.+)$')
-    if ($m.Success) { $g3 = $m.Groups[3]; $br = ($g3.Index -gt 0 -and '[(（{'.Contains([string]$t[$g3.Index - 1])); $cur = @{ who = (Bg-OcrWho $g3.Value $br); msg = $m.Groups[4].Value.Trim() }; [void]$msgs.Add($cur); continue }
+    $m = [regex]::Match($t, '^[\[\(（{]?\s*(인스\S*|인던\S*|전장\S*|파티\S*|공격대\S*|공대\S*|길드\S*|관리자\S*)(\s+[가-힣]{2,4})?\s*[\]\)）}]?\s*[\[\(（{]?\s*([^\]\)）}:：;；•·]{2,40}?)\s*[\]\)）}]?\s*[:：;；•·]\s*(.+)$')
+    if ($m.Success) { $g3 = $m.Groups[3]; $br = ($g3.Index -gt 0 -and '[(（{'.Contains([string]$t[$g3.Index - 1])); $g1 = $m.Groups[1].Value; $ty = $(if ($g1 -like '파티*') { 'PARTY' } elseif ($g1 -like '공*') { 'RAID' } elseif ($g1 -like '길드*') { 'GUILD' } elseif ($g1 -like '관리자*') { 'OFFICER' } else { 'INSTANCE_CHAT' }); $cur = @{ who = (Bg-OcrWho $g3.Value $br); msg = $m.Groups[4].Value.Trim(); t = $ty }; [void]$msgs.Add($cur); continue }
+    $m = [regex]::Match($t, '^[\[\(（{]?\s*(\d{1,2})\s*[.,]\s*([^\]\)）}\[]{1,30}?)\s*[\]\)）}]\s*[\[\(（{]?\s*([A-Za-z][^\]\)）}:：;；•·]{1,39}?)\s*[\]\)）}]?\s*[:：;；]\s*(.+)$')
+    if ($m.Success) { $cur = @{ who = (Bg-OcrWho $m.Groups[3].Value $true); msg = $m.Groups[4].Value.Trim(); t = 'CHANNEL'; cnum = $m.Groups[1].Value; cname = $m.Groups[2].Value.Trim() }; [void]$msgs.Add($cur); continue }
+    $m = [regex]::Match($t, '^[\[\(（{]?\s*([A-Za-z][^\]\)）}:：;；]{1,39}?)\s*[\]\)）}]?\s*님의\s*(귓속말|외침)\s*[:：;；』•·]\s*(.+)$')
+    if ($m.Success) { $cur = @{ who = (Bg-OcrWho $m.Groups[1].Value $true); msg = $m.Groups[3].Value.Trim(); t = $(if ($m.Groups[2].Value -eq '외침') { 'YELL' } else { 'WHISPER' }) }; [void]$msgs.Add($cur); continue }
+    $m = [regex]::Match($t, '^[\[\(（{]\s*([A-Za-z][^\]\)）}:：;；•·]{1,39}?)\s*[\]\)）}]?\s*[:：;；]\s*(.+)$')
+    if ($m.Success) { $cur = @{ who = (Bg-OcrWho $m.Groups[1].Value $true); msg = $m.Groups[2].Value.Trim(); t = 'SAY' }; [void]$msgs.Add($cur); continue }
     if ($cur -and $t -notmatch '[:：]' -and (Bg-OcrClean $t) -ge 0.85 -and ([regex]::Matches($t, '[A-Za-z]').Count -ge 2)) { $cur.msg += ' ' + $t } else { $cur = $null }
   }
   $now = [DateTime]::Now
@@ -6012,7 +6150,7 @@ function Bg-OcrParse([string]$txt) {
     $c = $hit.c
     if ([regex]::Matches([string]$c.msg, '[가-힣]').Count -ge 2) { continue }
     if ((Bg-OcrClean ([string]$c.msg)) -lt 0.6 -or ([string]$c.who -replace '[^A-Za-z]', '').Length -lt 2) { continue }
-    $c = @{ who = (Bg-OcrFix ([string]$c.who) $false); msg = (Bg-OcrFix ([string]$c.msg)) }
+    $c = @{ who = (Bg-OcrFix ([string]$c.who) $false); msg = (Bg-OcrFix ([string]$c.msg)); t = [string]$c.t; cnum = [string]$c.cnum; cname = [string]$c.cname }
     $ck = ([string]$c.msg).ToLower() -replace '[^a-z0-9]', ''
     if ($ck.Length -lt 2) { continue }
     $same = $false
@@ -6229,6 +6367,8 @@ $Main.Add_Tick({
       } catch {}
     }
     $wow = [FTR]::FindWow(); $fg = [FTR]::Foreground()
+    if ($wow -ne [IntPtr]::Zero -and $fg -eq $wow) { try { Retail-Detect } catch {} }
+   
     $mineFg = $false; if ($fg -ne $wow -and $fg -ne [IntPtr]::Zero) { try { $mineFg = ($null -ne [System.Windows.Interop.HwndSource]::FromHwnd($fg)) } catch {} }
     if ($fg -eq $wow -or $mineFg) { if ($script:awayAt -and ([DateTime]::Now - $script:awayAt).TotalSeconds -ge 2) { $script:catchUntil = [DateTime]::Now.AddSeconds(10) }; $script:awayAt = $null } elseif (-not $script:awayAt) { $script:awayAt = [DateTime]::Now }
     if ($wow -ne $script:lastWowH) { $script:lastWowH = $wow; $script:placed = ''; $script:lastFollow = [DateTime]::MinValue }

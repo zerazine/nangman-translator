@@ -191,7 +191,8 @@ end
 local evf = CreateFrame("Frame")
 for _, e in ipairs(EV) do pcall(evf.RegisterEvent, evf, e) end
 local function onChatEv(_, ev, msg, sender, lang, chanStr, target, flags, zoneId, chanIdx, chanBase, _, lineID, guid, bnID)
-  if secret(msg) or secret(sender) then return end
+  if secret(msg) or secret(sender) then if T.onLock then pcall(T.onLock, ev) end return end
+  if T.onRead then pcall(T.onRead, ev) end
   if NangmanTranslator_LinkKO then msg = NangmanTranslator_LinkKO(msg, sender, ev, guid) end
   if lineID and not secret(lineID) then
     local key = ":" .. tostring(lineID) .. ":"
@@ -943,18 +944,43 @@ end
 do
   local bf = CreateFrame("Frame")
   bf:RegisterEvent("PLAYER_ENTERING_WORLD") bf:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+  local GRP = { CHAT_MSG_SAY = true, CHAT_MSG_YELL = true, CHAT_MSG_PARTY = true, CHAT_MSG_PARTY_LEADER = true, CHAT_MSG_RAID = true, CHAT_MSG_RAID_LEADER = true, CHAT_MSG_RAID_WARNING = true, CHAT_MSG_INSTANCE_CHAT = true, CHAT_MSG_INSTANCE_CHAT_LEADER = true }
+  local lockAt = 0
+  local function notice(s) C_Timer.After(2, function() if RaidNotice_AddMessage and RaidWarningFrame then pcall(RaidNotice_AddMessage, RaidWarningFrame, s, { r = 1, g = 0.82, b = 0.4 }, 5) end end) end
+  local function enter(s)
+    local d = db()
+    if not d.on then return false end
+    d.bgOff = true setOn(false, true)
+    notice(s)
+    return true
+  end
+  local function leave()
+    local d = db()
+    d.bgOff = nil d.lockOff = nil
+    if not d.on and not T.userOff then setOn(true, true) end
+  end
   local function check()
     local _, typ = IsInInstance()
     local d = db()
     if typ == "pvp" or typ == "arena" then
-      if d.on then
-        d.bgOff = true setOn(false, true)
-        C_Timer.After(2, function() if RaidNotice_AddMessage and RaidWarningFrame then pcall(RaidNotice_AddMessage, RaidWarningFrame, "전장에 계시는 동안에는 집중 대화창으로 번역을 보실 수 있어요", { r = 1, g = 0.82, b = 0.4 }, 5) end end)
-      end
+      d.lockOff = nil
+      enter("전장에 계시는 동안에는 집중 대화창으로 번역을 보실 수 있어요")
     elseif d.bgOff then
-      d.bgOff = nil
-      if not d.on and not T.userOff then setOn(true, true) end
+      if d.lockOff and typ ~= "none" then return end
+      leave()
     end
+  end
+  T.onLock = function(ev)
+    if not GRP[ev] then return end
+    lockAt = GetTime()
+    local d = db()
+    if d.bgOff then return end
+    if enter("대화가 잠긴 곳이라 집중 대화창으로 번역을 보여 드려요") then d.lockOff = true end
+  end
+  T.onRead = function(ev)
+    if not GRP[ev] then return end
+    local d = db()
+    if d.lockOff and GetTime() - lockAt > 15 then leave() end
   end
   NT.onEvent(bf, function() C_Timer.After(1, function() pcall(check) end) end)
 end

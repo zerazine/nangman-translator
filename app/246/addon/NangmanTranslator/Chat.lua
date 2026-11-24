@@ -84,7 +84,12 @@ do
     if c.bg == nil then c.bg = 0.6 end
     if c.fade == nil then c.fade = 0 end
     if c.cfont == nil then c.cfont = 13 end
-    if type(c.center) ~= "table" then c.center = { say = true, party = true, raid = true, inst = true, guild = true, whisper = true, channel = true } end
+    if type(c.center) ~= "table" then c.center = { say = true, party = true, raid = true, inst = true, whisper = true } c.cenV2 = true end
+    if not c.cenV2 then
+      local e = c.center
+      if e.say and e.party and e.raid and e.inst and e.guild and e.whisper and e.channel then e.guild = nil e.channel = nil end
+      c.cenV2 = true
+    end
     return c
   end
   NT.chatCfg = cfg
