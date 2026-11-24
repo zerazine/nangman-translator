@@ -1016,7 +1016,7 @@ do
       if _G["SLASH_" .. k .. "1"] == c then pcall(h, rest) return end
     end
   end
-  local CAT = { SAY = "say", YELL = "say", PARTY = "party", PARTY_LEADER = "party", RAID = "raid", RAID_LEADER = "raid", RAID_WARNING = "raid", INSTANCE_CHAT = "inst", INSTANCE_CHAT_LEADER = "inst", GUILD = "guild", OFFICER = "guild", WHISPER = "whisper" }
+  local CAT = { SAY = "say", YELL = "say", PARTY = "party", PARTY_LEADER = "party", RAID = "raid", RAID_LEADER = "raid", RAID_WARNING = "raid", INSTANCE_CHAT = "inst", INSTANCE_CHAT_LEADER = "inst", GUILD = "guild", OFFICER = "guild", WHISPER = "whisper", BN_WHISPER = "whisper" }
   local function chCat(num)
     local name = ""
     if GetChannelName then local ok, _, nm = pcall(GetChannelName, num) if ok and type(nm) == "string" and not secret(nm) then name = nm end end
@@ -1054,6 +1054,12 @@ do
     local text = msg:gsub("(|c[^|]*|H.-|h.-|h|r)", tok):gsub("(|H.-|h.-|h)", tok)
     local tg = ""
     if (ct == "WHISPER" or ct == "CHANNEL") and target ~= nil and not secret(target) then tg = tostring(target) end
+    if ct == "BN_WHISPER" then
+      if target == nil or secret(target) or not BNet_GetBNetIDAccount then return false end
+      local okB, id = pcall(BNet_GetBNetIDAccount, target)
+      if not okB or not id or secret(id) then return false end
+      tg = tostring(id)
+    end
     push("KS", ct, tg, text)
     return true
   end
