@@ -1247,9 +1247,15 @@ do
       }
       if st.vok then sws[#sws + 1] = { "디스코드 음성 번역", st.v and true or false, function() st.v = not st.v toPC("voice", "", st.v and "1" or "0") end, function() return (st.vs or "") .. " · 켜면 일반·파티·공대·귓말만 번역" end } end
       sws[#sws + 1] = { "내 이름 부르면 강조", (st.c ~= false), function() st.c = not (st.c ~= false) toPC("calloff", "", (st.c ~= false) and "1" or "0") end, function(on) return on and "주황색 · 가운데에도 띄움" or "강조 안 함" end }
+      sws[#sws + 1] = { "영어 표현 학습", (st.e ~= false), function() st.e = not (st.e ~= false) toPC("engoff", "", (st.e ~= false) and "1" or "0") end, function() return "카드 보기 ›" end, function() toPC("engshow", "", "1") end }
       for i, it in ipairs(sws) do
         local ci = (i - 1) % 2
-        switch(ci * (cw + 8), cw, it[1], it[4](it[2]), it[2], it[3])
+        local o = switch(ci * (cw + 8), cw, it[1], it[4](it[2]), it[2], it[3])
+        if not o.lk then o.lk = CreateFrame("Button", nil, o) end
+        if it[5] then
+          col(o.s, SX.gold) o.lk:SetFrameLevel(o:GetFrameLevel() + 5) o.lk:ClearAllPoints() o.lk:SetPoint("TOPLEFT", o.s, "TOPLEFT", -2, 2)
+          o.lk:SetSize(o.s:GetStringWidth() + 6, o.s:GetStringHeight() + 4) o.lk:SetScript("OnClick", it[5]) o.lk:Show()
+        else o.lk:Hide() end
         if ci == 1 or i == #sws then y = y + 38 + 8 end
       end
       y = y - 8
@@ -2337,6 +2343,8 @@ do
     end
   end
   local function sub()
+    if NT.chatNative and NT.chatNative() then return end
+    local cc = NT.chatCfg and NT.chatCfg() if type(cc) == "table" and (cc.dual or cc.native) then return end
     pcall(groups)
     if not (ChatFrame1 and GetChannelList) then return end
     local add = ChatFrame_AddChannel or (ChatFrameUtil and ChatFrameUtil.AddChannel)

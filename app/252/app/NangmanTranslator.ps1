@@ -430,7 +430,7 @@ function TrSt-Line {
   $gon = (@($S.sendEngines).Count -gt 0 -and [string]@($S.sendEngines)[0] -eq 'gemini')
   $b = { param($x) if ($x) { '1' } else { '0' } }
   $och0 = @($och)
-  do { $och = $och0; $r = ('/ntchat trst o={0} v={1} vok={2} c={3} g={4} k={5} vc={6} t={7} och={8} vs={9}' -f (& $b (-not [bool]$S.origOff)), (& $b ([bool]$S.voice)), (& $b $VoiceOK), (& $b (-not [bool]$S.callOff)), (& $b $gon), (& $b ([bool](Api-Key))), (& $b ($S.voiceCen -ne $false)), ($tr -join '.'), ($och -join '.'), (($vs -replace '\s', '_')))
+  do { $och = $och0; $r = ('/ntchat trst o={0} v={1} vok={2} c={3} g={4} k={5} vc={6} t={7} och={8} vs={9} e={10}' -f (& $b (-not [bool]$S.origOff)), (& $b ([bool]$S.voice)), (& $b $VoiceOK), (& $b (-not [bool]$S.callOff)), (& $b $gon), (& $b ([bool](Api-Key))), (& $b ($S.voiceCen -ne $false)), ($tr -join '.'), ($och -join '.'), (($vs -replace '\s', '_')), (& $b (-not [bool]$S.engOff)))
     if ($r.Length -le 230 -or $och0.Count -eq 0) { return $r }
     $och0 = @($och0 | Select-Object -First ($och0.Count - 1))
   } while ($true)
@@ -711,6 +711,7 @@ function Rp-HoverU($u) {
   $fl.Visibility = 'Visible'
 }
 function Rp-Mark($L) {
+  try { Eng-Drop (Plain $L.rec.msg) } catch {}
   try { $rn = New-Object System.Windows.Documents.Run('  ' + [string][char]0x2691 + ' 제보함'); $rn.Foreground = Br '#FFE0B95A'; $rn.FontSize = [math]::Max(8, [double]$L.main.FontSize * 0.78); [void]$L.main.Inlines.Add($rn) } catch {}
 }
 function Rp-Send($L, [string]$fix) {
@@ -1347,6 +1348,13 @@ function Sx-Do($t) {
     'fontx' { $script:fontOpen = -not [bool]$script:fontOpen }
     'origoff' { $S.origOff = -not [bool]$S.origOff; Save-Cfg; Redraw-All }
     'calloff' { $S.callOff = -not [bool]$S.callOff; Save-Cfg }
+    'engoff' { $S.engOff = -not [bool]$S.engOff; Save-Cfg }
+    'engi' { $script:engView = [int]$t.v; Build-Eng; return }
+    'engshow' { Eng-View $false; return }
+    'engtoday' { $script:engHist = 0; $script:engView = -1; Build-Eng; return }
+    'engtog' { $S.engOff = -not [bool]$S.engOff; Save-Cfg; TrSt-Push $false; if ($S.engOff) { $Pop.IsOpen = $false } else { Build-Eng }; return }
+    'engnav' { $c0 = @((Eng-Cur).items | Where-Object { $_ }).Count; $v = $script:engView + [int]$t.v; $script:engView = $(if ($v -lt 0 -or $v -ge $c0) { -1 } else { $v }); Build-Eng; return }
+    'engday' { $script:engHist++; $script:engView = -1; Build-Eng; return }
     'vcen' { $S.voiceCen = -not ($S.voiceCen -ne $false); Save-Cfg }
     'cthin' { $S.thin = [bool]$t.v; Chat-FontSet ([string]$S.chatFont) }
     'dvoice' { if ($VoiceOK) { $S.voice = -not [bool]$S.voice; try { [FTRVoice]::Enabled = [bool]$S.voice } catch {}; Save-Cfg; try { Bar-VPaint } catch {} } }
@@ -1364,7 +1372,7 @@ function Sx-Do($t) {
     'key' { $Pop.IsOpen = $false; Key-Dialog; return }
     'donate' { $script:dnOpen = -not [bool]$script:dnOpen; Build-Menu; if ($script:dnOpen) { try { [void]$popSv.Dispatcher.BeginInvoke([System.Action]{ try { $popSv.ScrollToEnd() } catch {} }, [System.Windows.Threading.DispatcherPriority]::Loaded) } catch {} }; return }
   }
-  if (-not $script:fromGame -and [string]$t.kind -in @('origoff', 'voice', 'calloff', 'tr', 'trch', 'sendeng', 'vcen')) { TrSt-Push $false }
+  if (-not $script:fromGame -and [string]$t.kind -in @('origoff', 'voice', 'calloff', 'tr', 'trch', 'sendeng', 'vcen', 'engoff')) { TrSt-Push $false }
   Build-Menu
 }
 function Sx-Head([string]$text, [string]$badge = '', [string]$right = '', [bool]$warm = $true) {
@@ -1491,6 +1499,9 @@ function Build-Menu {
   [void]$ug.Children.Add((Sx-Switch '번역 표시' (-not [bool]$S.origOff) @{ kind = 'origoff' } $(if ($S.origOff) { '번역된 글만 보기' } else { '원문과 함께 보기' })))
   [void]$ug.Children.Add((Sx-Switch '디스코드 음성 번역' ($VoiceOK -and [bool]$S.voice) @{ kind = 'dvoice' } $(if (-not $VoiceOK) { $VoiceWhy } elseif ($S.voice -and $S.pause) { '번역을 켜면 같이 켜져요' } elseif ($S.voice) { '켜짐 · 공개·거래 등 채널 대화는 원문 그대로 (음성 우선)' } else { '디스코드 영어 말을 화면 가운데에' })))
   [void]$ug.Children.Add((Sx-Switch '내 이름 부르면 강조' (-not [bool]$S.callOff) @{ kind = 'calloff' } $(if ($S.callOff) { '강조 안 함' } else { '주황색 · 가운데에도 띄움' })))
+  $esw = Sx-Switch '영어 표현 학습' (-not [bool]$S.engOff) @{ kind = 'engoff' } ('카드 보기 ' + [string][char]0x203A)
+  try { $esp = $esw.Child.Children[1]; $el0 = $esp.Children[0]; $esp.Children.RemoveAt(0); $hz = New-Object System.Windows.Controls.StackPanel; $hz.Orientation = 'Horizontal'; [void]$hz.Children.Add($el0); $nb = New-Object System.Windows.Controls.Border; $nb.CornerRadius = New-Object System.Windows.CornerRadius(6); $nb.Background = Br '#FFE3C39A'; $nb.Padding = New-Object System.Windows.Thickness(4, 0, 4, 1); $nb.Margin = New-Object System.Windows.Thickness(6, 0, 0, 0); $nb.VerticalAlignment = 'Center'; $nb.Child = (TB 'NEW' 7.5 (Br '#FF141518')); [void]$hz.Children.Add($nb); $esp.Children.Insert(0, $hz); $lk = $esp.Children[1]; $lk.Foreground = $GOLD; $lk.FontSize = 10.5; Sx-Click $lk @{ kind = 'engshow' } } catch {}
+  [void]$ug.Children.Add($esw)
   [void]$popS.Children.Add($ug)
   Sx-Head '번역할 대화' '모든 탭 공통' '' $false
   $wp = New-Object System.Windows.Controls.WrapPanel
@@ -2367,6 +2378,7 @@ function Sys-Out($lang, [string]$t = '') {
   return $SYS_OUT_T.Replace('{lang}', $n) + (Gloss-For $t)
 }
 function Slang-In([string]$t) {
+  $script:slLast = @{ t = $t; h = (New-Object System.Collections.ArrayList) }
   if (-not $t) { return '' }
   $hit = @()
   try {
@@ -2386,6 +2398,7 @@ function Slang-In([string]$t) {
       [void]$keep.Add($h)
       if ($keep.Count -ge 6) { break }
     }
+    foreach ($k0 in $keep) { [void]$script:slLast.h.Add(@([string]$k0[2], [string]$k0[3])) }
     $hit = @($keep | Sort-Object -Property @{ Expression = { $_[0] } } | ForEach-Object { '- ' + $_[2] + ' = ' + $_[3] })
   } catch {
     Log "은어 힌트 고르기: $_ (예전 방식으로)"
@@ -2962,9 +2975,239 @@ function In-Start($L) {
   $ctx = [string]$L.ctx
   if (-not $ctx -and $Cache[$p]) { Done-In $L $Cache[$p]; return }
   $cx = ''; if ($ctx) { $cx = "`n[앞 대화 · 같은 채팅방 · 참고만 하고 이 줄들은 번역하지 말 것 · 비꼬기·농담·누구에게 한 말인지 판단에만 쓰고 맨 아래 원문 한 줄만 번역한다]`n" + $ctx }
-  $task = Gem-Send ($SYS_IN + (Gloss-For $p) + (Slang-In $p) + $cx) (Pre-Fix $p) $false (In-Way $L.rec)
+  $slx = Slang-In $p; $L.slh = $null; if ($script:slLast -and $script:slLast.t -eq $p) { $L.slh = $script:slLast.h }
+  $task = Gem-Send ($SYS_IN + (Gloss-For $p) + $slx + $cx) (Pre-Fix $p) $false (In-Way $L.rec)
   if (-not $task) { Set-Sub $L $null ('(' + (Eng-Why) + ' - 이 줄은 원문 그대로)'); return }
   [void]$Pending.Add(@{ kind = 'in'; task = $task; L = $L; src = $p })
+}
+$ENG_BASIC = @{}; foreach ($w0 in @('lol', 'lmao', 'rofl', 'ty', 'tyty', 'thx', 'thanks', 'np', 'gg', 'ok', 'okay', 'k', 'kk', 'hi', 'hello', 'hey', 'yes', 'no', 'ya', 'yea', 'yeah', 'yep', 'nope', 'nice', 'gj', 'wp', 'gz', 'grats', 'sry', 'sorry', 'pls', 'plz', 'u', 'ur', 'r', 'y', 'im', 'omg', 'haha', 'xd', 'yo', 'sup', 'bye', 'cya')) { $ENG_BASIC[$w0] = 1 }
+$ENG_BAD = New-Object Text.RegularExpressions.Regex('(?i)(?<![a-z])(f+u+c*k+\w*|fck\w*|fk|wtf|stfu|gtfo|lmf?ao|shit\w*|bitch\w*|bastard\w*|dick\w*|cock\w*|puss(y|ies)|cunt\w*|ass|asses|asshole\w*|arse\w*|damn\w*|crap\w*|piss\w*|whore\w*|slut\w*|porn\w*|sex\w*|horny|nude\w*|naked|boob\w*|tits?|titties|nipple\w*|penis\w*|vagina\w*|cum|cumming|wank\w*|nigg\w*|fag\w*|retard\w*|rape\w*|kys|blowjob\w*|hooker\w*|milf|thicc)(?![a-z])|씨발|시발|ㅅㅂ|ㅆㅂ|좆|존나|졸라|개새|병신|ㅂㅅ|섹스|야동|자지|보지|꼴리|창녀|지랄|닥쳐|꺼져|미친')
+$ENGF = Join-Path $Dir 'engcard.json'
+$EngDB = @{ day = ''; lines = 0; items = @{}; seen = @(); hist = @(); shown = '' }
+try {
+  if (Test-Path -LiteralPath $ENGF) {
+    $j0 = ConvertTo-Hash (Get-Content -LiteralPath $ENGF -Raw -Encoding UTF8 | ConvertFrom-Json)
+    foreach ($k0 in @('day', 'lines', 'shown')) { if ($null -ne $j0[$k0]) { $EngDB[$k0] = $j0[$k0] } }
+    if ($j0.items -is [hashtable]) { $EngDB.items = $j0.items }
+    $EngDB.seen = @($j0.seen | Where-Object { $_ }); $EngDB.hist = @($j0.hist | Where-Object { $_ })
+  }
+} catch { Log "영어 카드 읽기: $_" }
+$script:engSeen = New-Object 'System.Collections.Generic.HashSet[string]'; foreach ($x0 in $EngDB.seen) { [void]$script:engSeen.Add([string]$x0) }
+$script:engSaveAt = [DateTime]::MinValue; $script:engChkAt = [DateTime]::MinValue; $script:engCard = $null; $script:engView = -1; $script:engHist = 0
+function Eng-Save {
+  try {
+    $EngDB.seen = @($script:engSeen | Select-Object -Last 3000)
+    $tmp = $ENGF + '.tmp'; [IO.File]::WriteAllText($tmp, ($EngDB | ConvertTo-Json -Depth 8 -Compress), (New-Object Text.UTF8Encoding($false)))
+    Move-Item -LiteralPath $tmp -Destination $ENGF -Force; $script:engSaveAt = [DateTime]::Now
+  } catch { Log "영어 카드 저장: $_" }
+}
+function Eng-Day {
+  $d = [DateTime]::Now.ToString('yyyy-MM-dd')
+  if ([string]$EngDB.day -ne $d) { $EngDB.day = $d; $EngDB.lines = 0; $EngDB.items = @{}; $script:engCard = $null }
+  return $d
+}
+$ENG_STOP = @{}; foreach ($w0 in @('나도', '너도', '그냥', '진짜', '정말', '하는', '하다', '하기', '이다', '에서', '으로', '같은', '그리고', '것을', '있는', '하고')) { $ENG_STOP[$w0] = 1 }
+function Eng-Fit([string]$mn, [string]$ko) {
+  $tk = @([regex]::Matches($mn, '[가-힣]{2,}') | ForEach-Object { $_.Value } | Where-Object { -not $ENG_STOP.ContainsKey($_) })
+  if ($tk.Count -eq 0) { return $true }
+  foreach ($t in $tk) { if ($ko.Contains($t.Substring(0, 2))) { return $true } }
+  return $false
+}
+function Eng-Drop([string]$src) {
+  $src = ([regex]::Replace($src, '\|c[0-9a-fA-F]{8}|\|r', '')).Trim(); $hit = $false
+  foreach ($k in @($EngDB.items.Keys)) { $it = $EngDB.items[$k]; if ($it.ex -and [string]$it.ex.src -eq $src) { $it.ex = $null; $it.n = [math]::Max(0, [int]$it.n - 1); $hit = $true } }
+  if ($hit) { Eng-Save }
+}
+function Eng-Ch($r) { $n = $TABSHORT[(TrCat $r.t $r.cname)]; if (-not $n) { $n = '대화' }; return $n }
+function Eng-Note($L, [string]$lang, [string]$ko) {
+  if ($S.engOff -or $state.test -or $lang -ne 'EN') { return }
+  $r = $L.rec; if (-not $r -or $r.me -or $r.test) { return }
+  [void](Eng-Day); $EngDB.lines = [int]$EngDB.lines + 1
+  $p = Plain $r.msg
+  $h = $L.slh
+  if ($null -eq $h) { [void](Slang-In $p); if ($script:slLast -and $script:slLast.t -eq $p) { $h = $script:slLast.h } }
+  if ($null -eq $h -or $h.Count -eq 0) { return }
+  $clean = -not ($ENG_BAD.IsMatch($p) -or $ENG_BAD.IsMatch($ko))
+  $src = ([regex]::Replace($p, '\|c[0-9a-fA-F]{8}|\|r', '')).Trim()
+  $mine = ([string]$r.t -match '^(BN_)?WHISPER$|^PARTY|^RAID|^INSTANCE')
+  $new = $false
+  foreach ($x in $h) {
+    $en = ([string]$x[0]).Trim(); $mn = ([string]$x[1]).Trim()
+    $k = ($en.ToLower() -replace '\s+', ' ')
+    if ($k.Length -lt 2 -or $ENG_BASIC.ContainsKey($k) -or $script:engSeen.Contains($k)) { continue }
+    if ($ENG_BAD.IsMatch($en) -or $ENG_BAD.IsMatch($mn)) { continue }
+    if (-not (Eng-Fit $mn $ko)) { continue }
+    $it = $EngDB.items[$k]
+    if (-not $it) { $it = @{ en = $en; ko = $mn; n = 0; who = @{}; mine = $false; ex = $null }; $EngDB.items[$k] = $it; $new = $true }
+    $it.n = [int]$it.n + 1
+    if (-not ($it.who -is [hashtable])) { $it.who = @{} }
+    if ($it.who.Count -lt 20) { $it.who[[string]$r.sender] = 1 }
+    if ($mine) { $it.mine = $true }
+    if ($clean -and $src.Length -ge 4 -and $src.Length -le 110) {
+      $ex = $it.ex
+      if (-not $ex -or [math]::Abs($src.Length - 40) -lt [math]::Abs(([string]$ex.src).Length - 40)) { $it.ex = @{ src = $src; ko = $ko; ch = (Eng-Ch $r); who = (Short $r.sender); at = [DateTime]::Now.ToString('HH:mm') } }
+    }
+  }
+  if ($new -or ([DateTime]::Now - $script:engSaveAt).TotalSeconds -gt 60) { Eng-Save }
+}
+function Eng-Pick {
+  $sc = @{}
+  foreach ($k in @($EngDB.items.Keys)) {
+    $it = $EngDB.items[$k]; if (-not $it.ex) { continue }
+    $wc = $(if ($it.who -is [hashtable]) { $it.who.Count } else { 1 })
+    $sc[[string]$k] = [int]$it.n * 2 + $wc * 3 + $(if ($it.mine) { 4 } else { 0 }) + $(if (([string]$it.ex.src).Length -le 60) { 2 } else { 0 })
+  }
+  $out = @(); $mean = @{}
+  foreach ($k in @($sc.Keys | Sort-Object -Property @{ Expression = { $sc[$_] }; Descending = $true })) {
+    $it = $EngDB.items[$k]; $mk = ([string]$it.ko -replace '\s', ''); if ($mean.ContainsKey($mk)) { continue }; $mean[$mk] = 1
+    $out += @{ k = [string]$k; en = [string]$it.en; ko = [string]$it.ko; src = [string]$it.ex.src; sko = [string]$it.ex.ko; ch = [string]$it.ex.ch; who = [string]$it.ex.who; at = [string]$it.ex.at }
+    if ($out.Count -ge 5) { break }
+  }
+  return , $out
+}
+function Eng-Ready {
+  if ($S.engOff -or $S.pause -or $state.off -or $state.combat -or $state.inputOn -or $state.test) { return $false }
+  $today = Eng-Day; if ([string]$EngDB.shown -eq $today) { return $false }
+  if ($script:engCard -and $script:engCard.day -eq $today) { return $true }
+  $now = [DateTime]::Now
+  if (($now - $script:appStart).TotalMinutes -lt 10 -or ($now - $script:engChkAt).TotalSeconds -lt 30) { return $false }
+  $script:engChkAt = $now
+  $pk = Eng-Pick; $need = $(if ($now.Hour -ge 22) { 3 } else { 5 })
+  if ($pk.Count -lt $need) { return $false }
+  $script:engCard = @{ day = $today; lines = [int]$EngDB.lines; items = $pk }
+  return $true
+}
+function Eng-Dismiss { $EngDB.shown = (Eng-Day); Eng-Save }
+function Eng-Open {
+  if (-not $script:engCard) { return }
+  $today = Eng-Day
+  if ([string]$EngDB.shown -ne $today) {
+    $EngDB.shown = $today
+    foreach ($i in $script:engCard.items) { [void]$script:engSeen.Add([string]$i.k) }
+    $hs = @($EngDB.hist | Where-Object { $_ -and [string]$_.day -ne $today })
+    $hs = @(@{ day = $today; lines = [int]$script:engCard.lines; items = @($script:engCard.items) }) + $hs
+    $EngDB.hist = @($hs | Select-Object -First 30); Eng-Save
+  }
+  Tip-Hide; $script:tipMode = ''
+  Eng-View $false
+}
+function Eng-Days {
+  $today = Eng-Day
+  $hs = @($EngDB.hist | Where-Object { $_ })
+  $L = New-Object System.Collections.ArrayList
+  if (-not ($hs.Count -gt 0 -and [string]$hs[0].day -eq $today)) { [void]$L.Add(@{ day = $today; lines = [int]$EngDB.lines; items = @(Eng-Pick); live = $true }) }
+  foreach ($h in $hs) { [void]$L.Add($h) }
+  return , $L
+}
+$ENG_SAMPLE = @{ day = ''; lines = 0; sample = $true; items = @(
+  @{ k = ''; en = "I'm down"; ko = '좋아, 나도 할래'; src = "BFD run? I'm down"; sko = '나락 갈래? 나도 갈래'; ch = '파티'; who = '예시'; at = '' },
+  @{ k = ''; en = 'my bad'; ko = '내 실수, 미안'; src = 'my bad, pulled too early'; sko = '미안 내가 너무 일찍 당김'; ch = '파티'; who = '예시'; at = '' },
+  @{ k = ''; en = 'oom'; ko = '마나 없음'; src = 'healer oom, wait a sec'; sko = '힐러 마나 없음, 잠깐만'; ch = '공격대'; who = '예시'; at = '' },
+  @{ k = ''; en = 'brb'; ko = '금방 올게'; src = 'brb 2 min'; sko = '2분만 금방 올게'; ch = '귓말'; who = '예시'; at = '' },
+  @{ k = ''; en = "let's call it"; ko = '오늘은 여기까지 하자'; src = "ok let's call it, gn all"; sko = '오늘은 여기까지, 다들 잘 자'; ch = '길드'; who = '예시'; at = '' }) }
+$script:engSample = $false; $script:engGeoAt = $null
+function Eng-Cur { if ($script:engSample) { return $ENG_SAMPLE }; $d = Eng-Days; if ($script:engHist -ge $d.Count -or $script:engHist -lt 0) { $script:engHist = 0 }; return $d[$script:engHist] }
+function Eng-Intro {
+  if ($S.engIntro -or $S.engOff -or $S.pause -or $state.off -or $state.test -or -not $state.geo) { return }
+  if (-not $script:engGeoAt) { $script:engGeoAt = [DateTime]::Now; return }
+  if (([DateTime]::Now - $script:engGeoAt).TotalSeconds -lt 15 -or $state.combat -or $state.inputOn -or $state.editing -or $Pop.IsOpen) { return }
+  $S.engIntro = $true; Save-Cfg
+  Tip-Hide; Eng-View $false $true
+}
+function Eng-View([bool]$fromGame, [bool]$sample = $false) {
+  $script:engSample = $sample; $script:engHist = 0; $script:engView = -1; $script:popMode = 'eng'; Build-Eng
+  if (-not $Pop.IsOpen) {
+    if ($fromGame -or -not $TrM.root.IsVisible) { $Pop.PlacementTarget = $null; $Pop.Placement = 'MousePoint' } else { $Pop.PlacementTarget = $TrM.root; $Pop.Placement = 'Bottom' }
+    try { $popSv.MaxHeight = [System.Windows.SystemParameters]::WorkArea.Height * 0.9 / [math]::Max(0.5, $Scale.ScaleY); $popSv.ScrollToTop() } catch {}
+    $Pop.IsOpen = $true
+  }
+}
+function Eng-Pill([string]$text, $tag) {
+  $b = New-Object System.Windows.Controls.Border; $b.Height = 26; $b.CornerRadius = New-Object System.Windows.CornerRadius(13); $b.Padding = New-Object System.Windows.Thickness(12, 0, 12, 0); $b.Margin = New-Object System.Windows.Thickness(0, 0, 6, 0); $b.Background = Br '#12FFFFFF'
+  $l = TB $text 11.5 $SUBC; $l.VerticalAlignment = 'Center'; $b.Child = $l; Sx-Click $b $tag
+  [System.Windows.Controls.DockPanel]::SetDock($b, 'Left')
+  return $b
+}
+function Eng-Foot([object[]]$pills) {
+  $d = New-Object System.Windows.Controls.DockPanel; $d.LastChildFill = $false; $d.Margin = New-Object System.Windows.Thickness(0, 6, 0, 0)
+  foreach ($p in $pills) { [void]$d.Children.Add($p) }
+  $sp = New-Object System.Windows.Controls.StackPanel; $sp.Orientation = 'Horizontal'; $sp.VerticalAlignment = 'Center'
+  $l = TB '학습 보지 않기' 10.5 $MUTED; $l.VerticalAlignment = 'Center'; $l.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0); [void]$sp.Children.Add($l)
+  $tr = New-Object System.Windows.Controls.Grid; $tr.Width = 34; $tr.Height = 18
+  $off = [bool]$S.engOff; if ($off) { $l.Foreground = $GOLD }
+  $tk = New-Object System.Windows.Controls.Border; $tk.CornerRadius = New-Object System.Windows.CornerRadius(9); $tk.Background = $(if ($off) { Br '#FFB98E5F' } else { Br '#26FFFFFF' }); [void]$tr.Children.Add($tk)
+  $kn = New-Object System.Windows.Shapes.Ellipse; $kn.Width = 14; $kn.Height = 14; $kn.Fill = Br '#FFFFFFFF'; $kn.HorizontalAlignment = $(if ($off) { 'Right' } else { 'Left' }); $kn.Margin = New-Object System.Windows.Thickness(2, 0, 2, 0); [void]$tr.Children.Add($kn)
+  [void]$sp.Children.Add($tr); Sx-Click $sp @{ kind = 'engtog' }
+  [System.Windows.Controls.DockPanel]::SetDock($sp, 'Right'); [void]$d.Children.Add($sp)
+  [void]$popS.Children.Add($d)
+}
+function Build-Eng {
+  $popS.Children.Clear(); $popS.Width = 360
+  $hn = 1; if (-not $script:engSample) { $dd = Eng-Days; $hn = $dd.Count }
+  $c = Eng-Cur; $its = @($c.items | Where-Object { $_ }); $n = $its.Count; $isT = ($c.sample -or [string]$c.day -eq (Eng-Day))
+  if ($script:engView -ge $n) { $script:engView = -1 }
+  $hd = New-Object System.Windows.Controls.DockPanel; $hd.LastChildFill = $false; $hd.Margin = New-Object System.Windows.Thickness(0, 0, 0, 8)
+  $x = TB ([string][char]0x00D7) 18 (Br '#FFA3A3A3'); $x.VerticalAlignment = 'Center'; $x.Padding = New-Object System.Windows.Thickness(6, 0, 2, 2); [System.Windows.Controls.DockPanel]::SetDock($x, 'Right'); Sx-Click $x @{ kind = 'close' }; [void]$hd.Children.Add($x)
+  $dt = [DateTime]::MinValue; $ds = [string]$c.day; if ([DateTime]::TryParse($ds, [ref]$dt)) { $ds = ('{0}월 {1}일' -f $dt.Month, $dt.Day) }
+  if ($script:engView -lt 0) {
+    $t = TB $(if ($isT) { '오늘의 영어' } else { '지난 영어' }) 15 $GOLD; $t.VerticalAlignment = 'Bottom'; [System.Windows.Controls.DockPanel]::SetDock($t, 'Left'); [void]$hd.Children.Add($t)
+    if ($c.sample) { $nb0 = New-Object System.Windows.Controls.Border; $nb0.CornerRadius = New-Object System.Windows.CornerRadius(6); $nb0.Background = Br '#FFE3C39A'; $nb0.Padding = New-Object System.Windows.Thickness(5, 0, 5, 1); $nb0.Margin = New-Object System.Windows.Thickness(8, 0, 0, 3); $nb0.VerticalAlignment = 'Bottom'; $nb0.Child = (TB 'NEW' 8 (Br '#FF141518')); [System.Windows.Controls.DockPanel]::SetDock($nb0, 'Left'); [void]$hd.Children.Add($nb0) }
+    $st = TB $(if ($c.sample) { '미리 보기' } elseif ($c.live -and $n -lt 5) { '{0} · 모으는 중 {1} / 5' -f $ds, $n } else { '{0} · 채팅 {1}줄 중' -f $ds, [int]$c.lines }) 10.5 $MUTED; $st.VerticalAlignment = 'Bottom'; $st.Margin = New-Object System.Windows.Thickness(8, 0, 0, 2); [System.Windows.Controls.DockPanel]::SetDock($st, 'Left'); [void]$hd.Children.Add($st)
+    [void]$popS.Children.Add($hd)
+    for ($i = 0; $i -lt $n; $i++) {
+      $it = $its[$i]
+      $row = New-Object System.Windows.Controls.Border; $row.Height = 36; $row.CornerRadius = New-Object System.Windows.CornerRadius(7); $row.Background = Br '#0AFFFFFF'; $row.Margin = New-Object System.Windows.Thickness(0, 0, 0, 5)
+      $d = New-Object System.Windows.Controls.DockPanel; $d.Margin = New-Object System.Windows.Thickness(9, 0, 10, 0)
+      $nb = New-Object System.Windows.Controls.Border; $nb.Width = 20; $nb.Height = 20; $nb.CornerRadius = New-Object System.Windows.CornerRadius(10); $nb.BorderThickness = New-Object System.Windows.Thickness(1); $nb.BorderBrush = Br '#8CE3C39A'; $nb.VerticalAlignment = 'Center'
+      $nt = TB ([string]($i + 1)) 10.5 $GOLD; $nt.HorizontalAlignment = 'Center'; $nt.VerticalAlignment = 'Center'; $nb.Child = $nt
+      [System.Windows.Controls.DockPanel]::SetDock($nb, 'Left'); [void]$d.Children.Add($nb)
+      $ar = TB ([string][char]0x203A) 13 $MUTED; $ar.VerticalAlignment = 'Center'; $ar.Margin = New-Object System.Windows.Thickness(8, 0, 0, 1); [System.Windows.Controls.DockPanel]::SetDock($ar, 'Right'); [void]$d.Children.Add($ar)
+      $ko = TB ([string]$it.ko) 11 $SUBC; $ko.VerticalAlignment = 'Center'; $ko.TextTrimming = 'CharacterEllipsis'; $ko.MaxWidth = 150; [System.Windows.Controls.DockPanel]::SetDock($ko, 'Right'); [void]$d.Children.Add($ko)
+      $en = TB ([string]$it.en) 13.5 $CREAM; $en.VerticalAlignment = 'Center'; $en.Margin = New-Object System.Windows.Thickness(10, 0, 8, 0); $en.TextTrimming = 'CharacterEllipsis'; [void]$d.Children.Add($en)
+      $row.Child = $d; Sx-Click $row @{ kind = 'engi'; v = $i }
+      [void]$popS.Children.Add($row)
+    }
+    if ($c.live) {
+      for ($g = $n; $g -lt 5; $g++) {
+        $row = New-Object System.Windows.Controls.Border; $row.Height = 36; $row.CornerRadius = New-Object System.Windows.CornerRadius(7); $row.BorderThickness = New-Object System.Windows.Thickness(1); $row.BorderBrush = Br '#1AFFFFFF'; $row.Margin = New-Object System.Windows.Thickness(0, 0, 0, 5)
+        $d = New-Object System.Windows.Controls.DockPanel; $d.Margin = New-Object System.Windows.Thickness(9, 0, 10, 0)
+        $nb = New-Object System.Windows.Controls.Border; $nb.Width = 20; $nb.Height = 20; $nb.CornerRadius = New-Object System.Windows.CornerRadius(10); $nb.BorderThickness = New-Object System.Windows.Thickness(1); $nb.BorderBrush = Br '#33FFFFFF'; $nb.VerticalAlignment = 'Center'
+        $nt = TB ([string]($g + 1)) 10.5 (Br '#FF666666'); $nt.HorizontalAlignment = 'Center'; $nt.VerticalAlignment = 'Center'; $nb.Child = $nt
+        [System.Windows.Controls.DockPanel]::SetDock($nb, 'Left'); [void]$d.Children.Add($nb)
+        $gt = TB $(if ($S.engOff) { '학습이 꺼져 있어요' } else { '채팅에서 모으는 중…' }) 12 (Br '#FF6A6A6A'); $gt.VerticalAlignment = 'Center'; $gt.Margin = New-Object System.Windows.Thickness(10, 0, 0, 0); [void]$d.Children.Add($gt)
+        $row.Child = $d; [void]$popS.Children.Add($row)
+      }
+    }
+    $pl = @()
+    if ($c.sample) { $sn = TB '실제 카드는 그날 채팅에서 들은 표현으로 하루 한 번 와요' 10.5 $MUTED; $sn.TextWrapping = 'Wrap'; $sn.Margin = New-Object System.Windows.Thickness(2, 3, 0, 2); [void]$popS.Children.Add($sn) }
+    if ($script:engHist -lt $hn - 1) { $pl += (Eng-Pill $(if ($script:engHist -eq 0) { '지난 카드' } else { [string][char]0x2039 + ' 더 지난 카드' }) @{ kind = 'engday' }) }
+    if ($script:engHist -gt 0) { $pl += (Eng-Pill '오늘 카드' @{ kind = 'engtoday' }) }
+    Eng-Foot $pl
+    return
+  }
+  $i = $script:engView; $it = $its[$i]
+  $nm = TB ('{0} / {1}' -f ($i + 1), $n) 11 $MUTED; $nm.VerticalAlignment = 'Center'; [System.Windows.Controls.DockPanel]::SetDock($nm, 'Left'); [void]$hd.Children.Add($nm)
+  [void]$popS.Children.Add($hd)
+  $big = TB ([string]$it.en) 22 $CREAM; $big.TextWrapping = 'Wrap'; [void]$popS.Children.Add($big)
+  $mn = TB ([string]$it.ko) 13 $GOLD; $mn.TextWrapping = 'Wrap'; $mn.Margin = New-Object System.Windows.Thickness(0, 2, 0, 10); [void]$popS.Children.Add($mn)
+  $lb = TB $(if ($c.sample) { '예문' } elseif ($isT) { '오늘 실제로 들은 문장' } else { '그날 실제로 들은 문장' }) 10 $MUTED; $lb.Margin = New-Object System.Windows.Thickness(0, 0, 0, 4); [void]$popS.Children.Add($lb)
+  $q = New-Object System.Windows.Controls.Border; $q.BorderThickness = New-Object System.Windows.Thickness(2, 0, 0, 0); $q.BorderBrush = Br '#99E3C39A'; $q.Background = Br '#0AFFFFFF'; $q.CornerRadius = New-Object System.Windows.CornerRadius(0, 6, 6, 0); $q.Padding = New-Object System.Windows.Thickness(10, 7, 10, 8)
+  $qs = New-Object System.Windows.Controls.StackPanel
+  $src = [string]$it.src; $qt = TB '' 12.5 $CREAM; $qt.TextWrapping = 'Wrap'
+  $m = [regex]::Match($src, [regex]::Escape([string]$it.en), 'IgnoreCase')
+  if ($m.Success) {
+    if ($m.Index -gt 0) { [void]$qt.Inlines.Add((New-Object System.Windows.Documents.Run($src.Substring(0, $m.Index)))) }
+    $hr = New-Object System.Windows.Documents.Run($m.Value); $hr.Foreground = $GOLD; [void]$qt.Inlines.Add($hr)
+    if ($m.Index + $m.Length -lt $src.Length) { [void]$qt.Inlines.Add((New-Object System.Windows.Documents.Run($src.Substring($m.Index + $m.Length)))) }
+  } else { $qt.Text = $src }
+  [void]$qs.Children.Add($qt)
+  if ($it.sko) { $sk = TB ([string]$it.sko) 11.5 $SUBC; $sk.TextWrapping = 'Wrap'; $sk.Margin = New-Object System.Windows.Thickness(0, 3, 0, 0); [void]$qs.Children.Add($sk) }
+  $mt = TB $(if ($c.sample) { '[{0}] {1}' -f $it.ch, $it.who } else { '[{0}] {1} · {2} · 번역기 번역' -f $it.ch, $it.who, $it.at }) 10 $MUTED; $mt.Margin = New-Object System.Windows.Thickness(0, 4, 0, 0); [void]$qs.Children.Add($mt)
+  $q.Child = $qs; [void]$popS.Children.Add($q)
+  Eng-Foot @((Eng-Pill ([string][char]0x2039 + ' 이전') @{ kind = 'engnav'; v = -1 }), (Eng-Pill ('다음 ' + [string][char]0x203A) @{ kind = 'engnav'; v = 1 }))
+  $dp = New-Object System.Windows.Controls.StackPanel; $dp.Orientation = 'Horizontal'; $dp.HorizontalAlignment = 'Center'; $dp.Margin = New-Object System.Windows.Thickness(0, 8, 0, 0)
+  for ($j = 0; $j -lt $n; $j++) { $dot = New-Object System.Windows.Controls.Border; $dot.Height = 5; $dot.Width = $(if ($j -eq $i) { 14 } else { 5 }); $dot.CornerRadius = New-Object System.Windows.CornerRadius(2.5); $dot.Margin = New-Object System.Windows.Thickness(2, 0, 2, 0); $dot.Background = $(if ($j -eq $i) { $GOLD } else { Br '#40FFFFFF' }); [void]$dp.Children.Add($dot) }
+  [void]$popS.Children.Add($dp)
 }
 function Done-In($L, $res) {
   $lang = [string]$res.lang; $ko = [string]$res.ko
@@ -2977,6 +3220,7 @@ function Done-In($L, $res) {
   Render-Main $L $ko
   Set-Sub $L $lang (Plain $r.msg)
   if ($L.feed) { Feed-Tr $L.feed $ko (Plain $r.msg) }
+  try { Eng-Note $L $lang $ko } catch { Log "영어 카드 모으기: $_" }
 }
 function Out-Lang($tg) {
   $k = Out-Key $tg
@@ -3027,7 +3271,8 @@ function Handle($line) {
       try {
         $script:fromGame = $true
         $dk = [string]$f[1]; $dn = $(if ($f.Count -gt 2) { [string]$f[2] } else { '' }); $dv = $(if ($f.Count -gt 3) { [string]$f[3] } else { '' })
-        if ($dk -eq 'ui') {
+        if ($dk -eq 'engshow') { Eng-View $true }
+        elseif ($dk -eq 'ui') {
           $ci = [Globalization.CultureInfo]::InvariantCulture
           switch ($dn) {
             'fz' { $z = 0; if ([int]::TryParse($dv, [ref]$z) -and $z -ge 9 -and $z -le 20) { $S.fz = $z; $S.gameFz = $z; Redraw-All } }
@@ -3041,12 +3286,12 @@ function Handle($line) {
           }
           $S.uiVer = [int64][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           Sync-Game; Save-Cfg
-        } elseif ($dk -in @('origoff', 'voice', 'calloff', 'tr', 'trch', 'sendeng', 'vcen')) {
+        } elseif ($dk -in @('origoff', 'voice', 'calloff', 'tr', 'trch', 'sendeng', 'vcen', 'engoff')) {
           $was = $Pop.IsOpen
           $skip = $false
           if ($dk -ne 'sendeng' -and ($dv -eq '0' -or $dv -eq '1')) {
             $want = ($dv -eq '1'); $cur = $null
-            switch ($dk) { 'tr' { $cur = [bool]$S.tr[$dn] } 'trch' { try { $cur = [bool](Och-On $dn $dn.Substring(4)) } catch {} } 'origoff' { $cur = -not [bool]$S.origOff } 'calloff' { $cur = -not [bool]$S.callOff } 'voice' { $cur = [bool]$S.voice } 'vcen' { $cur = ($S.voiceCen -ne $false) } }
+            switch ($dk) { 'tr' { $cur = [bool]$S.tr[$dn] } 'trch' { try { $cur = [bool](Och-On $dn $dn.Substring(4)) } catch {} } 'origoff' { $cur = -not [bool]$S.origOff } 'calloff' { $cur = -not [bool]$S.callOff } 'engoff' { $cur = -not [bool]$S.engOff } 'voice' { $cur = [bool]$S.voice } 'vcen' { $cur = ($S.voiceCen -ne $false) } }
             if ($null -ne $cur -and $cur -eq $want) { $skip = $true }
           }
           if (-not $skip) { Sx-Do @{ kind = $(if ($dk -eq 'voice') { 'dvoice' } else { $dk }); k = $dn; v = $(if ($dv -ne '' -and $dk -eq 'sendeng') { [int]$dv } else { 0 }) } }
@@ -4343,6 +4588,7 @@ $tipX.Add_MouseEnter({ $tipX.Foreground = Br '#FFF3E2B3' }); $tipX.Add_MouseLeav
 $tipX.Add_MouseLeftButtonUp({ param($snd, $e) $e.Handled = $true; Tip-Done })
 [void]$tipSp.Children.Add($tipX)
 $tipB.Child = $tipSp; [void]$tipG.Children.Add($tipB)
+$tipB.Add_MouseLeftButtonUp({ param($snd, $e) if ($script:tipMode -eq 'eng') { $e.Handled = $true; try { Eng-Open } catch { Log "영어 카드: $_" } } })
 $tipCv = New-Object System.Windows.Controls.Canvas; [System.Windows.Controls.Grid]::SetRow($tipCv, 1); [void]$tipG.Children.Add($tipCv)
 $tipTl = New-Object System.Windows.Shapes.Polygon; $tipTl.Fill = Br '#FF1C1A18'; foreach ($pt in @(@(0, -1), @(12, -1), @(6, 6))) { [void]$tipTl.Points.Add((New-Object System.Windows.Point($pt[0], $pt[1]))) }
 $tipTr = New-Object System.Windows.Shapes.Polyline; $tipTr.Stroke = Br '#8CE0B95A'; $tipTr.StrokeThickness = 1; foreach ($pt in @(@(0, -0.5), @(6, 6), @(12, -0.5))) { [void]$tipTr.Points.Add((New-Object System.Windows.Point($pt[0], $pt[1]))) }
@@ -4351,7 +4597,7 @@ $tipTr = New-Object System.Windows.Shapes.Polyline; $tipTr.Stroke = Br '#8CE0B95
 $script:tipU = 0
 $script:tipKey = ''
 $script:tipMode = ''
-function Tip-Done { Tip-Hide; if ($script:tipMode.StartsWith('sys:')) { if ($script:sysNote) { $script:sysHide = [string]$script:sysNote.k }; $script:tipMode = '' } elseif ($script:tipMode.StartsWith('tip:')) { $script:tipCur = $null; $script:tipMode = '' } elseif ($script:tipMode -eq 'dual') { if (-not $S.tipDual) { $S.tipDual = $true; Save-Cfg } } elseif ($script:tipMode -eq 'alt') { if (-not $S.tipAltEnter) { $S.tipAltEnter = $true; Save-Cfg } } elseif (-not $S.tipUndock) { $S.tipUndock = $true; Save-Cfg } }
+function Tip-Done { Tip-Hide; if ($script:tipMode.StartsWith('sys:')) { if ($script:sysNote) { $script:sysHide = [string]$script:sysNote.k }; $script:tipMode = '' } elseif ($script:tipMode.StartsWith('tip:')) { $script:tipCur = $null; $script:tipMode = '' } elseif ($script:tipMode -eq 'eng') { $script:tipMode = ''; try { Eng-Dismiss } catch {} } elseif ($script:tipMode -eq 'dual') { if (-not $S.tipDual) { $S.tipDual = $true; Save-Cfg } } elseif ($script:tipMode -eq 'alt') { if (-not $S.tipAltEnter) { $S.tipAltEnter = $true; Save-Cfg } } elseif (-not $S.tipUndock) { $S.tipUndock = $true; Save-Cfg } }
 function Tip-Mode([string]$m) {
   if ($script:tipMode -eq $m) { return }
   $script:tipMode = $m; $script:tipKey = ''
@@ -4359,6 +4605,8 @@ function Tip-Mode([string]$m) {
   $tipBadge.Visibility = $(if ($isTip -or $isSys) { 'Visible' } else { 'Collapsed' }); $tipTrack.Visibility = $(if ($isTip) { 'Visible' } else { 'Collapsed' })
   $tipT1.Foreground = $(if ($isSys) { Br '#FFFFB36B' } else { Br '#FFF3E2B3' })
   $tipBt.Text = $(if ($isSys) { '안내' } else { 'TIP' }); $tipBt.Foreground = $(if ($isSys) { Br '#FFFFB36B' } else { Br '#FFE0B95A' }); $tipBadge.BorderBrush = $tipBt.Foreground
+  $tipB.Cursor = $null
+  if ($m -eq 'eng') { $tipB.Cursor = [System.Windows.Input.Cursors]::Hand; $tipBadge.Visibility = 'Visible'; $tipBt.Text = 'NEW'; $tipT1.Text = ('오늘의 영어 {0}개가 모였어요' -f @($script:engCard.items).Count); $tipT2.Text = '오늘 채팅에서 들은 표현이에요 · 눌러서 보기'; $tipIc.Visibility = 'Collapsed'; return }
   if ($isSys) { $tipT1.Text = [string]$script:sysNote.t1; $tipT2.Text = [string]$script:sysNote.t2; $tipIc.Visibility = 'Collapsed'; return }
   if ($isTip) {
     $tipT1.Text = [string]$script:tipCur.t1; $tipT2.Text = [string]$script:tipCur.t2; $tipIc.Visibility = 'Collapsed'
@@ -4469,6 +4717,9 @@ function Tip-Tick([bool]$show) {
     $m = $Medals['whisper']; if (-not $m) { foreach ($tb in @($script:TABS)) { if ($Medals[$tb.key]) { $m = $Medals[$tb.key] } } }
     if ($m) { Tip-Show 'undock'; return }
   }
+  try { Eng-Intro } catch {}
+  $eg = $false; try { $eg = Eng-Ready } catch {}
+  if ($eg) { Tip-Show 'eng'; return }
   $d = $null; try { $d = Tip-Daily } catch {}
   if ($d) { Tip-Show ('tip:' + $d.id); return }
   Tip-Hide
@@ -5528,7 +5779,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 251
+$APPV = 252
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
