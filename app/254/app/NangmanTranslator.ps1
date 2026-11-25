@@ -3134,11 +3134,10 @@ function Eng-Place {
     $k = $src.CompositionTarget.TransformToDevice.M11; if ($k -le 0) { $k = 1 }
     $g1 = $TrM.root.PointToScreen((New-Object System.Windows.Point(0, $TrM.root.ActualHeight)))
     $pl = $Panel.PointToScreen((New-Object System.Windows.Point(0, 0))); $pr = $Panel.PointToScreen((New-Object System.Windows.Point($Panel.ActualWidth, 0)))
-    $w = $popRoot.ActualWidth; $h = $popRoot.ActualHeight
-    if (-not $Pop.IsOpen -or $h -le 0) { $popRoot.Measure((New-Object System.Windows.Size([double]::PositiveInfinity, [double]::PositiveInfinity))); $w = $popRoot.DesiredSize.Width; $h = $popRoot.DesiredSize.Height }
+    $popRoot.Measure((New-Object System.Windows.Size([double]::PositiveInfinity, [double]::PositiveInfinity))); $w = $popRoot.DesiredSize.Width; $h = $popRoot.DesiredSize.Height
     $wa = [System.Windows.SystemParameters]::WorkArea
     $x = $pr.X / $k + 8; if ($x + $w -gt $wa.Right) { $x = [math]::Max($wa.Left, $pl.X / $k - $w - 8) }
-    $rh = [double]$script:engRefH; if ($rh -le 0) { $rh = $h }
+    $rh = [double]$script:engRefH; if ($rh -le 0 -or $h -lt $rh - 60) { $rh = $h }
     $y = $g1.Y / $k - $rh; if ($y + $h -gt $wa.Bottom) { $y = $wa.Bottom - $h }; $y = [math]::Max($wa.Top, $y)
     if ($Pop.Placement -ne 'Absolute') { $Pop.PlacementTarget = $null; $Pop.Placement = 'Absolute' }
     if ([math]::Abs($Pop.HorizontalOffset - $x) -gt 0.5) { $Pop.HorizontalOffset = $x }
@@ -3178,7 +3177,7 @@ function Build-Eng {
   if ($script:engView -lt 0) {
     $t = TB $(if ($isT) { '오늘의 영어' } else { '지난 영어' }) 15 $GOLD; $t.VerticalAlignment = 'Bottom'; [System.Windows.Controls.DockPanel]::SetDock($t, 'Left'); [void]$hd.Children.Add($t)
     if ($c.sample) { $nb0 = New-Object System.Windows.Controls.Border; $nb0.CornerRadius = New-Object System.Windows.CornerRadius(6); $nb0.Background = Br '#FFE3C39A'; $nb0.Padding = New-Object System.Windows.Thickness(5, 0, 5, 1); $nb0.Margin = New-Object System.Windows.Thickness(8, 0, 0, 3); $nb0.VerticalAlignment = 'Bottom'; $nb0.Child = (TB 'NEW' 8 (Br '#FF141518')); [System.Windows.Controls.DockPanel]::SetDock($nb0, 'Left'); [void]$hd.Children.Add($nb0) }
-    $st = TB $(if ($c.sample) { '미리 보기' } elseif ($c.live -and $n -lt 5) { '{0} · 모으는 중 {1} / 5' -f $ds, $n } else { '{0} · 채팅 {1}줄 중' -f $ds, [int]$c.lines }) 10.5 $MUTED; $st.VerticalAlignment = 'Bottom'; $st.Margin = New-Object System.Windows.Thickness(8, 0, 0, 2); [System.Windows.Controls.DockPanel]::SetDock($st, 'Left'); [void]$hd.Children.Add($st)
+    $st = TB $(if ($c.sample) { '미리 보기' } elseif ($c.live -and $S.engOff) { $ds } elseif ($c.live -and $n -lt 5) { '{0} · 모으는 중 {1} / 5' -f $ds, $n } else { '{0} · 채팅 {1}줄 중' -f $ds, [int]$c.lines }) 10.5 $MUTED; $st.VerticalAlignment = 'Bottom'; $st.Margin = New-Object System.Windows.Thickness(8, 0, 0, 2); [System.Windows.Controls.DockPanel]::SetDock($st, 'Left'); [void]$hd.Children.Add($st)
     [void]$popS.Children.Add($hd)
     for ($i = 0; $i -lt $n; $i++) {
       $it = $its[$i]
@@ -3193,14 +3192,20 @@ function Build-Eng {
       $row.Child = $d; Sx-Click $row @{ kind = 'engi'; v = $i }
       [void]$popS.Children.Add($row)
     }
-    if ($c.live) {
+    if ($c.live -and $S.engOff -and $n -eq 0) {
+      $eb = New-Object System.Windows.Controls.Border; $eb.CornerRadius = New-Object System.Windows.CornerRadius(7); $eb.BorderThickness = New-Object System.Windows.Thickness(1); $eb.BorderBrush = Br '#1AFFFFFF'; $eb.Padding = New-Object System.Windows.Thickness(12, 18, 12, 18); $eb.Margin = New-Object System.Windows.Thickness(0, 0, 0, 5)
+      $es = New-Object System.Windows.Controls.StackPanel
+      $e1 = TB '영어 표현 학습이 꺼져 있어요' 13 $SUBC; $e1.HorizontalAlignment = 'Center'; [void]$es.Children.Add($e1)
+      $e2 = TB '오른쪽 아래 스위치를 켜면 오늘 채팅부터 표현을 모아요' 10.5 $MUTED; $e2.HorizontalAlignment = 'Center'; $e2.TextWrapping = 'Wrap'; $e2.TextAlignment = 'Center'; $e2.Margin = New-Object System.Windows.Thickness(0, 5, 0, 0); [void]$es.Children.Add($e2)
+      $eb.Child = $es; [void]$popS.Children.Add($eb)
+    } elseif ($c.live -and -not $S.engOff) {
       for ($g = $n; $g -lt 5; $g++) {
         $row = New-Object System.Windows.Controls.Border; $row.Height = 36; $row.CornerRadius = New-Object System.Windows.CornerRadius(7); $row.BorderThickness = New-Object System.Windows.Thickness(1); $row.BorderBrush = Br '#1AFFFFFF'; $row.Margin = New-Object System.Windows.Thickness(0, 0, 0, 5)
         $d = New-Object System.Windows.Controls.DockPanel; $d.Margin = New-Object System.Windows.Thickness(9, 0, 10, 0)
         $nb = New-Object System.Windows.Controls.Border; $nb.Width = 20; $nb.Height = 20; $nb.CornerRadius = New-Object System.Windows.CornerRadius(10); $nb.BorderThickness = New-Object System.Windows.Thickness(1); $nb.BorderBrush = Br '#33FFFFFF'; $nb.VerticalAlignment = 'Center'
         $nt = TB ([string]($g + 1)) 10.5 (Br '#FF666666'); $nt.HorizontalAlignment = 'Center'; $nt.VerticalAlignment = 'Center'; $nb.Child = $nt
         [System.Windows.Controls.DockPanel]::SetDock($nb, 'Left'); [void]$d.Children.Add($nb)
-        $gt = TB $(if ($S.engOff) { '학습이 꺼져 있어요' } else { '채팅에서 모으는 중…' }) 12 (Br '#FF6A6A6A'); $gt.VerticalAlignment = 'Center'; $gt.Margin = New-Object System.Windows.Thickness(10, 0, 0, 0); [void]$d.Children.Add($gt)
+        $gt = TB '채팅에서 모으는 중…' 12 (Br '#FF6A6A6A'); $gt.VerticalAlignment = 'Center'; $gt.Margin = New-Object System.Windows.Thickness(10, 0, 0, 0); [void]$d.Children.Add($gt)
         $row.Child = $d; [void]$popS.Children.Add($row)
       }
     }
@@ -5811,7 +5816,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 253
+$APPV = 254
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
