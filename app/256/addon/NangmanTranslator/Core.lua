@@ -2,6 +2,16 @@ local NT = {}
 NangmanTr = NT
 
 NT.MEDIA = "Interface\\AddOns\\NangmanTranslator\\media\\"
+pcall(function()
+  local hold = {}
+  for i, nm in ipairs({ "GJ_MapleBold", "GJ_MapleLight", "GJ_UI", "GJ_UILight", "GJ_Binggrae", "GJ_MalgunBold", "GJ_Malgun", "Pretendard-Bold", "Pretendard-Light", "GJ_WarhavenBold", "GJ_Warhaven" }) do
+    local ok, fo = pcall(CreateFont, "NangmanPreFont" .. i)
+    if ok and fo and pcall(fo.SetFont, fo, NT.MEDIA .. nm .. ".ttf", 12, "") then
+      pcall(function() local h = UIParent:CreateFontString(nil, "OVERLAY") h:SetFontObject(fo) h:SetText("가A") h:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 2, 2) h:SetAlpha(0.02) hold[#hold + 1] = h end)
+    end
+  end
+  if C_Timer then C_Timer.After(8, function() for _, h in ipairs(hold) do pcall(h.Hide, h) end end) end
+end)
 
 local function loaded(name)
   if C_AddOns and C_AddOns.IsAddOnLoaded then

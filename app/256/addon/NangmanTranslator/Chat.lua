@@ -91,6 +91,7 @@ do
       c = type(d.chatUI) == "table" and cp(d.chatUI) or {}
       c.undock, c.uiv = nil, nil
       if type(d.chatLook) == "table" then for k, v in pairs(d.chatLook) do c[k] = v end end
+      if type(d.chatUI) ~= "table" and type(d.chatLook) ~= "table" then c.face, c.thin, c.font = "war", true, 13 end
       NangmanTranslatorCharDB.chatUI = c
     end
     if c.font == nil then c.font = 12 end
@@ -488,6 +489,20 @@ do
   end
 
   local fontOK = {}
+  local function fontLoads(fp, path)
+    local ok, r = pcall(fp.SetFont, fp, path, 12, "")
+    if not ok or r == false or not fp:GetFont() then return false end
+    local ok = pcall(fp.SetText, fp, "가A")
+    return ok and (fp:GetStringWidth() or 0) > 0
+  end
+  local fontAt = {}
+  local function fontReady(path)
+    local v = fontOK[path]
+    if v == nil or (v == false and GetTime() - (fontAt[path] or 0) > 2) then
+      local fp = UIParent:CreateFontString(nil, "OVERLAY") fontOK[path] = fontLoads(fp, path) fontAt[path] = GetTime() fp:Hide()
+    end
+    return fontOK[path]
+  end
   local FACES = { maple = { "GJ_MapleBold", "GJ_MapleLight" }, wow = { "GJ_UI", "GJ_UILight" }, bing = { "GJ_Binggrae", "GJ_Binggrae" }, malgun = { "GJ_MalgunBold", "GJ_Malgun" }, pret = { "Pretendard-Bold", "Pretendard-Light" }, war = { "GJ_WarhavenBold", "GJ_Warhaven" } }
   local function fontFile()
     local c = cfg()
@@ -495,13 +510,7 @@ do
     if fc then
       for _, nm in ipairs(c.thin and { fc[2], fc[1] } or { fc[1] }) do
         local path = MEDIA .. nm .. ".ttf"
-        if fontOK[path] == nil then
-          local fp = UIParent:CreateFontString(nil, "OVERLAY")
-          local ok = fp:SetFont(path, 12, "")
-          fontOK[path] = (ok ~= false) and (fp:GetFont() ~= nil)
-          fp:Hide()
-        end
-        if fontOK[path] then return path end
+        if fontReady(path) then return path end
       end
     end
     local f = ChatFontNormal and ChatFontNormal:GetFont() return f or STANDARD_TEXT_FONT
@@ -517,6 +526,9 @@ do
     local eb = ChatFrame1EditBox
     if eb then pcall(eb.SetFont, eb, fontFile(), math.max(13, c.font), "") end
   end
+  C_Timer.After(1, function() for _, fc in pairs(FACES) do for _, nm in ipairs(fc) do local fp = UIParent:CreateFontString(nil, "OVERLAY") pcall(fp.SetFont, fp, MEDIA .. nm .. ".ttf", 12, "") pcall(fp.SetText, fp, "가A") fp:Hide() end end end)
+  C_Timer.After(3.5, function() pcall(applyFont) end)
+  C_Timer.After(8, function() pcall(applyFont) end)
   local function applyFade()
     local c = cfg()
     for _, m in pairs(frames) do
@@ -1047,13 +1059,23 @@ do
     if NT.chans then C_Timer.After(1, function() pcall(NT.chans) end) end
   end
   local doneSq, doneN = {}, 0
+  local function shash(s) local h = 0 for i = 1, #s do h = (h * 31 + s:byte(i)) % 1000000007 end return tostring(h) end
+  function NT.chatHello()
+    local c = cfg()
+    local ub = string.format("%s %.2f %s %s %s %d %d %s", c.keep and "1" or "0", c.bg or 0, c.native and "1" or "0", c.face or "maple", c.thin and "1" or "0", math.floor((c.fade or 0) + 0.5), math.floor((c.font or 12) + 0.5), c.dual and "1" or "0")
+    local D = NT.db()
+    return shash(ub), shash(D.trRaw or "")
+  end
   SlashCmdList.NTCHATSET = function(arg)
     arg = arg or ""
+    local mp = arg:match("^%s*m%s+(.+)$")
+    if mp then for piece in (mp .. " ^ "):gmatch("(.-) %^ ") do if piece ~= "" then SlashCmdList.NTCHATSET(piece) end end return end
     local body, sq = arg:match("^(.-)%s+#(%d+)[%a\128-\255]*%s*$")
     if sq then
       if not doneSq[sq] then
         doneSq[sq] = true doneN = doneN + 1
         if doneN > 300 then doneSq = { [sq] = true } doneN = 1 end
+        if body:match("^%s*trst ") then local D = NT.db() D.trRaw = body:gsub("^%s+", "") end
         ntChatRun(body)
       end
       if NT.trAck then NT.trAck(sq) end
@@ -1207,7 +1229,7 @@ do
     end
     local fontOpen = false
     local FNM = { maple = "메이플스토리", wow = "이사만루체", bing = "빙그레", malgun = "맑은 고딕", pret = "프리텐다드", war = "워헤이븐" }
-    local function faceFile(k) local fc = FACES[k] if fc then local path = MEDIA .. fc[1] .. ".ttf" if fontOK[path] == nil then local fp = UIParent:CreateFontString(nil, "OVERLAY") local ok = fp:SetFont(path, 12, "") fontOK[path] = (ok ~= false) and (fp:GetFont() ~= nil) fp:Hide() end if fontOK[path] then return path end end return STANDARD_TEXT_FONT end
+    local function faceFile(k) local fc = FACES[k] if fc then local path = MEDIA .. fc[1] .. ".ttf" if fontReady(path) then return path end end return STANDARD_TEXT_FONT end
     local function setUI(kind, v)
       local c = cfg()
       if kind == "fz" then c.font = v applyFont() if NT.infoNow then NT.infoNow() end
@@ -1248,15 +1270,17 @@ do
       }
       if st.vok then sws[#sws + 1] = { "디스코드 음성 번역", st.v and true or false, function() st.v = not st.v toPC("voice", "", st.v and "1" or "0") end, function() return (st.vs or "") .. " · 켜면 일반·파티·공대·귓말만 번역" end } end
       sws[#sws + 1] = { "내 이름 부르면 강조", (st.c ~= false), function() st.c = not (st.c ~= false) toPC("calloff", "", (st.c ~= false) and "1" or "0") end, function(on) return on and "주황색 · 가운데에도 띄움" or "강조 안 함" end }
-      sws[#sws + 1] = { "영어 표현 학습", (st.e ~= false), function() st.e = not (st.e ~= false) toPC("engoff", "", (st.e ~= false) and "1" or "0") end, function() return "카드 보기 ›" end, function() toPC("engshow", "", "1") end }
+      sws[#sws + 1] = { "영어 표현 학습", (st.e ~= false), function() st.e = not (st.e ~= false) toPC("engoff", "", (st.e ~= false) and "1" or "0") end, function() return "카드 보기" end, function() toPC("engshow", "", "1") end }
       for i, it in ipairs(sws) do
         local ci = (i - 1) % 2
         local o = switch(ci * (cw + 8), cw, it[1], it[4](it[2]), it[2], it[3])
         if not o.lk then o.lk = CreateFrame("Button", nil, o) end
+        if not o.lkA then o.lkA = o:CreateTexture(nil, "OVERLAY") o.lkA:SetTexture(MEDIA .. "tri_down", "CLAMP", "CLAMP", "TRILINEAR") o.lkA:SetSize(6, 6) o.lkA:SetRotation(math.pi / 2) end
         if it[5] then
           col(o.s, SX.gold) o.lk:SetFrameLevel(o:GetFrameLevel() + 5) o.lk:ClearAllPoints() o.lk:SetPoint("TOPLEFT", o.s, "TOPLEFT", -2, 2)
-          o.lk:SetSize(o.s:GetStringWidth() + 6, o.s:GetStringHeight() + 4) o.lk:SetScript("OnClick", it[5]) o.lk:Show()
-        else o.lk:Hide() end
+          o.lk:SetSize(o.s:GetStringWidth() + 16, o.s:GetStringHeight() + 4) o.lk:SetScript("OnClick", it[5]) o.lk:Show()
+          o.lkA:ClearAllPoints() o.lkA:SetPoint("LEFT", o.s, "LEFT", o.s:GetStringWidth() + 4, 0) o.lkA:SetVertexColor(SX.gold[1], SX.gold[2], SX.gold[3]) o.lkA:Show()
+        else o.lk:Hide() o.lkA:Hide() end
         if ci == 1 or i == #sws then y = y + 38 + 8 end
       end
       y = y - 8

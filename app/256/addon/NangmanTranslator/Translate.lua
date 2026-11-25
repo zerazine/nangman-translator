@@ -556,7 +556,7 @@ do
   function NT.alive() return alive and true or false end
   local hf = CreateFrame("Frame")
   hf:RegisterEvent("PLAYER_ENTERING_WORLD")
-  NT.onEvent(hf, function(_, _, isLogin, isReload) if isLogin or isReload then C_Timer.After(4, function() push("A", 1) end) end end)
+  NT.onEvent(hf, function(_, _, isLogin, isReload) if isLogin or isReload then C_Timer.After(4, function() local uh, th = "", "" if NT.chatHello then local ok, a, b = pcall(NT.chatHello) if ok then uh, th = a, b end end push("A", 1, "m", uh, th, 0) end) end end)
   function NT.seen()
     local was = alive
     alive = true
