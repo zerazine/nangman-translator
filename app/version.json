@@ -1,12 +1,12 @@
 {
- "v": 250,
- "ver": "2.50",
+ "v": 251,
+ "ver": "2.51",
  "date": "2026-11-25",
  "files": [
   {
    "p": "app/NangmanTranslator.ps1",
-   "sha256": "8bf11e8cfb1f15e4b5a8560452390284425af082fe126765f0f0e8447d79815b",
-   "size": 510165
+   "sha256": "084d0f2b7db5cfa36492da854bf31ead27c9d3c89278e9a7c1e0a200753af435",
+   "size": 510725
   },
   {
    "p": "app/NangmanTranslator.exe",
@@ -65,8 +65,8 @@
   },
   {
    "p": "addon/NangmanTranslator/Chat.lua",
-   "sha256": "db59e96f586e8ed8870f93935c99456268b30c39cd0bd992cd83d0fda30f5198",
-   "size": 137434
+   "sha256": "50a21cbae973b1cd64b44c13a78c5337db37e900ecd02bb0f3c499aed5235371",
+   "size": 137591
   },
   {
    "p": "addon/NangmanTranslator/Core.lua",
@@ -222,6 +222,66 @@
    "p": "addon/NangmanTranslator/media/pill_rim.tga",
    "sha256": "8b75a8fb1af566c7ae36b23dcf30791287bb87c95a208fc9f92998ee475f306c",
    "size": 32812
+  },
+  {
+   "p": "app/ftr/Pretendard-Bold.ttf",
+   "sha256": "c16b88c670d23e83fa1170c954cbc4822d3b8dad3c3cde15d798a94b43d97985",
+   "size": 2661752
+  },
+  {
+   "p": "app/ftr/Pretendard-Light.ttf",
+   "sha256": "1ba73b22955754bb9ed6bbf7678416af647f90704e9064661f7924da578dad3e",
+   "size": 2813692
+  },
+  {
+   "p": "app/ftr/Pretendard-OFL.txt",
+   "sha256": "b04538c9abec39a3db75108cf0af0fd9c77032fe8aa2cf38345b4d250e98e38e",
+   "size": 4419
+  },
+  {
+   "p": "addon/NangmanTranslator/media/Pretendard-Bold.ttf",
+   "sha256": "c16b88c670d23e83fa1170c954cbc4822d3b8dad3c3cde15d798a94b43d97985",
+   "size": 2661752
+  },
+  {
+   "p": "addon/NangmanTranslator/media/Pretendard-Light.ttf",
+   "sha256": "1ba73b22955754bb9ed6bbf7678416af647f90704e9064661f7924da578dad3e",
+   "size": 2813692
+  },
+  {
+   "p": "addon/NangmanTranslator/media/Pretendard-OFL.txt",
+   "sha256": "b04538c9abec39a3db75108cf0af0fd9c77032fe8aa2cf38345b4d250e98e38e",
+   "size": 4419
+  },
+  {
+   "p": "app/ftr/GJ_WarhavenBold.ttf",
+   "sha256": "837e4b9316581fd0bbbb0bd4e9ccda65a319568611feb1f9ec9d031b57ba949c",
+   "size": 3305656
+  },
+  {
+   "p": "app/ftr/GJ_Warhaven.ttf",
+   "sha256": "393303b19636d7eba160f8357bc3321b7df4b2c3d445972ae2a37d583879c7df",
+   "size": 3282088
+  },
+  {
+   "p": "app/ftr/Warhaven-NOTICE.txt",
+   "sha256": "ac892850884959521ab53bbb9d22cc1a8dd53f9c696f56ae75c8bfb0b46ac0d2",
+   "size": 130
+  },
+  {
+   "p": "addon/NangmanTranslator/media/GJ_WarhavenBold.ttf",
+   "sha256": "837e4b9316581fd0bbbb0bd4e9ccda65a319568611feb1f9ec9d031b57ba949c",
+   "size": 3305656
+  },
+  {
+   "p": "addon/NangmanTranslator/media/GJ_Warhaven.ttf",
+   "sha256": "393303b19636d7eba160f8357bc3321b7df4b2c3d445972ae2a37d583879c7df",
+   "size": 3282088
+  },
+  {
+   "p": "addon/NangmanTranslator/media/Warhaven-NOTICE.txt",
+   "sha256": "ac892850884959521ab53bbb9d22cc1a8dd53f9c696f56ae75c8bfb0b46ac0d2",
+   "size": 130
   }
  ]
 }

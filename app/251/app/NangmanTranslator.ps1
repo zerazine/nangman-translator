@@ -382,11 +382,13 @@ function Chat-FontPick([string]$k) {
     'malgun' { return (New-Object System.Windows.Media.FontFamily 'Malgun Gothic') }
     'wow' { if ($UIF_OK) { return $UIF } }
     'uil' { $f = Join-Path $A 'GJ_UILight.ttf'; if (Test-Path -LiteralPath $f) { return (New-Object System.Windows.Media.FontFamily ((New-Object Uri $f), './#esamanru')) } }
+    'war' { if (Test-Path -LiteralPath (Join-Path $A 'GJ_WarhavenBold.ttf')) { return (New-Object System.Windows.Media.FontFamily ((New-Object Uri ($A.TrimEnd('\') + '\')), './#Warhaven')) } }
+    'pret' { if (Test-Path -LiteralPath (Join-Path $A 'Pretendard-Bold.ttf')) { return (New-Object System.Windows.Media.FontFamily ((New-Object Uri ($A.TrimEnd('\') + '\')), './#Pretendard')) } }
     'bing' { $f = Join-Path $A 'GJ_Binggrae.ttf'; if (Test-Path -LiteralPath $f) { return (New-Object System.Windows.Media.FontFamily ((New-Object Uri $f), './#Binggrae')) } }
   }
   return $FONT
 }
-function Chat-FontW([string]$k) { if ([bool]$S.thin) { switch ($k) { 'maple' { return 'Light' } 'wow' { return 'Light' } 'malgun' { return 'Normal' } 'bing' { return 'Normal' } } }
+function Chat-FontW([string]$k) { if ([bool]$S.thin) { switch ($k) { 'maple' { return 'Light' } 'wow' { return 'Light' } 'malgun' { return 'Normal' } 'bing' { return 'Normal' } 'pret' { return 'Light' } 'war' { return 'Normal' } } }
   switch ($k) { 'uil' { return 'Light' } 'bing' { return 'Normal' } 'wow' { return 'Medium' } }; return 'Bold' }
 function Weight-Fix($el) {
   if (-not $el) { return }
@@ -452,7 +454,7 @@ function Malgun-Copy {
   } catch { Log "맑은 고딕 글꼴 준비: $_" }
 }
 function Chat-FontSet([string]$k) {
-  if ($k -eq 'uil') { $k = 'wow' }; if ($k -notin @('maple', 'bing', 'malgun', 'wow')) { $k = 'maple' }
+  if ($k -eq 'uil') { $k = 'wow' }; if ($k -notin @('maple', 'bing', 'malgun', 'wow', 'pret', 'war')) { $k = 'maple' }
   $S.chatFont = $k; Save-Cfg
   if ($k -eq 'malgun') { Malgun-Copy }
   if ($k -eq 'game') { $script:gfAt = [DateTime]::MinValue }
@@ -470,9 +472,9 @@ if ($null -eq $S.thin) { $S.thin = [bool]$script:freshCfg }
 $CFONT = $FONT; $CFW = 'Bold'
 try { $CFONT = Chat-FontPick ([string]$S.chatFont); $CFW = Chat-FontW ([string]$S.chatFont) } catch { Log "글꼴 고르기: $_" }
 function Sx-FontGrid {
-  $ug = New-Object System.Windows.Controls.Primitives.UniformGrid; $ug.Columns = 2; $ug.Rows = 2
+  $ug = New-Object System.Windows.Controls.Primitives.UniformGrid; $ug.Columns = 2; $ug.Rows = 3
   $cur = $(if ($S.chatFont) { [string]$S.chatFont } else { 'maple' })
-  foreach ($it in @(@('maple', '메이플스토리'), @('wow', '이사만루체'), @('bing', '빙그레'), @('malgun', '맑은 고딕'))) {
+  foreach ($it in @(@('maple', '메이플스토리'), @('wow', '이사만루체'), @('bing', '빙그레'), @('malgun', '맑은 고딕'), @('pret', '프리텐다드'), @('war', '워헤이븐'))) {
     $on = ($it[0] -eq $cur)
     $b = New-Object System.Windows.Controls.Border; $b.Height = 30; $b.CornerRadius = New-Object System.Windows.CornerRadius(6); $b.Margin = New-Object System.Windows.Thickness(0, 0, 5, 5)
     $b.Background = $(if ($on) { Br '#E6B98E5F' } else { Br '#0DFFFFFF' })
@@ -503,7 +505,7 @@ function Sx-SizeFont {
   $t = TB '글자' 12.5 $CREAM; $t.VerticalAlignment = 'Center'; [System.Windows.Controls.DockPanel]::SetDock($t, 'Left'); [void]$d.Children.Add($t)
   $sp = New-Object System.Windows.Controls.StackPanel; $sp.Orientation = 'Horizontal'; $sp.VerticalAlignment = 'Center'; [System.Windows.Controls.DockPanel]::SetDock($sp, 'Right')
   $cur = $(if ($S.chatFont) { [string]$S.chatFont } else { 'maple' })
-  $fnm = @{ wow = '이사만루체'; maple = '메이플스토리'; bing = '빙그레'; malgun = '맑은 고딕' }[$cur]; if (-not $fnm) { $fnm = '메이플스토리' }
+  $fnm = @{ wow = '이사만루체'; maple = '메이플스토리'; bing = '빙그레'; malgun = '맑은 고딕'; pret = '프리텐다드'; war = '워헤이븐' }[$cur]; if (-not $fnm) { $fnm = '메이플스토리' }
   $fb = New-Object System.Windows.Controls.Border; $fb.Height = 24; $fb.CornerRadius = New-Object System.Windows.CornerRadius(4); $fb.Padding = New-Object System.Windows.Thickness(10, 0, 8, 0); $fb.Margin = New-Object System.Windows.Thickness(0, 0, 10, 0)
   $fb.Background = $(if ($script:fontOpen) { Br '#38B98E5F' } else { Br '#1FFFFFFF' })
   $fsp = New-Object System.Windows.Controls.StackPanel; $fsp.Orientation = 'Horizontal'; $fsp.VerticalAlignment = 'Center'
@@ -5526,7 +5528,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 250
+$APPV = 251
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }

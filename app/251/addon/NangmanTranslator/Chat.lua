@@ -488,7 +488,7 @@ do
   end
 
   local fontOK = {}
-  local FACES = { maple = { "GJ_MapleBold", "GJ_MapleLight" }, wow = { "GJ_UI", "GJ_UILight" }, bing = { "GJ_Binggrae", "GJ_Binggrae" }, malgun = { "GJ_MalgunBold", "GJ_Malgun" } }
+  local FACES = { maple = { "GJ_MapleBold", "GJ_MapleLight" }, wow = { "GJ_UI", "GJ_UILight" }, bing = { "GJ_Binggrae", "GJ_Binggrae" }, malgun = { "GJ_MalgunBold", "GJ_Malgun" }, pret = { "Pretendard-Bold", "Pretendard-Light" }, war = { "GJ_WarhavenBold", "GJ_Warhaven" } }
   local function fontFile()
     local c = cfg()
     local fc = FACES[c.face or ""]
@@ -1205,7 +1205,7 @@ do
       return o
     end
     local fontOpen = false
-    local FNM = { maple = "메이플스토리", wow = "이사만루체", bing = "빙그레", malgun = "맑은 고딕" }
+    local FNM = { maple = "메이플스토리", wow = "이사만루체", bing = "빙그레", malgun = "맑은 고딕", pret = "프리텐다드", war = "워헤이븐" }
     local function faceFile(k) local fc = FACES[k] if fc then local path = MEDIA .. fc[1] .. ".ttf" if fontOK[path] == nil then local fp = UIParent:CreateFontString(nil, "OVERLAY") local ok = fp:SetFont(path, 12, "") fontOK[path] = (ok ~= false) and (fp:GetFont() ~= nil) fp:Hide() end if fontOK[path] then return path end end return STANDARD_TEXT_FONT end
     local function setUI(kind, v)
       local c = cfg()
@@ -1301,7 +1301,7 @@ do
         if fontOpen then
           y = y + 5
           local fl = {}
-          for _, k in ipairs({ "maple", "wow", "bing", "malgun" }) do fl[#fl + 1] = { k, FNM[k], faceFile(k), 12 } end
+          for _, k in ipairs({ "maple", "wow", "bing", "malgun", "pret", "war" }) do fl[#fl + 1] = { k, FNM[k], faceFile(k), 12 } end
           seg(fl, cur, function(k) fontOpen = false setUI("face", k) end, 2)
           y = y + 5
           local gl = text("굵기", 12, SX.cream, 4, 9)
