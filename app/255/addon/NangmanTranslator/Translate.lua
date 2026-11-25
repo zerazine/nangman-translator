@@ -152,8 +152,29 @@ local EV = {
   "CHAT_MSG_SAY", "CHAT_MSG_YELL", "CHAT_MSG_EMOTE",
   "CHAT_MSG_PARTY", "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_RAID", "CHAT_MSG_RAID_LEADER", "CHAT_MSG_RAID_WARNING",
   "CHAT_MSG_INSTANCE_CHAT", "CHAT_MSG_INSTANCE_CHAT_LEADER", "CHAT_MSG_GUILD", "CHAT_MSG_OFFICER",
-  "CHAT_MSG_WHISPER", "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_BN_WHISPER", "CHAT_MSG_BN_WHISPER_INFORM", "CHAT_MSG_CHANNEL",
+  "CHAT_MSG_WHISPER", "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_BN_WHISPER", "CHAT_MSG_BN_WHISPER_INFORM", "CHAT_MSG_CHANNEL", "CHAT_MSG_COMMUNITIES_CHANNEL",
 }
+local function chanDisp(n)
+  if type(n) ~= "string" or secret(n) then return n end
+  if n:find("^Community:") then
+    local r
+    local res = ChatFrame_ResolveChannelName or (ChatFrameUtil and ChatFrameUtil.ResolveChannelName)
+    if res then local ok, v = pcall(res, n) if ok and type(v) == "string" and v ~= "" and not secret(v) then r = v end end
+    if (not r or r == n) and C_Club and C_Club.GetClubInfo then
+      local cid, sid = n:match("^Community:(%d+):(%d+)")
+      if cid then
+        local ok, ci = pcall(C_Club.GetClubInfo, cid)
+        local ok2, si = pcall(C_Club.GetStreamInfo, cid, sid)
+        local cn = ok and type(ci) == "table" and ci.name or nil
+        local sn = ok2 and type(si) == "table" and si.name or nil
+        if type(cn) == "string" and cn ~= "" then r = (type(sn) == "string" and sn ~= "") and (cn .. " - " .. sn) or cn end
+      end
+    end
+    if r then n = r end
+  end
+  return (n:gsub("[;=\t]", " "))
+end
+NT.chanDisp = chanDisp
 local function hexOf(r, g, b) return string.format("%02x%02x%02x", math.floor((r or 1) * 255 + 0.5), math.floor((g or 1) * 255 + 0.5), math.floor((b or 1) * 255 + 0.5)) end
 NT.hexOf = hexOf
 local function classHex(guid)
@@ -200,6 +221,7 @@ local function onChatEv(_, ev, msg, sender, lang, chanStr, target, flags, zoneId
     seenIDs[tostring(lineID)] = GetTime()
   end
   local t = ev:sub(10)
+  if t == "COMMUNITIES_CHANNEL" then t = "CHANNEL" end
   local me = 0
   local mine = UnitName("player") or myName
   if t == "WHISPER_INFORM" or t == "BN_WHISPER_INFORM" then me = 1
@@ -207,7 +229,7 @@ local function onChatEv(_, ev, msg, sender, lang, chanStr, target, flags, zoneId
     (type(guid) == "string" and not secret(guid) and guid == UnitGUID("player")) or
     (sender and mine and (sender == mine or sender:match("^([^%-]+)") == mine))) then me = 1 end
   local cnum, cname = "", ""
-  if t == "CHANNEL" then cnum = tostring(chanIdx or "") cname = tostring(chanBase or chanStr or "") end
+  if t == "CHANNEL" then cnum = tostring(chanIdx or "") cname = tostring(chanDisp(chanBase or chanStr) or "") end
   if (t == "BN_WHISPER" or t == "BN_WHISPER_INFORM") and type(bnID) == "number" and not secret(bnID) then
     cnum = tostring(bnID)
     if type(sender) ~= "string" or sender == "" or sender:find("|K", 1, true) then
@@ -360,7 +382,7 @@ local function chans()
   local step = (type(L[3]) == "boolean" or (L[3] == nil and #L >= 3)) and 3 or 2
   for i = 1, #L, step do
     local id, nm = L[i], L[i + 1]
-    if type(id) == "number" and type(nm) == "string" then t[#t + 1] = id .. "=" .. nm end
+    if type(id) == "number" and type(nm) == "string" then t[#t + 1] = id .. "=" .. chanDisp(nm) end
   end
   if EnumerateServerChannels then for _, n in ipairs({ EnumerateServerChannels() }) do if type(n) == "string" then sv[#sv + 1] = n end end end
   local g = table.concat(t, ";") .. "\t" .. table.concat(sv, ";")

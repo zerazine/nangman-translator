@@ -219,7 +219,7 @@ do
     local t = {}
     if GetChannelList then
       local l = { GetChannelList() }
-      for i = 1, #l, 3 do local b = chBase(l[i + 1]) if b then t[#t + 1] = { n = l[i], b = b } end end
+      for i = 1, #l, 3 do local b = chBase(NT.chanDisp and NT.chanDisp(l[i + 1]) or l[i + 1]) if b then t[#t + 1] = { n = l[i], b = b } end end
     end
     return t
   end
@@ -574,7 +574,7 @@ do
   end
   local function pk(...) return select("#", ...), { ... } end
   do
-    local CE = CreateFrame("Frame") CE:RegisterEvent("CHAT_MSG_CHANNEL")
+    local CE = CreateFrame("Frame") CE:RegisterEvent("CHAT_MSG_CHANNEL") pcall(CE.RegisterEvent, CE, "CHAT_MSG_COMMUNITIES_CHANNEL")
     NT.onEvent(CE, function(_, e, ...)
       local n, args = pk(...)
       local msg, sender, _, chName, _, _, _, idx, base, _, lineID, guid = ...
@@ -596,6 +596,7 @@ do
       if lineID then chDone[lineID] = true end
       idx = tonumber(idx) or tonumber(tostring(chName or ""):match("^(%d+)"))
       local bn = (type(base) == "string" and base ~= "" and base) or chBase(chName) or "?"
+      if NT.chanDisp then bn = NT.chanDisp(bn) end
       local info = ChatTypeInfo and idx and ChatTypeInfo["CHANNEL" .. idx]
       local r, g, b = 1, 0.75, 0.75
       if info then r, g, b = info.r, info.g, info.b end
@@ -713,7 +714,7 @@ do
     end
     if GetChannelList then
       local l = { GetChannelList() }
-      for i = 1, #l, 3 do if type(l[i + 1]) == "string" then noteChan(l[i], l[i + 1], true) end end
+      for i = 1, #l, 3 do if type(l[i + 1]) == "string" then noteChan(l[i], NT.chanDisp and NT.chanDisp(l[i + 1]) or l[i + 1], true) end end
     end
     local groups = { { "나와 하는 대화", {} }, { "채널 — 하나씩 따로", {} }, { "그 밖", {} } }
     for _, c in ipairs(CATS1) do table.insert(groups[1][2], { c[1], c[2], KCOL[c[1]] }) end
