@@ -148,3 +148,19 @@ do
     end)
   end)
 end
+
+do
+  local f = CreateFrame("Frame")
+  f:RegisterEvent("PLAYER_LOGIN")
+  f:SetScript("OnEvent", function()
+    local d = NT.db()
+    if d.bgSnd then return end
+    local get = (C_CVar and C_CVar.GetCVar) or GetCVar
+    local set = (C_CVar and C_CVar.SetCVar) or SetCVar
+    if not get or not set then return end
+    local ok, v = pcall(get, "Sound_EnableSoundWhenGameIsInBackground")
+    if not ok or v == nil then return end
+    if tostring(v) ~= "1" then pcall(set, "Sound_EnableSoundWhenGameIsInBackground", "1") end
+    d.bgSnd = true
+  end)
+end

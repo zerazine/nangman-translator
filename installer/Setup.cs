@@ -249,6 +249,19 @@ class Setup : Form {
     throw new Exception("번역 엔진(Ollama)이 켜지지 않았어요.\n\n와우를 완전히 끄고, PC를 다시 시작한 뒤 설치를 다시 눌러 주세요.\n그래도 안 되면 아래 기록 파일을 보내 주세요.");
   }
   string ModelName() { return "nangman-gemma"; }
+  void BgSound(string forever) {
+    try {
+      var wtf = Path.Combine(forever, "WTF"); Directory.CreateDirectory(wtf);
+      var cf = Path.Combine(wtf, "Config.wtf");
+      const string key = "Sound_EnableSoundWhenGameIsInBackground";
+      var ls = File.Exists(cf) ? new List<string>(File.ReadAllLines(cf)) : new List<string>();
+      bool hit = false;
+      for (int i = 0; i < ls.Count; i++) if (ls[i].StartsWith("SET " + key + " ", StringComparison.OrdinalIgnoreCase)) { ls[i] = "SET " + key + " \"1\""; hit = true; }
+      if (!hit) ls.Add("SET " + key + " \"1\"");
+      File.WriteAllLines(cf, ls.ToArray(), new UTF8Encoding(false));
+      Log("  백그라운드 소리 켬");
+    } catch (Exception ex) { Log("  백그라운드 소리: " + ex.Message); }
+  }
   static readonly System.Text.RegularExpressions.Regex EngFileErr = new System.Text.RegularExpressions.Regex(@"binary not found|llama-server[^\n]*not found|\.dll[^\n]*(not found|missing)|cannot find the file|no such file", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
   string TryGenerate() {
     try { Http("POST", "http://127.0.0.1:11434/api/generate", "{\"model\":\"" + ModelName() + "\",\"prompt\":\"hi\",\"stream\":false,\"keep_alive\":0,\"options\":{\"num_predict\":1}}", 240000); return null; }
@@ -571,6 +584,7 @@ class Setup : Form {
     WaitWowOff("와우가 켜져 있어서 애드온을 넣을 수 없어요.");
     try { if (Directory.Exists(addon)) Directory.Delete(addon, true); } catch { }
     CopyDir(Path.Combine(Data, @"addon\NangmanTranslator"), addon, null);
+    BgSound(forever);
 
     Step("아이콘 만드는 중");
     var ico = Path.Combine(InstDir, "app.ico");

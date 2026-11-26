@@ -1,11 +1,11 @@
 {
- "v": 259,
- "ver": "2.59",
+ "v": 260,
+ "ver": "2.60",
  "date": "2026-11-26",
  "files": [
   {
    "p": "app/NangmanTranslator.ps1",
-   "sha256": "cd2425c77647e5a5d6cb690472c5768e430894bfef80f77e78b81669f25bec9b",
+   "sha256": "13fdd0803566f137f35d253eef739a626c52946a7aa15d86c63389add6a24ab9",
    "size": 552586
   },
   {
@@ -70,8 +70,8 @@
   },
   {
    "p": "addon/NangmanTranslator/Core.lua",
-   "sha256": "49f7e204120947933152f79d396a962f6f8c3c9723c6c07d075ae3cef670005a",
-   "size": 6351
+   "sha256": "a4ddf68e9a493fc3da4eb8475ef4174d3c62744a99bd7e3bfe9ea91128ef3701",
+   "size": 6901
   },
   {
    "p": "addon/NangmanTranslator/LinkNamesData.lua",
