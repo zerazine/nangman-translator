@@ -2,7 +2,7 @@ local NT = NangmanTr
 if not NT or NT.inert then return end
 local function commText(t)
   if type(t) ~= "string" or (issecretvalue and issecretvalue(t)) or not t:find("|HplayerCommunity:", 1, true) then return t end
-  return (t:gsub("|K[wx]%d+|k", "|cff8c8c8c(내용은 커뮤니티 창 J에서 보여요)|r"))
+  return (t:gsub("|K[wx]%d+|k", "|cff8c8c8c(내용은 와우 기본 대화창이나 커뮤니티 창에서 보여요)|r"))
 end
 
 local FACE = STANDARD_TEXT_FONT or "Fonts\\2002.TTF"
@@ -1320,34 +1320,41 @@ do
         key(px, "+", function() setUI("fz", math.min(20, c.font + 1)) end)
         local v = text(tostring(c.font), 13, SX.gold, 0, 0, UIFONT) v.t:SetWidth(30) v.t:SetJustifyH("CENTER") v:SetWidth(30) v:ClearAllPoints() v:SetPoint("TOPLEFT", C, "TOPLEFT", px - 30, -(y + 19 - v:GetHeight() / 2))
         key(px - 30 - 26, "−", function() setUI("fz", math.max(10, c.font - 1)) end)
-        local fb = get("fontbtn", function() local b = box(CreateFrame("Button", nil, C), 4) b.l = fs(b, 11.5) b.l:SetPoint("LEFT", 10, 0) b.ar = b:CreateTexture(nil, "OVERLAY") b.ar:SetTexture(MEDIA .. "tri_down", "CLAMP", "CLAMP", "TRILINEAR") b.ar:SetSize(7, 7) b.ar:SetPoint("LEFT", b.l, "RIGHT", 4, 0) return b end)
         local cur = c.face or "maple"
-        fb.l:SetFont(faceFile(cur), 11.5, "") fb.l:SetText(FNM[cur] or "메이플스토리") col(fb.l, SX.gold) fb.ar:SetVertexColor(SX.gold[1], SX.gold[2], SX.gold[3])
-        if fontOpen then fb.ar:SetTexCoord(0, 1, 1, 0) else fb.ar:SetTexCoord(0, 1, 0, 1) end
-        local fw = math.floor(10 + fb.l:GetStringWidth() + 4 + 7 + 8 + 0.5)
-        fb:SetSize(fw, 24) fb:SetPoint("TOPLEFT", C, "TOPLEFT", px - 30 - 26 - 10 - fw, -(y + 7))
-        if fontOpen then fb.bg({ COPPER[1], COPPER[2], COPPER[3] }, 56 / 255) else fb.bg({ 1, 1, 1 }, 31 / 255) end
-        act(fb, function() fontOpen = not fontOpen end)
-        y = y + 38
-        if fontOpen then
-          y = y + 5
-          local fl = {}
-          for _, k in ipairs({ "maple", "wow", "bing", "malgun", "pret", "war" }) do fl[#fl + 1] = { k, FNM[k], faceFile(k), 12 } end
-          seg(fl, cur, function(k) fontOpen = false setUI("face", k) end, 2)
-          y = y + 5
-          local gl = text("굵기", 12, SX.cream, 4, 9)
-          local save = y
-          local ox = 4 + gl.t:GetStringWidth() + 12
-          local cw2 = (SXW - ox + 5) / 2 - 5
-          for i, it in ipairs({ { false, "보통" }, { true, "얇게" } }) do
-            local o = get("seg", function() local b = box(CreateFrame("Button", nil, C), 6) b.l = fs(b, 11.5) b.l:SetPoint("CENTER", 0, 0) return b end)
-            local on = ((c.thin and true or false) == it[1])
-            o:SetPoint("TOPLEFT", C, "TOPLEFT", ox + (i - 1) * (cw2 + 5), -y) o:SetSize(cw2, 30)
-            if on then o.bg({ COPPER[1], COPPER[2], COPPER[3] }, 230 / 255) else o.bg({ 1, 1, 1 }, 13 / 255) end
-            o.l:SetFont(fontFile(), 12, "") o.l:SetText(it[2]) col(o.l, on and SX.dark or SX.seg)
-            act(o, function() setUI("thin", it[1]) end)
+        local function drop(label, file, w, x, open)
+          local b = get("dropbtn", function() local b = box(CreateFrame("Button", nil, C), 4) b.ar = b:CreateTexture(nil, "OVERLAY") b.ar:SetTexture(MEDIA .. "tri_down", "CLAMP", "CLAMP", "TRILINEAR") b.ar:SetSize(7, 7) b.ar:SetPoint("RIGHT", -8, 0) b.l = fs(b, 11.5) b.l:SetPoint("LEFT", 10, 0) b.l:SetPoint("RIGHT", b.ar, "LEFT", -4, 0) b.l:SetJustifyH("LEFT") return b end)
+          b.l:SetFont(file, 11.5, "") b.l:SetText(label) col(b.l, SX.gold) b.ar:SetVertexColor(SX.gold[1], SX.gold[2], SX.gold[3])
+          if fontOpen == open then b.ar:SetTexCoord(0, 1, 1, 0) b.bg({ COPPER[1], COPPER[2], COPPER[3] }, 56 / 255) else b.ar:SetTexCoord(0, 1, 0, 1) b.bg({ 1, 1, 1 }, 31 / 255) end
+          b:SetSize(w, 24) b:SetPoint("TOPLEFT", C, "TOPLEFT", x, -(y + 7)) b:SetAlpha(dim or 1)
+          act(b, function() if fontOpen == open then fontOpen = false else fontOpen = open end end)
+        end
+        local function dropList(items, w, x, f)
+          local top = y + 4
+          local h = #items * 28 + 6
+          local bg = get("dropbg", function() return box(CreateFrame("Frame", nil, C), 6) end)
+          bg:SetFrameLevel(C:GetFrameLevel() + 30) bg:EnableMouse(true)
+          bg:SetPoint("TOPLEFT", C, "TOPLEFT", x, -top) bg:SetSize(w, h) bg.bg({ 0.094, 0.086, 0.078 }, 0.97)
+          for i, it in ipairs(items) do
+            local o = get("dropitem", function() local b = box(CreateFrame("Button", nil, C), 4) b.l = fs(b, 12) b.l:SetPoint("LEFT", 9, 0) return b end)
+            o:SetFrameLevel(C:GetFrameLevel() + 31)
+            o:SetPoint("TOPLEFT", C, "TOPLEFT", x + 3, -(top + 3 + (i - 1) * 28)) o:SetSize(w - 6, 28)
+            if it[4] then o.bg({ COPPER[1], COPPER[2], COPPER[3] }, 230 / 255) else o.bg({ 1, 1, 1 }, 0) end
+            o.l:SetFont(it[3], 12, "") o.l:SetText(it[2]) col(o.l, it[4] and SX.dark or SX.seg)
+            act(o, function() fontOpen = false f(it[1]) end)
           end
-          y = save + 35
+        end
+        local FW, WW = 112, 64
+        local wx = px - 30 - 26 - 10 - WW
+        local fx = wx - 10 - FW
+        drop(FNM[cur] or "메이플스토리", faceFile(cur), FW, fx, "font")
+        drop(c.thin and "얇게" or "보통", fontFile(), WW, wx, "wt")
+        y = y + 38
+        if fontOpen == "font" then
+          local fl = {}
+          for _, k in ipairs({ "maple", "wow", "bing", "malgun", "pret", "war" }) do fl[#fl + 1] = { k, FNM[k], faceFile(k), k == cur } end
+          dropList(fl, FW, fx, function(k) setUI("face", k) end)
+        elseif fontOpen == "wt" then
+          dropList({ { false, "보통", fontFile(), not c.thin }, { true, "얇게", fontFile(), c.thin and true or false } }, WW, wx, function(v) setUI("thin", v) end)
         end
       end
       do
@@ -2230,7 +2237,20 @@ do
     for i = 1, (NUM_CHAT_WINDOWS or 10) do local eb = _G["ChatFrame" .. i .. "EditBox"] if eb then t[#t + 1] = eb end end
     return t
   end
+  local function cmdHide(eb)
+    if eb.__cmdHide or not eb.HookScript then return end
+    eb.__cmdHide = true
+    eb:HookScript("OnTextChanged", function(self)
+      local t = self:GetText() or ""
+      local hide = t:find("^/[nf][tk]chat ") ~= nil
+      if hide == (self.__cmdHid or false) then return end
+      if hide then self.__cmdCol = { self:GetTextColor() } local c = self.__cmdCol self:SetTextColor(c[1] or 1, c[2] or 1, c[3] or 1, 0)
+      elseif self.__cmdCol then local c = self.__cmdCol self:SetTextColor(c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 1) end
+      self.__cmdHid = hide
+    end)
+  end
   local function hookOpen(eb)
+    cmdHide(eb)
     if not eb.__ntHook and eb.HookScript then eb.__ntHook = true eb:HookScript("OnEditFocusGained", function(self) self.__ntOpenAt = GetTime() end) end
   end
   local function leave()

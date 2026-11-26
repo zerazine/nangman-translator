@@ -2,7 +2,7 @@ local NT = NangmanTr
 if not NT or NT.inert then return end
 local function commText(t)
   if type(t) ~= "string" or (issecretvalue and issecretvalue(t)) or not t:find("|HplayerCommunity:", 1, true) then return t end
-  return (t:gsub("|K[wx]%d+|k", "|cff8c8c8c(내용은 커뮤니티 창 J에서 보여요)|r"))
+  return (t:gsub("|K[wx]%d+|k", "|cff8c8c8c(내용은 와우 기본 대화창이나 커뮤니티 창에서 보여요)|r"))
 end
 
 local T = {}
@@ -681,7 +681,28 @@ do
     local now = GetTime()
     if text == lastLink and now - lastAt < 0.1 then return end
     lastLink, lastAt = text, now
-    if trTyping() then send(text) else pendLink, pendAt = text, now end
+    if trTyping() then
+      local q = tonumber(text:match("|Hquest:(%d+):"))
+      if q then T.qLink, T.qAt = q, now end
+      send(text)
+    else pendLink, pendAt = text, now end
+  end
+  do
+    local busy = false
+    local function undo(fn, qid)
+      if busy or not T.qLink or qid ~= T.qLink or GetTime() - (T.qAt or 0) > 0.2 then return end
+      busy = true pcall(fn, qid) busy = false
+    end
+    local Q = C_QuestLog
+    if Q then
+      if Q.RemoveQuestWatch and Q.AddQuestWatch then
+        hooksecurefunc(Q, "RemoveQuestWatch", function(qid) undo(Q.AddQuestWatch, qid) end)
+        hooksecurefunc(Q, "AddQuestWatch", function(qid) undo(Q.RemoveQuestWatch, qid) end)
+      end
+      if Q.RemoveWorldQuestWatch and Q.AddWorldQuestWatch then
+        hooksecurefunc(Q, "RemoveWorldQuestWatch", function(qid) undo(Q.AddWorldQuestWatch, qid) end)
+      end
+    end
   end
   local function questLink(qid, title, level, idx)
     qid = tonumber(qid)

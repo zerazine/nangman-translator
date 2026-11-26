@@ -511,47 +511,48 @@ if ($null -eq $S.thin) { $S.thin = [bool]$script:freshCfg }
 $CFONT = $FONT; $CFW = 'Bold'
 try { $CFONT = Chat-FontPick ([string]$S.chatFont); $CFW = Chat-FontW ([string]$S.chatFont) } catch { Log "글꼴 고르기: $_" }
 $script:cfDone = ([string]$S.chatFont) + '|' + [bool]$S.thin
-function Sx-FontGrid {
-  $ug = New-Object System.Windows.Controls.Primitives.UniformGrid; $ug.Columns = 2; $ug.Rows = 3
-  $cur = $(if ($S.chatFont) { [string]$S.chatFont } else { 'maple' })
-  foreach ($it in @(@('maple', '메이플스토리'), @('wow', '이사만루체'), @('bing', '빙그레'), @('malgun', '맑은 고딕'), @('pret', '프리텐다드'), @('war', '워헤이븐'))) {
-    $on = ($it[0] -eq $cur)
-    $b = New-Object System.Windows.Controls.Border; $b.Height = 30; $b.CornerRadius = New-Object System.Windows.CornerRadius(6); $b.Margin = New-Object System.Windows.Thickness(0, 0, 5, 5)
-    $b.Background = $(if ($on) { Br '#E6B98E5F' } else { Br '#0DFFFFFF' })
-    $l = TB $it[1] 12 $(if ($on) { Br '#FF141414' } else { Br '#FFB8B8B8' }); $l.FontWeight = 'Bold'; $l.HorizontalAlignment = 'Center'; $l.VerticalAlignment = 'Center'
-    try { $l.FontFamily = (Chat-FontPick $it[0]); $l.FontWeight = (Chat-FontW $it[0]) } catch {}
-    $b.Child = $l; Sx-Click $b @{ kind = 'cfont'; v = $it[0] }
-    [void]$ug.Children.Add($b)
-  }
-  [void]$popS.Children.Add($ug)
-  $wd = New-Object System.Windows.Controls.DockPanel; $wd.LastChildFill = $true; $wd.Margin = New-Object System.Windows.Thickness(0, 0, 0, 5)
-  $wl = TB '굵기' 12 $CREAM; $wl.VerticalAlignment = 'Center'; $wl.Margin = New-Object System.Windows.Thickness(4, 0, 12, 0); [System.Windows.Controls.DockPanel]::SetDock($wl, 'Left'); [void]$wd.Children.Add($wl)
-  $wg = New-Object System.Windows.Controls.Primitives.UniformGrid; $wg.Columns = 2; $wg.Rows = 1
-  foreach ($it in @(@($false, '보통'), @($true, '얇게'))) {
-    $on = ([bool]$S.thin -eq $it[0])
-    $b = New-Object System.Windows.Controls.Border; $b.Height = 30; $b.CornerRadius = New-Object System.Windows.CornerRadius(6); $b.Margin = New-Object System.Windows.Thickness(0, 0, 5, 0)
-    $b.Background = $(if ($on) { Br '#E6B98E5F' } else { Br '#0DFFFFFF' })
-    $l = TB $it[1] 12 $(if ($on) { Br '#FF141414' } else { Br '#FFB8B8B8' }); $l.HorizontalAlignment = 'Center'; $l.VerticalAlignment = 'Center'
-    $b.Child = $l; Sx-Click $b @{ kind = 'cthin'; v = $it[0] }
-    [void]$wg.Children.Add($b)
-  }
-  [void]$wd.Children.Add($wg)
-  [void]$popS.Children.Add($wd)
-}
 $script:fontOpen = $false
+function Sx-Drop([string]$open, [string]$label, $fam, $wt, [double]$w) {
+  $on = ($script:fontOpen -eq $open)
+  $fb = New-Object System.Windows.Controls.Border; $fb.Width = $w; $fb.Height = 24; $fb.CornerRadius = New-Object System.Windows.CornerRadius(4); $fb.Padding = New-Object System.Windows.Thickness(10, 0, 8, 0); $fb.Margin = New-Object System.Windows.Thickness(0, 0, 10, 0)
+  $fb.Background = $(if ($on) { Br '#38B98E5F' } else { Br '#1FFFFFFF' })
+  $dp = New-Object System.Windows.Controls.DockPanel; $dp.LastChildFill = $true; $dp.VerticalAlignment = 'Center'
+  $fa = TB $(if ($on) { '▴' } else { '▾' }) 10 $GOLD; $fa.VerticalAlignment = 'Center'; [System.Windows.Controls.DockPanel]::SetDock($fa, 'Right'); [void]$dp.Children.Add($fa)
+  $ft = TB $label 11.5 $GOLD; $ft.VerticalAlignment = 'Center'; $ft.TextTrimming = 'CharacterEllipsis'
+  if ($fam) { try { $ft.FontFamily = $fam; $ft.FontWeight = $wt } catch {} }
+  [void]$dp.Children.Add($ft)
+  $fb.Child = $dp; Sx-Click $fb @{ kind = $(if ($open -eq 'font') { 'fontx' } else { 'wtx' }) }
+  return $fb
+}
+function Sx-DropList($items, [double]$w, [double]$right) {
+  $bd = New-Object System.Windows.Controls.Border; $bd.Width = $w; $bd.HorizontalAlignment = 'Right'; $bd.CornerRadius = New-Object System.Windows.CornerRadius(6); $bd.Background = Br '#F2181614'; $bd.BorderBrush = Br '#40B98E5F'; $bd.BorderThickness = New-Object System.Windows.Thickness(1); $bd.Padding = New-Object System.Windows.Thickness(3)
+  $sp = New-Object System.Windows.Controls.StackPanel
+  foreach ($it in $items) {
+    $b = New-Object System.Windows.Controls.Border; $b.Height = 28; $b.CornerRadius = New-Object System.Windows.CornerRadius(4); $b.Padding = New-Object System.Windows.Thickness(9, 0, 6, 0)
+    $b.Background = $(if ($it.on) { Br '#E6B98E5F' } else { Br '#00FFFFFF' })
+    $l = TB $it.t 12 $(if ($it.on) { Br '#FF141414' } else { Br '#FFB8B8B8' }); $l.VerticalAlignment = 'Center'
+    if ($it.fam) { try { $l.FontFamily = $it.fam; $l.FontWeight = $it.wt } catch {} }
+    $b.Child = $l; Sx-Click $b $it.tag
+    [void]$sp.Children.Add($b)
+  }
+  $bd.Child = $sp
+  $cv = New-Object System.Windows.Controls.Canvas; $cv.Height = 0; $cv.ClipToBounds = $false; [System.Windows.Controls.Panel]::SetZIndex($cv, 100)
+  [System.Windows.Controls.Canvas]::SetRight($bd, $right); [System.Windows.Controls.Canvas]::SetTop($bd, 4)
+  [void]$cv.Children.Add($bd); [void]$popS.Children.Add($cv)
+}
 function Sx-SizeFont {
+  $dropFW = 112; $dropWW = 64
   $b = New-Object System.Windows.Controls.Border; $b.Height = 38; $b.CornerRadius = New-Object System.Windows.CornerRadius(6); $b.Background = Br '#0AFFFFFF'; $b.Margin = New-Object System.Windows.Thickness(0, 10, 0, 0)
   $d = New-Object System.Windows.Controls.DockPanel; $d.Margin = New-Object System.Windows.Thickness(12, 0, 8, 0); $d.LastChildFill = $false
   $t = TB '글자' 12.5 $CREAM; $t.VerticalAlignment = 'Center'; [System.Windows.Controls.DockPanel]::SetDock($t, 'Left'); [void]$d.Children.Add($t)
   $sp = New-Object System.Windows.Controls.StackPanel; $sp.Orientation = 'Horizontal'; $sp.VerticalAlignment = 'Center'; [System.Windows.Controls.DockPanel]::SetDock($sp, 'Right')
   $cur = $(if ($S.chatFont) { [string]$S.chatFont } else { 'maple' })
-  $fnm = @{ wow = '이사만루체'; maple = '메이플스토리'; bing = '빙그레'; malgun = '맑은 고딕'; pret = '프리텐다드'; war = '워헤이븐' }[$cur]; if (-not $fnm) { $fnm = '메이플스토리' }
-  $fb = New-Object System.Windows.Controls.Border; $fb.Height = 24; $fb.CornerRadius = New-Object System.Windows.CornerRadius(4); $fb.Padding = New-Object System.Windows.Thickness(10, 0, 8, 0); $fb.Margin = New-Object System.Windows.Thickness(0, 0, 10, 0)
-  $fb.Background = $(if ($script:fontOpen) { Br '#38B98E5F' } else { Br '#1FFFFFFF' })
-  $fsp = New-Object System.Windows.Controls.StackPanel; $fsp.Orientation = 'Horizontal'; $fsp.VerticalAlignment = 'Center'
-  $ft = TB $fnm 11.5 $GOLD; $ft.VerticalAlignment = 'Center'; try { $ft.FontFamily = (Chat-FontPick $cur); $ft.FontWeight = (Chat-FontW $cur) } catch {}; [void]$fsp.Children.Add($ft)
-  $fa = TB $(if ($script:fontOpen) { ' ▴' } else { ' ▾' }) 10 $GOLD; $fa.VerticalAlignment = 'Center'; [void]$fsp.Children.Add($fa)
-  $fb.Child = $fsp; $fb.ToolTip = '대화창 글꼴 고르기'; Sx-Click $fb @{ kind = 'fontx' }; [void]$sp.Children.Add($fb)
+  $fonts = @(@('maple', '메이플스토리'), @('wow', '이사만루체'), @('bing', '빙그레'), @('malgun', '맑은 고딕'), @('pret', '프리텐다드'), @('war', '워헤이븐'))
+  $fnm = '메이플스토리'; foreach ($f in $fonts) { if ($f[0] -eq $cur) { $fnm = $f[1] } }
+  $fam = $null; $fw = 'Normal'; try { $fam = Chat-FontPick $cur; $fw = Chat-FontW $cur } catch {}
+  if (-not $fw) { $fw = 'Normal' }
+  [void]$sp.Children.Add((Sx-Drop -open 'font' -label $fnm -fam $fam -wt $fw -w $dropFW))
+  [void]$sp.Children.Add((Sx-Drop -open 'wt' -label $(if ([bool]$S.thin) { '얇게' } else { '보통' }) -fam $null -wt 'Normal' -w $dropWW))
   foreach ($q in @(@([string][char]0x2212, -1), @('', 0), @('+', 1))) {
     if ($q[1] -eq 0) { $v = TB ([string][int]$S.fz) 13 $GOLD; $v.MinWidth = 30; $v.TextAlignment = 'Center'; $v.VerticalAlignment = 'Center'; [void]$sp.Children.Add($v); continue }
     $k = New-Object System.Windows.Controls.Border; $k.Width = 26; $k.Height = 24; $k.CornerRadius = New-Object System.Windows.CornerRadius(4); $k.Background = Br '#1FFFFFFF'
@@ -559,7 +560,14 @@ function Sx-SizeFont {
     Sx-Click $k @{ kind = 'fzd'; v = [int]$q[1] }; [void]$sp.Children.Add($k)
   }
   [void]$d.Children.Add($sp); $b.Child = $d; [void]$popS.Children.Add($b)
-  if ($script:fontOpen) { Sx-FontGrid; try { $popS.Children[$popS.Children.Count - 1].Margin = New-Object System.Windows.Thickness(0, 6, -5, 0) } catch {} }
+  $sz = 8 + 26 + 30 + 26
+  if ($script:fontOpen -eq 'font') {
+    $items = foreach ($f in $fonts) { $ff = $null; $w = 'Normal'; try { $ff = Chat-FontPick $f[0]; $w = Chat-FontW $f[0] } catch {}; if (-not $w) { $w = 'Normal' }; @{ t = $f[1]; on = ($f[0] -eq $cur); fam = $ff; wt = $w; tag = @{ kind = 'cfont'; v = $f[0] } } }
+    Sx-DropList -items $items -w $dropFW -right ($sz + 10 + $dropWW + 10)
+  } elseif ($script:fontOpen -eq 'wt') {
+    $items = foreach ($o in @(@($false, '보통'), @($true, '얇게'))) { @{ t = $o[1]; on = ([bool]$S.thin -eq $o[0]); fam = $null; wt = 'Normal'; tag = @{ kind = 'cthin'; v = $o[0] } } }
+    Sx-DropList -items $items -w $dropWW -right ($sz + 10)
+  }
 }
 function Sx-GemRow {
   $low = ($Tier -eq 'low'); $on = $low -or ([string]$S.sendEng -eq 'gemini'); $hasK = [bool](Api-Key)
@@ -1402,7 +1410,8 @@ function Sx-Do($t) {
     'cench' { $lst = @(([string]$S.cenChOff -split '\|') | Where-Object { $_ }); $k = [string]$t.k; if ($lst -contains $k) { $lst = @($lst | Where-Object { $_ -ne $k }) } else { $lst += $k }; $S.cenChOff = ($lst -join '|'); Save-Cfg; Cen-SyncGame }
     'fz' { $S.fz = [int]$t.v; Save-Cfg; Redraw-All; Sync-Game }
     'cfont' { $script:fontOpen = $false; Chat-FontSet ([string]$t.v) }
-    'fontx' { $script:fontOpen = -not [bool]$script:fontOpen }
+    'fontx' { $script:fontOpen = $(if ($script:fontOpen -eq 'font') { $false } else { 'font' }) }
+    'wtx' { $script:fontOpen = $(if ($script:fontOpen -eq 'wt') { $false } else { 'wt' }) }
     'origoff' { $S.origOff = -not [bool]$S.origOff; Save-Cfg; Redraw-All }
     'calloff' { $S.callOff = -not [bool]$S.callOff; Save-Cfg }
     'engoff' { $S.engOff = -not [bool]$S.engOff; Save-Cfg }
@@ -1413,7 +1422,7 @@ function Sx-Do($t) {
     'engnav' { $c0 = @((Eng-Cur).items | Where-Object { $_ }).Count; if ($c0 -gt 0) { $script:engView = (($script:engView + [int]$t.v) % $c0 + $c0) % $c0 }; Eng-Re; return }
     'engday' { $script:engHist++; $script:engView = -1; Eng-Re; return }
     'vcen' { $S.voiceCen = -not ($S.voiceCen -ne $false); Save-Cfg }
-    'cthin' { $S.thin = [bool]$t.v; Chat-FontSet ([string]$S.chatFont) }
+    'cthin' { $script:fontOpen = $false; $S.thin = [bool]$t.v; Chat-FontSet ([string]$S.chatFont) }
     'dvoice' { if ($VoiceOK) { $S.voice = -not [bool]$S.voice; try { [FTRVoice]::Enabled = [bool]$S.voice } catch {}; Save-Cfg; try { Bar-VPaint } catch {} } }
     'fzd' { $S.fz = [math]::Max(10, [math]::Min(20, [int]$S.fz + [int]$t.v)); Save-Cfg; Redraw-All; Sync-Game }
     'cfz' { $Feed.font = [int]$t.v; $GC.cfont = [int]$t.v; Game-Cmd ''; try { Feed-Make; Feed-Place } catch {} }
@@ -1471,7 +1480,7 @@ function Sx-SubSet($el, [string]$s) {
 function Menu-Key {
   $ch = @(@($script:Chans.joined) | ForEach-Object { [string]$_.name }) -join '|'
   $be = @(@($script:BE) | ForEach-Object { '{0}{1}{2}{3}' -f $_.st, $_.full, $_.noModel, $_.kind }) -join '|'
-  $vs = ''; try { $vs = [string][FTRVoice]::Status + [string][FTRVoice]::Enabled } catch {}
+  $vs = ''; try { $vs = [string][FTRVoice]::Status + [string][FTRVoice]::Enabled } catch {}; $vs += [string](LC-Note)
   return (($S | ConvertTo-Json -Compress -Depth 5) + '#' + [string]$Feed.mask + '#' + $ch + '#' + $be + '#' + $vs + '#' + [string]$script:useW + [string]$script:fontOpen + [string]$script:pttCap + [string]$script:CFONT)
 }
 $script:menuKey = $null; $script:menuHead = $null; $script:menuInfo = $null
@@ -1615,6 +1624,7 @@ function Build-Menu {
   try { $esp = $esw.Child.Children[1]; $el0 = $esp.Children[0]; $esp.Children.RemoveAt(0); $hz = New-Object System.Windows.Controls.StackPanel; $hz.Orientation = 'Horizontal'; [void]$hz.Children.Add($el0); $nb = New-Object System.Windows.Controls.Border; $nb.CornerRadius = New-Object System.Windows.CornerRadius(6); $nb.Background = Br '#FFE3C39A'; $nb.Padding = New-Object System.Windows.Thickness(4, 0, 4, 1); $nb.Margin = New-Object System.Windows.Thickness(6, 0, 0, 0); $nb.VerticalAlignment = 'Center'; $nb.Child = (TB 'NEW' 7.5 (Br '#FF141518')); [void]$hz.Children.Add($nb); $esp.Children.Insert(0, $hz); $lk = $esp.Children[1]; $lk.Foreground = $GOLD; $lk.FontSize = 10.5; Sx-Click $lk @{ kind = 'engshow' } } catch {}
   [void]$ug.Children.Add($esw)
   [void]$popS.Children.Add($ug)
+  if (LC-Note) { $lcn = TB '디스코드 음성(영어)이 시작되면 캡션창은 잠시 후 사라집니다' 10.5 (Br '#FFFFB36B'); $lcn.TextWrapping = 'Wrap'; $lcn.Margin = New-Object System.Windows.Thickness(2, -2, 0, 4); [void]$popS.Children.Add($lcn) }
   Sx-Head '번역할 대화' '모든 탭 공통' '' $false
   $wp = New-Object System.Windows.Controls.WrapPanel
   $och = @(); foreach ($j in @($script:Chans.joined)) { $b0 = [string](Cen-ChBase $j.name); if (-not $b0) { continue }; if ((TrCat 'CHANNEL' $b0) -ne 'otherch') { continue }; if (@($och | Where-Object { $_.b -eq $b0 }).Count -gt 0) { continue }; $och += @{ n = $j.n; b = $b0 } }
@@ -3210,6 +3220,7 @@ function Eng-Ready {
   $now = [DateTime]::Now
   if (($now - $script:appStart).TotalMinutes -lt 10 -or ($now - $script:engChkAt).TotalSeconds -lt 30) { return $false }
   $script:engChkAt = $now
+  if ([int]$EngDB.lines -lt $(if ($now.Hour -ge 22) { 40 } else { 120 })) { return $false }
   $pk = Eng-Pick; $need = $(if ($now.Hour -ge 22) { 3 } else { 5 })
   if ($pk.Count -lt $need) { return $false }
   $script:engCard = @{ day = $today; lines = [int]$EngDB.lines; items = $pk }
@@ -4889,6 +4900,8 @@ function Tip-Daily {
   return $null
 }
 $script:sysNote = $null; $script:sysHide = ''; $script:gemErr = $null; $script:gemNet = 0; $script:gemQ = 0
+$script:lcPrevUntil = [DateTime]::MinValue
+function LC-Note { if ([DateTime]::Now -lt $script:lcPrevUntil) { return $true }; try { return ($VoiceOK -and [bool]$S.voice -and [FTRVoice]::Enabled -and [FTRVoice]::ShowLC) } catch { return $false } }
 function Sys-Note {
   if ($S.pause -or $state.test) { return $null }
   if ($script:cfgErrAt -ne [DateTime]::MinValue -and ([DateTime]::Now - $script:cfgErrAt).TotalSeconds -lt 30) { return @{ k = 'cfg'; t1 = '사전 파일에 오류가 있어요'; t2 = '번역은 계속되지만 사전 일부가 빠질 수 있어요' } }
@@ -4905,6 +4918,7 @@ function Sys-Note {
   if ($b0.noModel) { return @{ k = 'nomodel'; t1 = '번역 모델이 없어요'; t2 = $(if ($alt) { $alt } else { '번역기를 다시 설치해 주세요' }) } }
   if ($b0.full) { return @{ k = 'full'; t1 = '그래픽 메모리가 부족해요'; t2 = $(if ($alt) { $alt } else { '다른 프로그램을 닫으면 다시 번역해요' }) } }
   if ($b0.st -eq 'down') { return @{ k = 'down'; t1 = '번역 엔진 준비 중이에요'; t2 = $(if ($alt) { $alt } else { 'PC 사양에 따라 잠시 걸려요 · 준비되면 이 안내는 사라져요' }) } }
+  if (LC-Note) { return @{ k = 'lc'; t1 = '디스코드 음성 번역 준비 중이에요'; t2 = '디스코드 음성(영어)이 시작되면 캡션창은 잠시 후 사라집니다' } }
   return $null
 }
 function Tip-Tick([bool]$show) {
@@ -5989,7 +6003,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 256
+$APPV = 257
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
