@@ -762,6 +762,36 @@ function Rp-Mark($L) {
   try { Eng-Drop (Plain $L.rec.msg) } catch {}
   try { $rn = New-Object System.Windows.Documents.Run('  ' + [string][char]0x2691 + ' 제보함'); $rn.Foreground = Br '#FFE0B95A'; $rn.FontSize = [math]::Max(8, [double]$L.main.FontSize * 0.78); [void]$L.main.Inlines.Add($rn) } catch {}
 }
+function Rp-Hash([string]$s) { $n = ([regex]::Replace([string]$s, '\s+', ' ')).Trim().ToLowerInvariant(); return (Dict-Hex ([System.Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($n)))).Substring(0, 16) }
+function Rp-Check([string]$js) {
+  $map = @{}; foreach ($x in @(($js | ConvertFrom-Json).r)) { if ($x.h -and $x.m) { $map[[string]$x.h] = [string]$x.m } }
+  $script:rpWait = 0; $script:rpGot = @()
+  foreach ($r in @($S.rpMine)) {
+    if (-not $r -or $r.ok -or -not $map.ContainsKey([string]$r.h)) { continue }
+    $p = [string]$r.src
+    $task = Gem-Send ($SYS_IN + (Gloss-For $p) + (Slang-In $p)) (Pre-Fix $p) $false 'in'
+    if (-not $task) { continue }
+    [void]$Pending.Add(@{ kind = 'rpchk'; task = $task; src = $p; h = [string]$r.h; m = $map[[string]$r.h] }); $script:rpWait++
+  }
+}
+function Rp-Done($p, $j) {
+  $script:rpWait--
+  $ko = $(if ($j) { [string]$j.ko } else { '' })
+  if ($ko -and $p.m -and $ko.Contains([string]$p.m)) {
+    $script:rpGot += @(@{ src = [string]$p.src; ko = $ko })
+    $S.rpMine = @(@($S.rpMine) | ForEach-Object { if ($_ -and [string]$_.h -eq [string]$p.h) { @{ h = [string]$_.h; src = [string]$_.src; ok = $true } } else { $_ } }); try { Save-Cfg } catch {}
+    Log ('제보 반영 확인: ' + $p.src + ' → ' + $ko)
+  }
+  if ($script:rpWait -le 0 -and @($script:rpGot).Count -gt 0) { $script:rpNote = @($script:rpGot); $script:rpGot = @(); $script:rpAt = [DateTime]::Now; $script:tipMode = '' }
+}
+function Rp-List {
+  $rl = @($script:rpNote)
+  if ($rl.Count -gt 3) {
+    try { [void](Add-Line @{ kind = 'S'; col = 'e0b95a'; text = ([string][char]0x2691 + ' 반영된 제보 ' + $rl.Count + '개') }) } catch {}
+    foreach ($x in $rl) { try { [void](Add-Line @{ kind = 'S'; col = 'b9b3a4'; text = ([string]$x.src + '  →  ' + [string]$x.ko) }) } catch {} }
+  }
+  $script:rpNote = $null; $script:tipMode = ''; Tip-Hide
+}
 function Rp-Send($L, [string]$fix) {
   if (-not (Rp-Can $L) -or $L.rpd) { return }
   $src = Rp-Src $L; $tr = Rp-Clean (Rp-Tr $L); if (-not $src) { return }
@@ -775,6 +805,7 @@ function Rp-Send($L, [string]$fix) {
   $rq.Content = New-Object System.Net.Http.StringContent($js, [Text.Encoding]::UTF8, 'application/json')
   [void]$Http.SendAsync($rq)
   $L.rpd = $true; Rp-Mark $L; try { $(if ($script:rpAnchor) { $script:rpAnchor } else { $RpF }).Opacity = 0.45 } catch {}; try { UW-Refresh $L } catch {}
+  try { $rh = Rp-Hash $src; $S.rpMine = @(@(@($S.rpMine) | Where-Object { $_ -and [string]$_.h -ne $rh }) + @(@{ h = $rh; src = $src })); if (@($S.rpMine).Count -gt 60) { $S.rpMine = @(@($S.rpMine)[-60..-1]) }; Save-Cfg } catch { Log "제보 기억: $_" }
   Log ('번역 제보' + $(if ($fx) { ' (고친 문장 포함)' } else { '' }) + ': ' + $src)
   if (-not $script:rpThanked) { $script:rpThanked = $true; try { [void](Add-Line @{ kind = 'S'; col = 'e0b95a'; text = '제보 고마워요! 확인해서 다음 사전 업데이트에 반영할게요' }); [void](Add-Line @{ kind = 'S'; col = 'a89f8a'; text = '개인정보 수집 없음 · 닉네임 없이 원문과 번역만 익명으로 보내요' }) } catch {} }
 }
@@ -4799,7 +4830,7 @@ $tipX.Add_MouseEnter({ $tipX.Foreground = Br '#FFF3E2B3' }); $tipX.Add_MouseLeav
 $tipX.Add_MouseLeftButtonUp({ param($snd, $e) $e.Handled = $true; Tip-Done })
 [void]$tipSp.Children.Add($tipX)
 $tipB.Child = $tipSp; [void]$tipG.Children.Add($tipB)
-$tipB.Add_MouseLeftButtonUp({ param($snd, $e) if ($script:tipMode.StartsWith('sys:') -and $script:sysNote -and $script:sysNote.url) { $e.Handled = $true; try { Start-Process ([string]$script:sysNote.url) } catch { Log "받는 곳 열기: $_" } } elseif ($script:tipMode -eq 'eng') { $e.Handled = $true; try { Eng-Open } catch { Log "영어 카드: $_" } } elseif ($script:tipMode -eq 'engi') { $e.Handled = $true; try { Eng-IntroDone; Tip-Hide; $script:tipMode = ''; Eng-View $false $true } catch { Log "영어 카드: $_" } } })
+$tipB.Add_MouseLeftButtonUp({ param($snd, $e) if ($script:tipMode -eq 'rp') { $e.Handled = $true; try { Rp-List } catch { Log "제보 목록: $_" } } elseif ($script:tipMode.StartsWith('sys:') -and $script:sysNote -and $script:sysNote.url) { $e.Handled = $true; try { Start-Process ([string]$script:sysNote.url) } catch { Log "받는 곳 열기: $_" } } elseif ($script:tipMode -eq 'eng') { $e.Handled = $true; try { Eng-Open } catch { Log "영어 카드: $_" } } elseif ($script:tipMode -eq 'engi') { $e.Handled = $true; try { Eng-IntroDone; Tip-Hide; $script:tipMode = ''; Eng-View $false $true } catch { Log "영어 카드: $_" } } })
 $tipCv = New-Object System.Windows.Controls.Canvas; [System.Windows.Controls.Grid]::SetRow($tipCv, 1); [void]$tipG.Children.Add($tipCv)
 $tipTl = New-Object System.Windows.Shapes.Polygon; $tipTl.Fill = Br '#FF1C1A18'; foreach ($pt in @(@(0, -1), @(12, -1), @(6, 6))) { [void]$tipTl.Points.Add((New-Object System.Windows.Point($pt[0], $pt[1]))) }
 $tipTr = New-Object System.Windows.Shapes.Polyline; $tipTr.Stroke = Br '#8CE0B95A'; $tipTr.StrokeThickness = 1; foreach ($pt in @(@(0, -0.5), @(6, 6), @(12, -0.5))) { [void]$tipTr.Points.Add((New-Object System.Windows.Point($pt[0], $pt[1]))) }
@@ -4808,7 +4839,7 @@ $tipTr = New-Object System.Windows.Shapes.Polyline; $tipTr.Stroke = Br '#8CE0B95
 $script:tipU = 0
 $script:tipKey = ''
 $script:tipMode = ''
-function Tip-Done { Tip-Hide; if ($script:tipMode.StartsWith('sys:')) { if ($script:sysNote) { $script:sysHide = [string]$script:sysNote.k }; $script:tipMode = '' } elseif ($script:tipMode.StartsWith('tip:')) { $script:tipCur = $null; $script:tipMode = '' } elseif ($script:tipMode -eq 'eng') { $script:tipMode = ''; try { Eng-Dismiss } catch {} } elseif ($script:tipMode -eq 'engi') { $script:tipMode = ''; try { Eng-IntroDone } catch {} } elseif ($script:tipMode -eq 'dual') { if (-not $S.tipDual) { $S.tipDual = $true; Save-Cfg } } elseif ($script:tipMode -eq 'alt') { if (-not $S.tipAltEnter) { $S.tipAltEnter = $true; Save-Cfg } } elseif (-not $S.tipUndock) { $S.tipUndock = $true; Save-Cfg } }
+function Tip-Done { if ($script:tipMode -eq 'rp') { $script:rpNote = $null; $script:tipMode = ''; Tip-Hide; return }; Tip-Hide; if ($script:tipMode.StartsWith('sys:')) { if ($script:sysNote) { $script:sysHide = [string]$script:sysNote.k }; $script:tipMode = '' } elseif ($script:tipMode.StartsWith('tip:')) { $script:tipCur = $null; $script:tipMode = '' } elseif ($script:tipMode -eq 'eng') { $script:tipMode = ''; try { Eng-Dismiss } catch {} } elseif ($script:tipMode -eq 'engi') { $script:tipMode = ''; try { Eng-IntroDone } catch {} } elseif ($script:tipMode -eq 'dual') { if (-not $S.tipDual) { $S.tipDual = $true; Save-Cfg } } elseif ($script:tipMode -eq 'alt') { if (-not $S.tipAltEnter) { $S.tipAltEnter = $true; Save-Cfg } } elseif (-not $S.tipUndock) { $S.tipUndock = $true; Save-Cfg } }
 $TipBarT = New-Object Windows.Threading.DispatcherTimer; $TipBarT.Interval = [TimeSpan]::FromMilliseconds(250)
 $TipBarT.Add_Tick({ try { $n = [int][math]::Ceiling((15 - ([DateTime]::Now - $script:tipBarAt).TotalSeconds) / 3); $n = [math]::Max(0, [math]::Min(5, $n)); Tip-Segs $n; if ($n -le 0) { $TipBarT.Stop() } } catch { $TipBarT.Stop() } })
 function Tip-Mode([string]$m) {
@@ -4821,7 +4852,22 @@ function Tip-Mode([string]$m) {
   $tipB.Cursor = $null; $tipT3.Visibility = 'Collapsed'
   if ($m -eq 'engi') { $tipB.Cursor = [System.Windows.Input.Cursors]::Hand; $tipBadge.Visibility = 'Visible'; $tipBt.Text = 'NEW'; $tipT1.Text = '오늘의 영어 5개가 모였어요'; $tipT2.Text = '오늘 채팅에서 들은 표현이에요 · 눌러서 보기'; $tipIc.Visibility = 'Collapsed'; return }
   if ($m -eq 'eng') { $tipB.Cursor = [System.Windows.Input.Cursors]::Hand; $tipBadge.Visibility = 'Visible'; $tipBt.Text = 'NEW'; $tipT1.Text = ('오늘의 영어 {0}개가 모였어요' -f @($script:engCard.items).Count); $tipT2.Text = '오늘 채팅에서 들은 표현이에요 · 눌러서 보기'; $tipIc.Visibility = 'Collapsed'; return }
-  if ($isSys) { $tipT1.Text = [string]$script:sysNote.t1; $tipT2.Text = [string]$script:sysNote.t2; $tipIc.Visibility = 'Collapsed'; if ($script:sysNote.url) { $tipT3.Visibility = 'Visible'; $tipB.Cursor = [System.Windows.Input.Cursors]::Hand }; return }
+  if ($m -eq 'rp') {
+    $rl = @($script:rpNote); $tipBadge.Visibility = 'Visible'; $tipBt.Text = '제보'; $tipIc.Visibility = 'Collapsed'
+    $tipT1.Text = $(if ($rl.Count -eq 1) { '제보하신 번역이 고쳐졌어요' } else { '제보 {0}개가 반영됐어요' -f $rl.Count })
+    $tipT2.Inlines.Clear(); $shown = $(if ($rl.Count -gt 3) { 2 } else { $rl.Count })
+    for ($i = 0; $i -lt $shown; $i++) {
+      $s0 = [string]$rl[$i].src; if ($s0.Length -gt 44) { $s0 = $s0.Substring(0, 44) + '…' }
+      $k0 = [string]$rl[$i].ko; if ($k0.Length -gt 44) { $k0 = $k0.Substring(0, 44) + '…' }
+      if ($i -gt 0) { $tipT2.Inlines.Add((New-Object System.Windows.Documents.LineBreak)) }
+      $r1 = New-Object System.Windows.Documents.Run($s0); $r1.Foreground = Br '#FFA9A397'; $tipT2.Inlines.Add($r1)
+      $tipT2.Inlines.Add((New-Object System.Windows.Documents.LineBreak))
+      $r2 = New-Object System.Windows.Documents.Run('→ ' + $k0); $r2.Foreground = Br '#FF7FD17F'; $tipT2.Inlines.Add($r2)
+    }
+    if ($rl.Count -gt 3) { $tipT3.Text = ('외 {0}개 · 눌러서 전부 보기' -f ($rl.Count - 2)); $tipT3.Foreground = Br '#FFE0B95A'; $tipT3.Visibility = 'Visible'; $tipB.Cursor = [System.Windows.Input.Cursors]::Hand }
+    return
+  }
+  if ($isSys) { $tipT1.Text = [string]$script:sysNote.t1; $tipT2.Text = [string]$script:sysNote.t2; $tipIc.Visibility = 'Collapsed'; if ($script:sysNote.url) { $tipT3.Text = '여기를 누르면 받는 곳이 열려요'; $tipT3.Foreground = Br '#FF7FC3FF'; $tipT3.Visibility = 'Visible'; $tipB.Cursor = [System.Windows.Input.Cursors]::Hand }; return }
   if ($isTip) {
     $tipT1.Text = [string]$script:tipCur.t1; $tipT2.Text = [string]$script:tipCur.t2; $tipIc.Visibility = 'Collapsed'
     if ([string]$script:tipCur.kind -eq 'news') { $tipBt.Text = 'NEW' }
@@ -4935,6 +4981,7 @@ function Tip-Tick([bool]$show) {
   }
   if (-not $n) { $script:sysHide = '' }
   $script:sysNote = $n
+  if ($script:rpNote) { if (([DateTime]::Now - $script:rpAt).TotalSeconds -gt 30) { $script:rpNote = $null } else { Tip-Show 'rp'; return } }
   if (-not $S.tipAltEnter -and $state.inputOn) { Tip-Show 'alt'; return }
   if (-not $S.tipDual) { Tip-Show 'dual'; return }
   if (-not $S.tipUndock) {
@@ -5942,6 +5989,7 @@ function Dict-Apply([byte[]]$bytes) {
   $S.dictV = [int]$Dict.remote; $S.dictDate = [string]$Dict.rdate; $S.dictAt = [DateTime]::Now.ToString('o'); Save-Cfg
   Log ('사전 업데이트: ' + $Dict.remote + ' · ' + $Dict.rdate)
   try { Add-Line @{ kind = 'S'; col = 'e0b95a'; text = ('번역 사전을 새로 받았어요 (' + $Dict.rdate + ')') } | Out-Null } catch {}
+  $Dict.rpWant = $true
 }
 function Dict-Paint {
   if (-not $Bar.ddot) { return }
@@ -5963,6 +6011,7 @@ $DictT.Interval = [TimeSpan]::FromMilliseconds(500)
 $DictT.Add_Tick({
   try {
     if (-not $Dict.task) {
+      if ($Dict.rpWant -and -not $Dict.busy) { $Dict.rpWant = $false; if (@(@($S.rpMine) | Where-Object { $_ -and -not $_.ok }).Count -gt 0) { $Dict.kind = 'rp'; $Dict.task = $DictHttp.GetStringAsync($DictBase + 'reports.json?t=' + [DateTime]::UtcNow.Ticks); return } }
       if ($Dict.rPend -and -not $Dict.busy) { $Dict.kind = 'rbin'; $Dict.task = $DictHttp.GetByteArrayAsync($DictBase + 'retail.bin?t=' + [DateTime]::UtcNow.Ticks); return }
       if (([DateTime]::Now - $Dict.checkAt).TotalHours -ge 3) { Dict-Check }
       if ($Dict.msg -and ([DateTime]::Now - $Dict.msgAt).TotalSeconds -ge 6) { Dict-Paint }
@@ -5986,6 +6035,8 @@ $DictT.Add_Tick({
       elseif ($Dict.manual) { Dict-Msg '최신' }
       if ([int]$Dict.remote -eq [int]$S.dictV -and -not $S.dictDate -and $Dict.rdate) { $S.dictDate = [string]$Dict.rdate; Save-Cfg }
       if ($j.retail -and (Retail-Dir) -and ([int]$j.retail.v -gt [int]$S.retailV -or -not (Test-Path -LiteralPath $RetailFile))) { $Dict.rPend = $j.retail }
+    } elseif ($k -eq 'rp') {
+      try { Rp-Check ([string]$t.Result) } catch { Log "제보 확인: $_" }
     } elseif ($k -eq 'bin') {
       try { Dict-Apply ([byte[]]$t.Result); Dict-Msg '사전 ✓' } catch { Log ('사전 업데이트 실패: ' + $_); Dict-Msg '실패 · 그대로' }
       $Dict.busy = $false; try { Bar-Paint } catch {}
@@ -6004,7 +6055,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 261
+$APPV = 262
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
@@ -6775,11 +6826,12 @@ $Main.Add_Tick({
       if ($res.err) {
         if ($p.kind -eq 'send') { if ($p.task.fellBack) { Fb-Note ([string]$p.task.fellBack) }; Send-Fail $p ('→  ' + $res.err + ' (Enter = 다시)') }
         elseif ($p.kind -eq 'in') { Set-Sub $p.L $null '' }
+        elseif ($p.kind -eq 'rpchk') { Rp-Done $p $null }
         elseif ($p.kind -eq 'lfg' -and $Lfg.orig) { $Lfg.orig.Text = '(' + $res.err + ')' }
         Log $res.err; continue
       }
       $j = $res.json
-      if ($j -and ($p.kind -eq 'in' -or $p.kind -eq 'lfg' -or $p.kind -eq 'bgocr')) {
+      if ($j -and ($p.kind -eq 'in' -or $p.kind -eq 'lfg' -or $p.kind -eq 'bgocr' -or $p.kind -eq 'rpchk')) {
         if ([string]$j.ko -match '(^|[\s,(])아이(가|는|도|랑)?([\s,.!?~]|$)' -and $p.src -notmatch '(?i)\b(kids?|child|children|baby|babies)\b') {
           if (-not $p.retry) { $t2 = Gem-Send ($SYS_IN + (Gloss-For $p.src) + (Slang-In $p.src)) (Pre-Fix $p.src) $false 'chat'; if ($t2) { $p.task = $t2; $p.retry = $true; [void]$Pending.Add($p); Dbg ("받은 번역 다시('아이') · " + $p.src); continue } }
           $j.ko = $p.src
@@ -6787,6 +6839,7 @@ $Main.Add_Tick({
         $j = Ko-Fix $p.src $j
       }
       switch ($p.kind) {
+        'rpchk' { Rp-Done $p $j }
         'in' { if ($j) { if ($Cache.Count -ge 2000) { $Cache.Clear() }; $Cache[$p.src] = $j; Done-In $p.L $j } }
         'lfg' { if ($j) { if ($Cache.Count -ge 2000) { $Cache.Clear() }; $Cache[$p.src] = $j; Lfg-Done $p.key $j $p.src } }
         'bgocr' { if ($j -and [string]$j.ko -and [string]$j.lang -ne 'KO') { if ($Cache.Count -ge 2000) { $Cache.Clear() }; $Cache[[string]$p.ck] = $j; try { Feed-Tr $p.FL ([string]$j.ko) $p.src } catch {} } }

@@ -49,6 +49,7 @@ NT.stripY = function(f, x, y)
 end
 local seq, lastShow, shownAny = 0, 0, false
 local pendBytes = ""
+local pendMid = ""
 
 local function layout()
   local _, ph = GetPhysicalScreenSize()
@@ -110,8 +111,16 @@ local function recOf(...)
 end
 local function push(...)
   local rec = recOf(...)
-  if #pendBytes > 6000 then return end
+  if #pendBytes > 12000 then return end
   pendBytes = pendBytes .. rec
+end
+local function pushMid(...)
+  pendMid = pendMid .. recOf(...)
+  while #pendMid > 6000 do
+    local nl = pendMid:find("\n", 1, true)
+    if not nl then pendMid = "" break end
+    pendMid = pendMid:sub(nl + 1)
+  end
 end
 local function pushS(...)
   local rec = recOf(...)
@@ -125,6 +134,10 @@ T.push = push
 NT.push = push
 local function pump(now)
   if now - lastShow < HOLD then return end
+  while #pendBytes < BYTES and #pendMid > 0 do
+    local nl = pendMid:find("\n", 1, true)
+    if nl then pendBytes = pendBytes .. pendMid:sub(1, nl) pendMid = pendMid:sub(nl + 1) else pendBytes = pendBytes .. pendMid pendMid = "" end
+  end
   if #pendBytes == 0 and #pendLow > 0 then
     local nl = pendLow:find("\n", 1, true)
     if nl then pendBytes = pendLow:sub(1, nl) pendLow = pendLow:sub(nl + 1) else pendLow = "" end
@@ -250,7 +263,7 @@ local function onChatEv(_, ev, msg, sender, lang, chanStr, target, flags, zoneId
   if not col and ChatTypeInfo then col = ChatTypeInfo[t] end
   lineNo = lineNo + 1
   local f = { "C", t, cnum, cname, sender or "", classHex(guid), col and hexOf(col.r, col.g, col.b) or "ffffff", msg or "", me, 0, lineNo }
-  push(f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9], f[10], f[11], SID, "0")
+  ((me ~= 1 and (t == "CHANNEL" or t == "SAY" or t == "YELL" or t == "EMOTE")) and pushMid or push)(f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9], f[10], f[11], SID, "0")
   remember(f)
 end
 local function pkv(...) return select("#", ...), { ... } end
