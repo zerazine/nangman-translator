@@ -723,6 +723,29 @@ do
     if not title or title == "" then return nil end
     return string.format("|cffffff00|Hquest:%d:%d|h[%s]|h|r", qid, tonumber(level) or 0, title)
   end
+  if not ForeverKit_LinkQuest or ForeverKit_LinkQuestBasic then
+    ForeverKit_LinkQuestBasic = nil
+    function ForeverKit_LinkQuest(qid, title, level, idx)
+      if NT.inert then return false end
+      local l = questLink(qid, title, level, idx)
+      if not l then return false end
+      local g, t = gameTyping(), trTyping()
+      if not (g or t) then
+        local open = ChatFrame_OpenChat or (ChatFrameUtil and ChatFrameUtil.OpenChat)
+        if not open or not pcall(open, "") or not gameTyping() then return false end
+        g = true
+      end
+      if g then
+        local ins = ChatEdit_InsertLink or (ChatFrameUtil and ChatFrameUtil.InsertLink)
+        if not ins then return false end
+        local ok = pcall(ins, l)
+        return ok
+      end
+      T.qLink, T.qAt = tonumber(qid), GetTime()
+      send(l)
+      return true
+    end
+  end
   local function plainQuest(text)
     if type(text) ~= "string" or text:find("|H", 1, true) then return text end
     local lv, nm, id = text:match("^%[%[(%d+)%] (.-) %((%d+)%)%]$")
