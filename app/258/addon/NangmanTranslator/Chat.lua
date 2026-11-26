@@ -2401,7 +2401,7 @@ do
     local l = { GetChannelList() }
     for i = 1, #l, 3 do
       local nm = l[i + 1]
-      if type(nm) == "string" and nm ~= "" and not have[nm:lower()] and not isWorld(nm) then pcall(add, ChatFrame1, nm) end
+      if type(nm) == "string" and nm ~= "" and not have[nm:lower()] and not isWorld(nm) and not (NT.isDataCh and NT.isDataCh(nm)) then pcall(add, ChatFrame1, nm) end
     end
   end
   local f = CreateFrame("Frame")

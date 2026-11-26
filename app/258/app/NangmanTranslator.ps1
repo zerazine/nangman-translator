@@ -2928,7 +2928,7 @@ function Eng-Broken($b, [string]$em) {
   Paint-Status
   if (-not $script:brokenMsg) {
     $script:brokenMsg = $true
-    try { [void](Add-Line @{ kind = 'S'; col = 'ff7a5c'; text = '번역 엔진(Ollama) 파일 일부가 없어져서 번역을 못 하고 있어요. ollama.com 에서 Ollama를 받아 다시 설치해 주세요 (번역 모델은 그대로 남아요). 백신이 Ollama 파일을 지웠을 수도 있으니 백신 검역소도 확인해 주세요.' }) } catch {}
+    try { [void](Add-Line @{ kind = 'S'; col = 'ff7a5c'; text = '번역 엔진(Ollama) 파일 일부가 없어져서 번역을 못 하고 있어요. 처음 받은 번역기 설치 파일을 다시 실행하면 엔진만 새로 깔려요 (번역 모델은 다시 받지 않아요). 설치 파일이 없으면 말풍선을 눌러 다시 받아 주세요. 백신이 Ollama 파일을 지웠을 수도 있으니 백신 검역소도 확인해 주세요.' }) } catch {}
   }
 }
 function Probe-Start($b, [bool]$force = $false) {
@@ -3107,7 +3107,7 @@ function In-Pump {
 function Eng-Why {
   foreach ($b in $script:BE) {
     if ($b.kind -ne 'ollama') { continue }
-    if ($b.broken) { return '번역 엔진 고장 · Ollama 다시 설치 필요' }
+    if ($b.broken) { return '번역 엔진 파일 빠짐 · 설치 파일 다시 실행' }
     if ($b.noModel) { return '번역 모델 없음 · 다시 설치 필요' }
     if ($b.st -eq 'down') { return '번역 엔진 켜는 중' }
   }
@@ -3643,7 +3643,7 @@ function Paint-Status {
   elseif ($S.pause) { $TrLab.Text = ''; $TrM.glow.Opacity = 0; $TrM.root.ToolTip = '번역 설정' }
   else {
     $t = ''; $col = $MUTED; $b0 = $(if ($script:BE.Count -gt 0) { $script:BE[0] } else { $null })
-    if ($b0 -and $b0.kind -eq 'ollama' -and ($b0.st -eq 'down' -or $b0.noModel -or $b0.broken)) { $t = $(if ($b0.broken) { '번역 엔진 고장 (Ollama 다시 설치해 주세요)' } elseif ($b0.noModel) { '번역 모델 없음 (다시 설치해 주세요)' } else { '번역 엔진 준비 중…' }); $col = Br '#FFFFB36B' }
+    if ($b0 -and $b0.kind -eq 'ollama' -and ($b0.st -eq 'down' -or $b0.noModel -or $b0.broken)) { $t = $(if ($b0.broken) { '번역 엔진 파일 빠짐 (설치 파일 다시 실행해 주세요)' } elseif ($b0.noModel) { '번역 모델 없음 (다시 설치해 주세요)' } else { '번역 엔진 준비 중…' }); $col = Br '#FFFFB36B' }
     if ($script:cfgErrAt -ne [DateTime]::MinValue -and ([DateTime]::Now - $script:cfgErrAt).TotalSeconds -lt 30) { $t = '사전 파일 오류 (로그 확인)'; $col = Br '#FFFF7A5C' }
     $TrLab.Text = ''; $TrM.glow.Opacity = $(if ($t) { 1 } else { 0 }); if ($t) { $TrM.glow.Fill = $col }; $TrM.root.ToolTip = $(if ($t) { '번역 설정 · ' + $t } else { '번역 설정' })
   }
@@ -4786,6 +4786,7 @@ $tipBadge = New-Object System.Windows.Controls.Border; $tipBadge.BorderBrush = B
 $tipBt = TB 'TIP' 9 (Br '#FFE0B95A'); $tipBt.FontWeight = 'Bold'; $tipBadge.Child = $tipBt; [void]$tipRow.Children.Add($tipBadge)
 $tipT1 = TB '이제 탭 분리가 가능해요' 12.5 (Br '#FFF3E2B3'); UIF $tipT1; [void]$tipRow.Children.Add($tipT1)
 $tipT2 = TB '탭을 끌어서 밖에 놓으면 따로 창이 생겨요' 10.5 (Br '#FFBDB39A'); UIF $tipT2; $tipT2.Margin = New-Object System.Windows.Thickness(0, 2, 0, 0); $tipT2.HorizontalAlignment = 'Right'; [void]$tipTx.Children.Add($tipT2)
+$tipT3 = TB '여기를 누르면 받는 곳이 열려요' 10.5 (Br '#FF7FC3FF'); UIF $tipT3; $tipT3.Margin = New-Object System.Windows.Thickness(0, 2, 0, 0); $tipT3.HorizontalAlignment = 'Right'; $tipT3.Visibility = 'Collapsed'; [void]$tipTx.Children.Add($tipT3)
 $tipTrack = New-Object System.Windows.Controls.Border; $tipTrack.Height = 2; $tipTrack.CornerRadius = New-Object System.Windows.CornerRadius(1); $tipTrack.Background = $null; $tipTrack.Margin = New-Object System.Windows.Thickness(0, 6, 0, 0); $tipTrack.Visibility = 'Collapsed'
 $tipSegG = New-Object System.Windows.Controls.Primitives.UniformGrid; $tipSegG.Columns = 5; $tipSegG.Rows = 1; $script:tipSegs = @(); $script:tipSegN = -1
 for ($i = 0; $i -lt 5; $i++) { $sg = New-Object System.Windows.Controls.Border; $sg.Height = 2; $sg.CornerRadius = New-Object System.Windows.CornerRadius(1); $sg.Background = Br '#B3E0B95A'; $sg.Margin = New-Object System.Windows.Thickness(0, 0, $(if ($i -lt 4) { 3 } else { 0 }), 0); [void]$tipSegG.Children.Add($sg); $script:tipSegs += $sg }
@@ -4798,7 +4799,7 @@ $tipX.Add_MouseEnter({ $tipX.Foreground = Br '#FFF3E2B3' }); $tipX.Add_MouseLeav
 $tipX.Add_MouseLeftButtonUp({ param($snd, $e) $e.Handled = $true; Tip-Done })
 [void]$tipSp.Children.Add($tipX)
 $tipB.Child = $tipSp; [void]$tipG.Children.Add($tipB)
-$tipB.Add_MouseLeftButtonUp({ param($snd, $e) if ($script:tipMode -eq 'eng') { $e.Handled = $true; try { Eng-Open } catch { Log "영어 카드: $_" } } elseif ($script:tipMode -eq 'engi') { $e.Handled = $true; try { Eng-IntroDone; Tip-Hide; $script:tipMode = ''; Eng-View $false $true } catch { Log "영어 카드: $_" } } })
+$tipB.Add_MouseLeftButtonUp({ param($snd, $e) if ($script:tipMode.StartsWith('sys:') -and $script:sysNote -and $script:sysNote.url) { $e.Handled = $true; try { Start-Process ([string]$script:sysNote.url) } catch { Log "받는 곳 열기: $_" } } elseif ($script:tipMode -eq 'eng') { $e.Handled = $true; try { Eng-Open } catch { Log "영어 카드: $_" } } elseif ($script:tipMode -eq 'engi') { $e.Handled = $true; try { Eng-IntroDone; Tip-Hide; $script:tipMode = ''; Eng-View $false $true } catch { Log "영어 카드: $_" } } })
 $tipCv = New-Object System.Windows.Controls.Canvas; [System.Windows.Controls.Grid]::SetRow($tipCv, 1); [void]$tipG.Children.Add($tipCv)
 $tipTl = New-Object System.Windows.Shapes.Polygon; $tipTl.Fill = Br '#FF1C1A18'; foreach ($pt in @(@(0, -1), @(12, -1), @(6, 6))) { [void]$tipTl.Points.Add((New-Object System.Windows.Point($pt[0], $pt[1]))) }
 $tipTr = New-Object System.Windows.Shapes.Polyline; $tipTr.Stroke = Br '#8CE0B95A'; $tipTr.StrokeThickness = 1; foreach ($pt in @(@(0, -0.5), @(6, 6), @(12, -0.5))) { [void]$tipTr.Points.Add((New-Object System.Windows.Point($pt[0], $pt[1]))) }
@@ -4817,10 +4818,10 @@ function Tip-Mode([string]$m) {
   $tipBadge.Visibility = $(if ($isTip -or $isSys) { 'Visible' } else { 'Collapsed' }); $tipTrack.Visibility = $(if ($isTip) { 'Visible' } else { 'Collapsed' })
   $tipT1.Foreground = $(if ($isSys) { Br '#FFFFB36B' } else { Br '#FFF3E2B3' })
   $tipBt.Text = $(if ($isSys) { '안내' } else { 'TIP' }); $tipBt.Foreground = $(if ($isSys) { Br '#FFFFB36B' } else { Br '#FFE0B95A' }); $tipBadge.BorderBrush = $tipBt.Foreground
-  $tipB.Cursor = $null
+  $tipB.Cursor = $null; $tipT3.Visibility = 'Collapsed'
   if ($m -eq 'engi') { $tipB.Cursor = [System.Windows.Input.Cursors]::Hand; $tipBadge.Visibility = 'Visible'; $tipBt.Text = 'NEW'; $tipT1.Text = '오늘의 영어 5개가 모였어요'; $tipT2.Text = '오늘 채팅에서 들은 표현이에요 · 눌러서 보기'; $tipIc.Visibility = 'Collapsed'; return }
   if ($m -eq 'eng') { $tipB.Cursor = [System.Windows.Input.Cursors]::Hand; $tipBadge.Visibility = 'Visible'; $tipBt.Text = 'NEW'; $tipT1.Text = ('오늘의 영어 {0}개가 모였어요' -f @($script:engCard.items).Count); $tipT2.Text = '오늘 채팅에서 들은 표현이에요 · 눌러서 보기'; $tipIc.Visibility = 'Collapsed'; return }
-  if ($isSys) { $tipT1.Text = [string]$script:sysNote.t1; $tipT2.Text = [string]$script:sysNote.t2; $tipIc.Visibility = 'Collapsed'; return }
+  if ($isSys) { $tipT1.Text = [string]$script:sysNote.t1; $tipT2.Text = [string]$script:sysNote.t2; $tipIc.Visibility = 'Collapsed'; if ($script:sysNote.url) { $tipT3.Visibility = 'Visible'; $tipB.Cursor = [System.Windows.Input.Cursors]::Hand }; return }
   if ($isTip) {
     $tipT1.Text = [string]$script:tipCur.t1; $tipT2.Text = [string]$script:tipCur.t2; $tipIc.Visibility = 'Collapsed'
     if ([string]$script:tipCur.kind -eq 'news') { $tipBt.Text = 'NEW' }
@@ -4914,7 +4915,7 @@ function Sys-Note {
   if (-not $b0 -or $b0.kind -ne 'ollama') { return $null }
   $e = ''; try { $e = Eng-Label } catch {}; if ($e -eq $b0.short) { $e = '' }
   $alt = $(if ($e) { '그동안은 ' + $e + ' 엔진으로 번역해요' } else { '' })
-  if ($b0.broken) { return @{ k = 'broken'; t1 = '번역 엔진이 고장 났어요'; t2 = $(if ($alt) { $alt } else { 'Ollama를 다시 설치해 주세요' }) } }
+  if ($b0.broken) { return @{ k = 'broken'; t1 = '번역 엔진 파일이 빠졌어요'; t2 = $(if ($alt) { $alt } else { '번역기 설치 파일을 다시 실행해 주세요' }); url = 'https://zerazine.github.io/nangman-translator/' } }
   if ($b0.noModel) { return @{ k = 'nomodel'; t1 = '번역 모델이 없어요'; t2 = $(if ($alt) { $alt } else { '번역기를 다시 설치해 주세요' }) } }
   if ($b0.full) { return @{ k = 'full'; t1 = '그래픽 메모리가 부족해요'; t2 = $(if ($alt) { $alt } else { '다른 프로그램을 닫으면 다시 번역해요' }) } }
   if ($b0.st -eq 'down') { return @{ k = 'down'; t1 = '번역 엔진 준비 중이에요'; t2 = $(if ($alt) { $alt } else { 'PC 사양에 따라 잠시 걸려요 · 준비되면 이 안내는 사라져요' }) } }
@@ -6003,7 +6004,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 257
+$APPV = 258
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }

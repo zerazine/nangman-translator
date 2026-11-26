@@ -266,7 +266,7 @@ class Setup : Form {
     Log("  시험 번역 실패: " + (e.Length > 300 ? e.Substring(0, 300) : e));
     if (!EngFileErr.IsMatch(e)) return;
     Log("  엔진 파일이 빠져 있어서 다시 설치해서 고침");
-    Step("번역 엔진 파일이 빠져 있어서 다시 설치하는 중");
+    Step("번역 엔진 파일이 빠져 있어서 엔진만 다시 설치해요 (1~3분 · 번역 모델은 그대로)");
     InstallOllama(true);
     ol = FindOllama(); if (ol == null) throw new Exception("번역 엔진 업데이트가 끝나지 않았어요. 다시 눌러 주세요.");
     EnsureOllamaRunning(ol);

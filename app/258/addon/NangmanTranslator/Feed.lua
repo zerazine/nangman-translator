@@ -266,6 +266,7 @@ NT.onEvent(ev, function(_, e, msg, sender, ...)
   if NT.centerOn then if not NT.centerOn(CKEY[e]) then return end
   elseif not (CKEY[e] == "party" or CKEY[e] == "raid" or CKEY[e] == "inst" or CKEY[e] == "whisper") then return end
   if CKEY[e] == "channel" and NT.centerChOn and not NT.centerChOn(select(2, ...)) then return end
+  if CKEY[e] == "channel" and NT.chDrop and NT.chDrop(msg, select(2, ...), select(7, ...), select(9, ...), select(10, ...)) then return end
   local guid = select(10, ...)
   if (KIND[e] == "whisper" or KIND[e] == "say" or KIND[e] == "yell" or KIND[e] == "guild" or KIND[e] == "channel") and type(guid) ~= "string" then guid = nil end
   if secret(guid) then guid = nil end

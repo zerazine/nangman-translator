@@ -382,7 +382,7 @@ local function chans()
   local step = (type(L[3]) == "boolean" or (L[3] == nil and #L >= 3)) and 3 or 2
   for i = 1, #L, step do
     local id, nm = L[i], L[i + 1]
-    if type(id) == "number" and type(nm) == "string" then t[#t + 1] = id .. "=" .. chanDisp(nm) end
+    if type(id) == "number" and type(nm) == "string" and not (NT.isDataCh and NT.isDataCh(nm)) then t[#t + 1] = id .. "=" .. chanDisp(nm) end
   end
   if EnumerateServerChannels then for _, n in ipairs({ EnumerateServerChannels() }) do if type(n) == "string" then sv[#sv + 1] = n end end end
   local g = table.concat(t, ";") .. "\t" .. table.concat(sv, ";")
