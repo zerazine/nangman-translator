@@ -249,6 +249,33 @@ class Setup : Form {
     throw new Exception("번역 엔진(Ollama)이 켜지지 않았어요.\n\n와우를 완전히 끄고, PC를 다시 시작한 뒤 설치를 다시 눌러 주세요.\n그래도 안 되면 아래 기록 파일을 보내 주세요.");
   }
   string ModelName() { return "nangman-gemma"; }
+  static readonly System.Text.RegularExpressions.Regex EngFileErr = new System.Text.RegularExpressions.Regex(@"binary not found|llama-server[^\n]*not found|\.dll[^\n]*(not found|missing)|cannot find the file|no such file", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+  string TryGenerate() {
+    try { Http("POST", "http://127.0.0.1:11434/api/generate", "{\"model\":\"" + ModelName() + "\",\"prompt\":\"hi\",\"stream\":false,\"keep_alive\":0,\"options\":{\"num_predict\":1}}", 240000); return null; }
+    catch (WebException ex) {
+      string b = ex.Message;
+      try { if (ex.Response != null) using (var sr = new StreamReader(ex.Response.GetResponseStream(), Encoding.UTF8)) b = sr.ReadToEnd(); } catch { }
+      return b ?? "";
+    }
+    catch (Exception ex) { return ex.Message ?? ""; }
+  }
+  void EngineCheck(ref string ol) {
+    Step("번역 엔진 시험 중");
+    var e = TryGenerate();
+    if (e == null) { Log("  시험 번역 통과"); return; }
+    Log("  시험 번역 실패: " + (e.Length > 300 ? e.Substring(0, 300) : e));
+    if (!EngFileErr.IsMatch(e)) return;
+    Log("  엔진 파일이 빠져 있어서 다시 설치해서 고침");
+    Step("번역 엔진 파일이 빠져 있어서 다시 설치하는 중");
+    InstallOllama(true);
+    ol = FindOllama(); if (ol == null) throw new Exception("번역 엔진 업데이트가 끝나지 않았어요. 다시 눌러 주세요.");
+    EnsureOllamaRunning(ol);
+    Step("번역 엔진 시험 중");
+    e = TryGenerate();
+    if (e == null) { Log("  다시 설치 후 시험 번역 통과"); return; }
+    Log("  다시 설치 후에도 시험 번역 실패: " + (e.Length > 300 ? e.Substring(0, 300) : e));
+    if (EngFileErr.IsMatch(e)) throw new Exception("번역 엔진(Ollama) 파일이 설치 직후 다시 없어졌어요.\n\n백신 프로그램이 Ollama 파일을 지우고 있을 가능성이 커요.\n백신 검역소에서 Ollama 파일을 복원하고, Ollama 폴더를 예외(검사 제외)로 등록한 뒤 설치를 다시 눌러 주세요.");
+  }
 
   static HttpWebRequest Web(string url, long from) {
     var r = (HttpWebRequest)WebRequest.Create(url); r.UserAgent = "NangmanTranslatorSetup/" + Version; r.Timeout = 30000; r.ReadWriteTimeout = 120000; r.AllowAutoRedirect = true;
@@ -514,6 +541,7 @@ class Setup : Form {
         try { File.Delete(gguf); File.Delete(gguf + ".sha"); Log("  받은 원본 파일 정리"); } catch (Exception ex) { Log("  원본 정리: " + ex.Message); }
       }
       }
+      EngineCheck(ref ol);
     }
 
     Step("프로그램 넣는 중");
