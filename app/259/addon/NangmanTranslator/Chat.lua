@@ -591,6 +591,7 @@ do
       local n, args = pk(...)
       local msg, sender, _, chName, _, _, _, idx, base, _, lineID, guid = ...
       if not P or secret(msg) or secret(sender) or type(sender) ~= "string" then return end
+      if NT.chDrop and NT.chDrop(msg, chName, base, lineID, guid) then return end
       lineID = tonumber(lineID)
       if lineID and chDone[lineID] then return end
       local getF = ChatFrame_GetMessageEventFilters or (ChatFrameUtil and ChatFrameUtil.GetMessageEventFilters)

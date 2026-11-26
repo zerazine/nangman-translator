@@ -214,6 +214,7 @@ for _, e in ipairs(EV) do pcall(evf.RegisterEvent, evf, e) end
 local function onChatEv(_, ev, msg, sender, lang, chanStr, target, flags, zoneId, chanIdx, chanBase, _, lineID, guid, bnID)
   if secret(msg) or secret(sender) then if T.onLock then pcall(T.onLock, ev) end return end
   if T.onRead then pcall(T.onRead, ev) end
+  if ev == "CHAT_MSG_CHANNEL" and NT.chDrop and NT.chDrop(msg, chanStr, chanBase, lineID, guid) then return end
   if NangmanTranslator_LinkKO then msg = NangmanTranslator_LinkKO(msg, sender, ev, guid) end
   if lineID and not secret(lineID) then
     local key = ":" .. tostring(lineID) .. ":"

@@ -1,11 +1,11 @@
 {
- "v": 258,
- "ver": "2.58",
+ "v": 259,
+ "ver": "2.59",
  "date": "2026-11-26",
  "files": [
   {
    "p": "app/NangmanTranslator.ps1",
-   "sha256": "526728ecbfb8fd5ddfbb6b724312b18e79d4d2d25df6479d1f679ec25ca7607a",
+   "sha256": "cd2425c77647e5a5d6cb690472c5768e430894bfef80f77e78b81669f25bec9b",
    "size": 552586
   },
   {
@@ -65,13 +65,13 @@
   },
   {
    "p": "addon/NangmanTranslator/Chat.lua",
-   "sha256": "b196d026dfb241921cda76fb0e12822bd91994bcf3e0fef335017de5ef626c91",
-   "size": 141634
+   "sha256": "b77264fd6398909af6aed67410e260d45b0a39aa36c734cbe0c448058a6638d2",
+   "size": 141716
   },
   {
    "p": "addon/NangmanTranslator/Core.lua",
-   "sha256": "8ee3e9bf5605a64a9896bcf6bbe0e9431c1a84c412df10e90c55d91e21c17124",
-   "size": 6130
+   "sha256": "49f7e204120947933152f79d396a962f6f8c3c9723c6c07d075ae3cef670005a",
+   "size": 6351
   },
   {
    "p": "addon/NangmanTranslator/LinkNamesData.lua",
@@ -105,8 +105,8 @@
   },
   {
    "p": "addon/NangmanTranslator/Translate.lua",
-   "sha256": "98fb67ba41b48822eb2cf2a0c1175f5e45649a728dabc171583deb239ac095bb",
-   "size": 52008
+   "sha256": "d928e560d84eee033e09abc5cce1b2ae9b663477a063cce62ae6d547647fa6a1",
+   "size": 52120
   },
   {
    "p": "addon/NangmanTranslator/media/GJ_Binggrae.ttf",

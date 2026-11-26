@@ -83,15 +83,20 @@ do
     for _, w in ipairs(SRV) do if n:find(w, 1, true) then return nil end end
     return n
   end
-  local function looks(m)
-    if type(m) ~= "string" or NT.secret(m) or m:find("|H", 1, true) then return false end
+  local function cls(m)
+    if type(m) ~= "string" or NT.secret(m) then return "n" end
+    if m:find("|H", 1, true) then return "h" end
     local s = m:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
     local ns = s:gsub("%s", "")
-    if #ns < 6 then return false end
+    if #ns < 2 then return "n" end
     local sym = select(2, ns:gsub("[#$%%&*()+/:<=>@%[%]\\{}_`]", ""))
-    if #ns >= 10 and sym / #ns >= 0.15 then return true end
+    if #ns >= 10 and sym / #ns >= 0.15 then return "d" end
     local a = s:match("^(%S+)%s")
-    return (a and #a <= 6 and a:find("^%u[%u%d]+$") and s:find("%d[%.:]%w") and not s:find("%l%l%l") and not s:find("[\128-\255]")) and true or false
+    if a and #a <= 6 and a:find("^%u[%u%d]+$") and s:find("%d[%.:,]") then return "d" end
+    if s:find("[\234-\237][\128-\191][\128-\191]") then return "h" end
+    local w = 0
+    for t in s:gmatch("%S+") do if #t >= 2 and t:find("^%a*%l%a*[%.,!%?]*$") then w = w + 1 end end
+    return w >= 2 and "h" or "n"
   end
   local function cdb() local d = NT.db() if type(d.dataCh) ~= "table" then d.dataCh = {} end return d.dataCh end
   function NT.isDataCh(n) local b = base(n) return (b and cdb()[b]) and true or false end
@@ -109,11 +114,12 @@ do
     if memo[key] ~= nil then return memo[key] end
     local d, drop = cdb(), false
     local mine = type(guid) == "string" and not NT.secret(guid) and guid == UnitGUID("player")
-    if mine or not looks(msg) then
-      human[b] = (human[b] or 0) + 1
-      if d[b] and (mine or human[b] >= 2) then d[b] = nil if NT.chans then pcall(NT.chans) end end
+    local c = mine and "h" or cls(msg)
+    if c == "h" then
+      human[b] = (human[b] or 0) + (mine and 2 or 1)
+      if d[b] and human[b] >= 2 then d[b] = nil if NT.chans then pcall(NT.chans) end end
     elseif d[b] then drop = true
-    elseif not human[b] then
+    elseif c == "d" and not human[b] then
       hits[b] = (hits[b] or 0) + 1
       drop = true
       if hits[b] >= 3 then d[b] = true unlist(nm) if NT.chans then pcall(NT.chans) end end
