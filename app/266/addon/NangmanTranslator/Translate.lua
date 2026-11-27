@@ -1,9 +1,5 @@
 local NT = NangmanTr
 if not NT or NT.inert then return end
-local function commText(t)
-  if type(t) ~= "string" or (issecretvalue and issecretvalue(t)) or not t:find("|HplayerCommunity:", 1, true) then return t end
-  return (t:gsub("|K[wx]%d+|k", "|cff8c8c8c(내용은 와우 기본 대화창이나 커뮤니티 창에서 보여요)|r"))
-end
 
 local T = {}
 NT.T = T
@@ -224,6 +220,45 @@ end
 
 local evf = CreateFrame("Frame")
 for _, e in ipairs(EV) do pcall(evf.RegisterEvent, evf, e) end
+local CR = { q = {} }
+local function crNext()
+  local f = CR.fr
+  local it = table.remove(CR.q, 1)
+  if not it then if f then f:Hide() end CR.busy = nil return end
+  if not f then
+    f = CreateFrame("Frame", nil, UIParent)
+    f:SetFrameStrata("TOOLTIP") f:SetFrameLevel(250)
+    local bg = f:CreateTexture(nil, "BACKGROUND") bg:SetAllPoints() bg:SetColorTexture(0, 0, 0, 1)
+    local fs = f:CreateFontString(nil, "OVERLAY")
+    fs:SetFont(STANDARD_TEXT_FONT, 15, "") fs:SetTextColor(1, 1, 1) fs:SetShadowOffset(0, 0)
+    fs:SetJustifyH("LEFT") fs:SetJustifyV("TOP") fs:SetWordWrap(true) fs:SetPoint("TOPLEFT", 10, -6)
+    f.fs = fs
+    f:SetPoint("TOP", UIParent, "TOP", 0, -48)
+    CR.fr = f
+  end
+  CR.busy = true
+  f.fs:SetWidth(560) f.fs:SetText(((type(it[5]) == "string" and it[5]:find("|K", 1, true)) and (it[5] .. ": ") or "") .. it[8])
+  local w = math.min(560, math.ceil(f.fs:GetStringWidth() or 560))
+  if w < 40 then w = 560 end
+  f.fs:SetWidth(w + 2)
+  f:SetSize(w + 22, math.ceil(f.fs:GetStringHeight() or 20) + 12)
+  f:Show()
+  C_Timer.After(0, function()
+    local ph = select(2, GetPhysicalScreenSize())
+    local s = f:GetEffectiveScale() * ph / 768
+    local sh = (UIParent:GetTop() or 768) * UIParent:GetEffectiveScale() * ph / 768
+    if f:GetLeft() then
+      pushS("CR", math.floor(f:GetLeft() * s), math.floor(sh - f:GetTop() * s), math.ceil(f:GetWidth() * s), math.ceil(f:GetHeight() * s), it[2], it[3], it[4], it[5], it[6], it[7], it[9], it[11], SID)
+    end
+    C_Timer.After(#CR.q > 0 and 0.4 or 0.8, crNext)
+  end)
+end
+local function commRead(f)
+  if not NT.alive and NT.alive() or #CR.q > 30 then return false end
+  CR.q[#CR.q + 1] = f
+  if not CR.busy then crNext() end
+  return true
+end
 local function onChatEv(_, ev, msg, sender, lang, chanStr, target, flags, zoneId, chanIdx, chanBase, _, lineID, guid, bnID)
   if secret(msg) or secret(sender) then if T.onLock then pcall(T.onLock, ev) end return end
   if T.onRead then pcall(T.onRead, ev) end
@@ -263,6 +298,7 @@ local function onChatEv(_, ev, msg, sender, lang, chanStr, target, flags, zoneId
   if not col and ChatTypeInfo then col = ChatTypeInfo[t] end
   lineNo = lineNo + 1
   local f = { "C", t, cnum, cname, sender or "", classHex(guid), col and hexOf(col.r, col.g, col.b) or "ffffff", msg or "", me, 0, lineNo }
+  if ev == "CHAT_MSG_COMMUNITIES_CHANNEL" and type(msg) == "string" and msg:find("|K", 1, true) and commRead(f) then return end
   ((me ~= 1 and (t == "CHANNEL" or t == "SAY" or t == "YELL" or t == "EMOTE")) and pushMid or push)(f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9], f[10], f[11], SID, "0")
   remember(f)
 end
@@ -284,7 +320,8 @@ local function hookCF()
   T.hooked = true
   NT.hsf(ChatFrame1, "AddMessage", function(_, text, r, g, b)
     if type(text) ~= "string" or secret(text) or not text:find("%S") then return end
-    pendLines[#pendLines + 1] = { commText(text), hexOf(r, g, b) }
+    if text:find("|HplayerCommunity:", 1, true) and text:find("|K", 1, true) then return end
+    pendLines[#pendLines + 1] = { text, hexOf(r, g, b) }
   end)
 end
 local catOf = {}

@@ -3159,6 +3159,8 @@ function In-Start($L) {
   [void]$Pending.Add(@{ kind = 'in'; task = $task; L = $L; src = $p })
 }
 $ENG_BASIC = @{}; foreach ($w0 in @('lol', 'lmao', 'rofl', 'ty', 'tyty', 'thx', 'thanks', 'np', 'gg', 'ok', 'okay', 'k', 'kk', 'hi', 'hello', 'hey', 'yes', 'no', 'ya', 'yea', 'yeah', 'yep', 'nope', 'nice', 'gj', 'wp', 'gz', 'grats', 'sry', 'sorry', 'pls', 'plz', 'u', 'ur', 'r', 'y', 'im', 'omg', 'haha', 'xd', 'yo', 'sup', 'bye', 'cya')) { $ENG_BASIC[$w0] = 1 }
+$ENG_FULL = @{ 'wts' = 'Want To Sell'; 'wtb' = 'Want To Buy'; 'wtt' = 'Want To Trade'; 'lfm' = 'Looking For More'; 'lfg' = 'Looking For Group'; 'lf' = 'Looking For'; 'lfw' = 'Looking For Work'; 'cd' = 'Cooldown'; 'cds' = 'Cooldowns'; 'oom' = 'Out Of Mana'; 'ms' = 'Main Spec'; 'os' = 'Off Spec'; 'bis' = 'Best In Slot'; 'dps' = 'Damage Per Second'; 'aoe' = 'Area Of Effect'; 'cc' = 'Crowd Control'; 'afk' = 'Away From Keyboard'; 'brb' = 'Be Right Back'; 'bbl' = 'Be Back Later'; 'pug' = 'Pick-Up Group'; 'dkp' = 'Dragon Kill Points'; 'gdkp' = 'Gold DKP'; 'sr' = 'Soft Reserve'; 'hr' = 'Hard Reserve'; 'boe' = 'Bind On Equip'; 'bop' = 'Bind On Pickup'; 'boa' = 'Bind On Account'; 'ah' = 'Auction House'; 'ilvl' = 'Item Level'; 'lvl' = 'Level'; 'mt' = 'Main Tank'; 'ot' = 'Off Tank'; 'inv' = 'Invite'; 'idk' = 'I Don''t Know'; 'imo' = 'In My Opinion'; 'tbh' = 'To Be Honest'; 'ofc' = 'Of Course'; 'omw' = 'On My Way'; 'rdy' = 'Ready'; 'pst' = 'Please Send Tell'; 'ffa' = 'Free For All'; 'wb' = 'Welcome Back'; 'gl' = 'Good Luck'; 'hf' = 'Have Fun'; 'glhf' = 'Good Luck, Have Fun'; 'nvm' = 'Never Mind'; 'btw' = 'By The Way'; 'fyi' = 'For Your Information'; 'irl' = 'In Real Life'; 'ppl' = 'People'; 'atm' = 'At The Moment'; 'asap' = 'As Soon As Possible'; 'dc' = 'Disconnect'; 'hp' = 'Health Points'; 'xp' = 'Experience'; 'mats' = 'Materials'; 'ench' = 'Enchant'; 'pvp' = 'Player Versus Player'; 'pve' = 'Player Versus Environment'; 'smh' = 'Shaking My Head'; 'iirc' = 'If I Recall Correctly'; 'afaik' = 'As Far As I Know'; 'rez' = 'Resurrect'; 'res' = 'Resurrect'; 'w/e' = 'Whatever'; 'w/' = 'With'; 'b4' = 'Before'; 'ty' = 'Thank You'; 'np' = 'No Problem' }
+function Eng-Full([string]$en) { $k = ($en.Trim().ToLower() -replace '\s+', ' '); if ($ENG_FULL.ContainsKey($k)) { return [string]$ENG_FULL[$k] }; return '' }
 $ENG_BAD = New-Object Text.RegularExpressions.Regex('(?i)(?<![a-z])(f+u+c*k+\w*|fck\w*|fk|wtf|stfu|gtfo|lmf?ao|shit\w*|bitch\w*|bastard\w*|dick\w*|cock\w*|puss(y|ies)|cunt\w*|ass|asses|asshole\w*|arse\w*|damn\w*|crap\w*|piss\w*|whore\w*|slut\w*|porn\w*|sex\w*|horny|nude\w*|naked|boob\w*|tits?|titties|nipple\w*|penis\w*|vagina\w*|cum|cumming|wank\w*|nigg\w*|fag\w*|retard\w*|rape\w*|kys|blowjob\w*|hooker\w*|milf|thicc)(?![a-z])|씨발|시발|ㅅㅂ|ㅆㅂ|좆|존나|졸라|개새|병신|ㅂㅅ|섹스|야동|자지|보지|꼴리|창녀|지랄|닥쳐|꺼져|미친')
 $ENGF = Join-Path $Dir 'engcard.json'
 $EngDB = @{ day = ''; lines = 0; items = @{}; seen = @(); hist = @(); shown = '' }
@@ -3375,6 +3377,7 @@ function Build-Eng {
       $ar = TB ([string][char]0x203A) 13 $MUTED; $ar.VerticalAlignment = 'Center'; $ar.Margin = New-Object System.Windows.Thickness(8, 0, 0, 1); [System.Windows.Controls.DockPanel]::SetDock($ar, 'Right'); [void]$d.Children.Add($ar)
       $ko = TB ([string]$it.ko) 11 $SUBC; $ko.VerticalAlignment = 'Center'; $ko.TextTrimming = 'CharacterEllipsis'; $ko.MaxWidth = 150; [System.Windows.Controls.DockPanel]::SetDock($ko, 'Right'); [void]$d.Children.Add($ko)
       $en = TB ([string]$it.en) 13.5 $CREAM; $en.VerticalAlignment = 'Center'; $en.Margin = New-Object System.Windows.Thickness(10, 0, 8, 0); $en.TextTrimming = 'CharacterEllipsis'; [void]$d.Children.Add($en)
+      $fu = Eng-Full ([string]$it.en); if ($fu) { $d.Children.Remove($en); $ep = New-Object System.Windows.Controls.StackPanel; $ep.Orientation = 'Horizontal'; $ep.VerticalAlignment = 'Center'; $en.Margin = New-Object System.Windows.Thickness(10, 0, 0, 0); [void]$ep.Children.Add($en); $ef = TB $fu 11 $MUTED; $ef.VerticalAlignment = 'Center'; $ef.Margin = New-Object System.Windows.Thickness(6, 1, 8, 0); $ef.TextTrimming = 'CharacterEllipsis'; [void]$ep.Children.Add($ef); [void]$d.Children.Add($ep) }
       $row.Child = $d; Sx-Click $row @{ kind = 'engi'; v = $i }
       [void]$popS.Children.Add($row)
     }
@@ -3405,7 +3408,9 @@ function Build-Eng {
   $i = $script:engView; $it = $its[$i]
   $nm = TB ('{0} / {1}' -f ($i + 1), $n) 11 $MUTED; $nm.VerticalAlignment = 'Center'; [System.Windows.Controls.DockPanel]::SetDock($nm, 'Left'); [void]$hd.Children.Add($nm)
   [void]$popS.Children.Add($hd)
-  $big = TB ([string]$it.en) 22 $CREAM; $big.TextWrapping = 'Wrap'; [void]$popS.Children.Add($big)
+  $big = TB ([string]$it.en) 22 $CREAM; $big.TextWrapping = 'Wrap'
+  $fu = Eng-Full ([string]$it.en)
+  if ($fu) { $bp = New-Object System.Windows.Controls.StackPanel; $bp.Orientation = 'Horizontal'; [void]$bp.Children.Add($big); $bf = TB $fu 13 $MUTED; $bf.VerticalAlignment = 'Bottom'; $bf.Margin = New-Object System.Windows.Thickness(8, 0, 0, 4); [void]$bp.Children.Add($bf); [void]$popS.Children.Add($bp) } else { [void]$popS.Children.Add($big) }
   $mn = TB ([string]$it.ko) 13 $GOLD; $mn.TextWrapping = 'Wrap'; $mn.Margin = New-Object System.Windows.Thickness(0, 2, 0, 10); [void]$popS.Children.Add($mn)
   $lb = TB $(if ($c.sample) { '예문' } elseif ($isT) { '오늘 실제로 들은 문장' } else { '그날 실제로 들은 문장' }) 10 $MUTED; $lb.Margin = New-Object System.Windows.Thickness(0, 0, 0, 4); [void]$popS.Children.Add($lb)
   $q = New-Object System.Windows.Controls.Border; $q.BorderThickness = New-Object System.Windows.Thickness(2, 0, 0, 0); $q.BorderBrush = Br '#99E3C39A'; $q.Background = Br '#0AFFFFFF'; $q.CornerRadius = New-Object System.Windows.CornerRadius(0, 6, 6, 0); $q.Padding = New-Object System.Windows.Thickness(10, 7, 10, 8)
@@ -3596,6 +3601,7 @@ function Handle($line) {
     }
     'Z' { try { UW-Parse $(if ($f.Count -gt 1) { (($f[1..($f.Count - 1)]) -join ' ') } else { '' }) } catch { Log "떨어진 창: $_" } }
     'MD' { $script:modeNote = [string]$f[1]; $script:modeAt = [DateTime]::Now; $script:tipMode = '' }
+    'CR' { Comm-Read $f }
     'GO' { $gv = (($f[1..($f.Count - 1)] -join ' ').Trim()) -split '\s+'; if ($gv.Count -ge 4 -and $gv[0] -match '^-?\d+$') { $script:ocrGeo = @{ x = [int]$gv[0]; y = [int]$gv[1]; w = [int]$gv[2]; h = [int]$gv[3] } } else { $script:ocrGeo = $null } }
     'G' {
       $gv = (($f[1..($f.Count - 1)] -join ' ').Trim()) -split '\s+'
@@ -3615,6 +3621,7 @@ function Handle($line) {
     'M' { if ($script:sendEndAt -and ([DateTime]::Now - $script:sendEndAt).TotalSeconds -lt 3) { return }; $mt = $(if ($f.Count -gt 1) { (($f[1..($f.Count - 1)]) -join "`t") } else { '' }); if ($mt) { $Inp.Text = $mt; $Inp.CaretIndex = $mt.Length }; $script:mOpen = [DateTime]::Now; $state.wantInput = [DateTime]::Now }
     'C' {
       $rec = @{ kind = 'C'; t = $f[1]; cnum = $f[2]; cname = $f[3]; sender = $f[4]; cls = $f[5]; col = $f[6]; msg = $f[7]; me = ($f[8] -eq '1'); test = ($f[9] -eq '1') }
+      if ($rec.t -eq 'CHANNEL' -and [string]$rec.msg -match '\|K[a-z]\d+\|k') { $rec.msg = $COMM_HID; if ([string]$rec.sender -match '\|K') { $rec.sender = '' } }
       if (-not $rec.me -and (Data-Junk (Plain $rec.msg))) { return }
       $before = $null
       if ($f.Count -gt 11 -and $f[11]) {
@@ -6064,7 +6071,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 265
+$APPV = 266
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
@@ -6608,6 +6615,111 @@ function Bg-OcrShow($c) {
   if ($task) { [void]$Pending.Add(@{ kind = 'bgocr'; task = $task; FL = $FL; WL = $WL; src = $p; ck = $ck }) }
 }
 function Bg-OcrDone($FL, $WL, $j, [string]$src) { if ($WL) { Done-In $WL $j } elseif ($FL) { Feed-Tr $FL ([string]$j.ko) $src } }
+$CommScript = {
+  param($H)
+  try {
+    Add-Type -AssemblyName System.Drawing
+    Add-Type -AssemblyName System.Runtime.WindowsRuntime
+    $null = [Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType = WindowsRuntime]
+    $null = [Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics, ContentType = WindowsRuntime]
+    $null = [Windows.Globalization.Language, Windows.Globalization, ContentType = WindowsRuntime]
+    $null = [Windows.Graphics.Imaging.SoftwareBitmap, Windows.Graphics, ContentType = WindowsRuntime]
+    $asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
+    $ko = $null; try { $ko = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage((New-Object Windows.Globalization.Language 'ko')) } catch {}
+    $en = $null; try { $en = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage((New-Object Windows.Globalization.Language 'en-US')) } catch {}
+    if (-not $ko -and -not $en) { $en = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages() }
+    if (-not $ko -and -not $en) { $H.err = 'none'; return }
+    $mx = [int][Windows.Media.Ocr.OcrEngine]::MaxImageDimension
+    $H.st = 'ready'
+    function Ocr-Text($eng, [byte[]]$b) {
+      $ms = New-Object System.IO.MemoryStream(, $b)
+      $ras = [System.IO.WindowsRuntimeStreamExtensions]::AsRandomAccessStream($ms)
+      $t1 = $asTask.MakeGenericMethod([Windows.Graphics.Imaging.BitmapDecoder]).Invoke($null, @([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($ras))); [void]$t1.Wait(5000)
+      $t2 = $asTask.MakeGenericMethod([Windows.Graphics.Imaging.SoftwareBitmap]).Invoke($null, @($t1.Result.GetSoftwareBitmapAsync())); [void]$t2.Wait(5000)
+      $t3 = $asTask.MakeGenericMethod([Windows.Media.Ocr.OcrResult]).Invoke($null, @($eng.RecognizeAsync($t2.Result))); [void]$t3.Wait(5000)
+      $tx = (@($t3.Result.Lines | ForEach-Object { $_.Text }) -join ' ')
+      try { $t2.Result.Dispose() } catch {}
+      $ms.Dispose()
+      return $tx
+    }
+    while (-not $H.stop) {
+      $j = $null
+      if (-not $H.inq.TryDequeue([ref]$j)) { Start-Sleep -Milliseconds 40; continue }
+      $txt = ''
+      try {
+        $H.st = 'cap'
+        Start-Sleep -Milliseconds 60
+        $cw = [int]$j.w; $chh = [int]$j.h
+        $bmp = New-Object System.Drawing.Bitmap($cw, $chh)
+        $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen([int]$j.x, [int]$j.y, 0, 0, (New-Object System.Drawing.Size($cw, $chh))); $g.Dispose()
+        if ($H.snap) { try { $bmp.Save([string]$H.snap, [System.Drawing.Imaging.ImageFormat]::Png) } catch {}; $H.snap = $null }
+        $k = [Math]::Max(1, [Math]::Min(3, [Math]::Floor($mx / [Math]::Max($cw, $chh))))
+        $pp = [FTRO.Ocr]::Prep($bmp, [int]$k); $bmp.Dispose()
+        $ms = New-Object System.IO.MemoryStream; $pp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Bmp); $pp.Dispose(); $b = $ms.ToArray(); $ms.Dispose()
+        $H.st = 'ocr'
+        if ($ko) { $txt = Ocr-Text $ko $b }
+        $ci = ([string]$txt).IndexOf(':'); $who = ''; $body = [string]$txt
+        if ($ci -ge 0 -and $ci -le 40) { $who = $body.Substring(0, $ci + 1); $body = $body.Substring($ci + 1) }
+        if ($en -and ($body -notmatch '[가-힣]')) {
+          $e2 = [string](Ocr-Text $en $b)
+          if ($who) { $ei = $e2.IndexOf(':'); if ($ei -ge 0 -and $ei -le 40) { $txt = $who + $e2.Substring($ei + 1) } }
+          elseif ($e2.Trim()) { $txt = $e2 }
+        }
+      } catch { $H.err = [string]$_ }
+      $H.st = 'ready'
+      $H.outq.Enqueue(@{ id = $j.id; txt = [string]$txt; ms = [int]([DateTime]::Now - $j.at).TotalMilliseconds })
+    }
+  } catch { $H.err = [string]$_ }
+}
+$CommR = @{ ps = $null; H = $null; wait = @{}; n = 0; lastErr = '' }
+$COMM_HID = '(커뮤니티 글 · 와우 화면에서 보여요)'
+function Comm-Start {
+  if ($CommR.ps) { return }
+  $CommR.H = [hashtable]::Synchronized(@{ stop = $false; err = ''; st = 'start'; snap = $null; inq = (New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'); outq = (New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]') })
+  $ps = [powershell]::Create(); [void]$ps.AddScript($CommScript).AddArgument($CommR.H)
+  $CommR.ar = $ps.BeginInvoke(); $CommR.ps = $ps
+}
+function Comm-Line($c, [string]$msg) {
+  $who = [string]$c[3]
+  if ($who -match '\|K') { $m = [regex]::Match($msg, '^\s*\[?([^:\]\[]{1,40})\]?\s*:\s*(.*)$'); if ($m.Success) { $who = $m.Groups[1].Value.Trim(); $msg = $m.Groups[2].Value } else { $who = ''; $msg = $COMM_HID } }
+  Handle ((@('C', [string]$c[0], [string]$c[1], [string]$c[2], $who, [string]$c[4], [string]$c[5], ($msg -replace "`t", ' '), [string]$c[6], '0', [string]$c[7], [string]$c[8], '0') -join "`t"))
+}
+function Comm-Read($f) {
+  $c = @(); for ($i = 5; $i -le 13; $i++) { $c += $(if ($f.Count -gt $i) { [string]$f[$i] } else { '' }) }
+  $ok = $false
+  try {
+    if ('FTRO.Ocr' -as [type]) {
+      $w = [FTR]::FindWow()
+      if ($w -ne [IntPtr]::Zero -and [FTR]::Foreground() -eq $w) {
+        $cr = [FTR]::ClientRect($w)
+        if ($cr) {
+          Comm-Start
+          $CommR.n++; $id = $CommR.n; $CommR.wait[$id] = @{ c = $c; at = [DateTime]::Now }
+          $sf = Join-Path $Dir '커뮤찍기.flag'; if (Test-Path -LiteralPath $sf) { Remove-Item -LiteralPath $sf -Force -ErrorAction SilentlyContinue; $CommR.H.snap = Join-Path $Dir '커뮤화면.png' }
+          Dbg ('커뮤니티 읽기 요청 · ' + $f[1] + ',' + $f[2] + ' ' + $f[3] + 'x' + $f[4] + ' · ' + $CommR.H.st)
+          $CommR.H.inq.Enqueue(@{ id = $id; at = [DateTime]::Now; x = [int]($cr[0] + [int]$f[1]); y = [int]($cr[1] + [int]$f[2]); w = [int][Math]::Max(8, [int]$f[3]); h = [int][Math]::Max(8, [int]$f[4]) })
+          $ok = $true
+        }
+      }
+    }
+  } catch { Log "커뮤니티 읽기: $_" }
+  if (-not $ok) { Comm-Line $c $COMM_HID }
+}
+function Comm-Tick {
+  if (-not $CommR.H) { return }
+  if ($CommR.H.err -and $CommR.H.err -ne $CommR.lastErr) { $CommR.lastErr = $CommR.H.err; Log ('커뮤니티 읽기: ' + $CommR.H.err) }
+  foreach ($k in @($CommR.wait.Keys)) {
+    $wt = $CommR.wait[$k]
+    if (([DateTime]::Now - $wt.at).TotalSeconds -gt 6) { $CommR.wait.Remove($k); Log ('커뮤니티 읽기 늦음 · ' + $CommR.H.st); Comm-Line $wt.c $COMM_HID }
+  }
+  $o = $null
+  while ($CommR.H.outq.TryDequeue([ref]$o)) {
+    $wt = $CommR.wait[$o.id]; if (-not $wt) { continue }; $CommR.wait.Remove($o.id)
+    $t = ([string]$o.txt).Trim()
+    Dbg ('커뮤니티 읽기 ' + $o.ms + 'ms · ' + $t)
+    Comm-Line $wt.c $(if ($t) { $t } else { $COMM_HID })
+  }
+}
 function Bg-OcrClean([string]$t) {
   if (-not $t) { return 0 }
   return ([regex]::Matches($t, "[A-Za-z0-9 .,!?'/+-]").Count / [double]$t.Length)
@@ -6886,6 +6998,7 @@ $Main.Add_Tick({
     Lfg-Tick
     Feed-Tick
     try { Bg-OcrTick } catch { Log "전장 읽기: $_" }
+    try { Comm-Tick } catch { Log "커뮤니티 읽기: $_" }
     try { if ($Pop.IsOpen -and (([FTRK.Keys]::GetAsyncKeyState(0x1B) -band 0x8000) -ne 0)) { $Pop.IsOpen = $false } } catch {}
     try { Bar-Tick } catch { Log "도우미 바: $_" }
     if ($Pop.IsOpen -and $script:popMode -ne 'eng') {
