@@ -2267,7 +2267,7 @@ function Select-Tab($k) {
   foreach ($L in $LineList) { Apply-TabTo $L }
   $Sv.ScrollToEnd()
 }
-function Lk-Ok([string]$lk) { return ($lk -match '^(item|spell|quest|enchant|talent|achievement):[0-9:\-]+$' -or $lk -match '^trade:[A-Za-z0-9:\-]+$') }
+function Lk-Ok([string]$lk) { return ($lk -match '^[A-Za-z]+:[0-9:\-]+$' -or $lk -match '^trade:[A-Za-z0-9:\-]+$') }
 function Show-Link([string]$lk) {
   if (-not (Lk-Ok $lk)) { return }
   $dr = (([FTRK.Keys]::GetAsyncKeyState(0x11) -band 0x8000) -ne 0) -and $lk.StartsWith('item:')
@@ -6055,7 +6055,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 262
+$APPV = 263
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
