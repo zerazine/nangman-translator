@@ -1265,7 +1265,7 @@ $GcT.Add_Tick({
     if (-not (Safe-Front ([FTR]::FindWow()))) { foreach ($l in $ls) { if (-not $GC.lines.Contains($l)) { [void]$GC.lines.Add($l) } }; $GcT.Start(); return }
     $ls = @($ls | ForEach-Object { Gc-Tag ([string]$_) })
     $ls = @(Gc-Pack $ls)
-    $script:gcSendAt = [DateTime]::Now
+    $script:gcSendAt = $(if (@($ls | Where-Object { [string]$_ -match 'chat tell ' }).Count -gt 0) { $null } else { [DateTime]::Now })
     $was = $Pop.IsOpen; if ($was) { $Pop.StaysOpen = $true }
     $script:feedHold = [DateTime]::Now.AddSeconds(4)
     Send-WowNow $ls $true $true
@@ -6071,7 +6071,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 266
+$APPV = 267
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
@@ -7098,7 +7098,7 @@ $Main.Add_Tick({
     if ([string]$pz -ne [string]$script:pzPrev) { $script:pzPrev = $pz; Dbg ('끌기 자리: ' + $(if ($pz) { $pz } else { '없음' })) }
     if ($state.editing -and $script:gcSendAt -and $state.editOnAt -and -not $state.inputOn) {
       $nw = [DateTime]::Now
-      if ($state.editOnAt -ge $script:gcSendAt -and ($nw - $state.editOnAt).TotalSeconds -gt 0.8 -and ($nw - $script:gcSendAt).TotalSeconds -lt 6) {
+      if ($state.editOnAt -ge $script:gcSendAt -and ($state.editOnAt - $script:gcSendAt).TotalSeconds -lt 2.5 -and ($nw - $state.editOnAt).TotalSeconds -gt 0.8 -and ($nw - $script:gcSendAt).TotalSeconds -lt 6) {
         $script:gcSendAt = $null; $wq = [FTR]::FindWow()
         if ($wq -ne [IntPtr]::Zero -and [FTR]::Foreground() -eq $wq) { K-Tap $wq 0x1B $script:keyWay; Dbg '게임 입력줄 닫음 (명령 뒤 열린 채 남음)' }
       }

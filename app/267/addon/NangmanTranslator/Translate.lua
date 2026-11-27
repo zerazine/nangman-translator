@@ -653,8 +653,9 @@ do
   key:SetScript("OnClick", function()
     if not db().on then
       NT.setTranslate(true) push("I")
-    elseif ChatFrame_OpenChat then
-      ChatFrame_OpenChat("")
+    else
+      local oc = ChatFrame_OpenChat or (ChatFrameUtil and ChatFrameUtil.OpenChat)
+      if oc then oc("") end
     end
   end)
   local function bindKey()
@@ -665,7 +666,7 @@ do
   function NT.reply(name)
     if type(name) ~= "string" or name == "" or secret(name) then return end
     if db().on then push("R", name)
-    elseif ChatFrame_SendTell then ChatFrame_SendTell(name) end
+    else local fn = ChatFrame_SendTell or (ChatFrameUtil and ChatFrameUtil.SendTell) if fn then pcall(fn, name) end end
   end
   local w = CreateFrame("Frame")
   w:RegisterEvent("PLAYER_LOGIN") w:RegisterEvent("PLAYER_REGEN_ENABLED")

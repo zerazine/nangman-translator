@@ -2306,7 +2306,7 @@ do
     for _, eb in ipairs(boxes()) do
       hookOpen(eb)
       if eb:HasFocus() and not (eb.__ntOpenAt and GetTime() - eb.__ntOpenAt < 1.0) and not (eb.IsMouseOver and eb:IsMouseOver()) then
-        if ChatEdit_DeactivateChat then pcall(ChatEdit_DeactivateChat, eb) else eb:ClearFocus() end
+        local off = ChatEdit_DeactivateChat or (ChatFrameUtil and ChatFrameUtil.DeactivateChat) if off then pcall(off, eb) else eb:ClearFocus() end
       end
     end
   end
@@ -2367,7 +2367,7 @@ do
       closeMenus()
       local short = who:match("^([^%-]+)") or who
       local function invite() local inv = (C_PartyInfo and C_PartyInfo.InviteUnit) or InviteUnit if inv then pcall(inv, who) end end
-      local function whisper() if ChatFrame_SendTell then ChatFrame_SendTell(who) end end
+      local function whisper() local fn = ChatFrame_SendTell or (ChatFrameUtil and ChatFrameUtil.SendTell) if fn then pcall(fn, who) end end
       local function info()
         if C_FriendList and C_FriendList.SendWho then pcall(C_FriendList.SendWho, 'n-"' .. short .. '"')
         elseif SendWho then pcall(SendWho, 'n-"' .. short .. '"') end
@@ -2404,7 +2404,7 @@ do
     if button == "RightButton" then
       NT.nameMenu(who)
     else
-      if ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow() then return end
+      local gaw = ChatEdit_GetActiveWindow or (ChatFrameUtil and ChatFrameUtil.GetActiveWindow) if gaw and gaw() then return end
       local short = who:match("^([^%-]+)") or who
       if C_FriendList and C_FriendList.SendWho then pcall(C_FriendList.SendWho, 'n-"' .. short .. '"')
       elseif SendWho then pcall(SendWho, 'n-"' .. short .. '"') end
