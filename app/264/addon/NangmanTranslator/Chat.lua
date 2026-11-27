@@ -944,7 +944,7 @@ do
           local f2 = tonumber(fade) if f2 then c.fade = f2 pcall(applyFade) end
           local z = tonumber(fz) if z and z >= 9 and z <= 20 then c.font = z end
           pcall(applyFont)
-          if du and du ~= "" then c.dual = (du == "1") end
+          if du and du ~= "" then local nd = (du == "1") if (c.dual and true or false) ~= nd then c.dual = nd pcall(NT.dualPlace, nd) end end
           c.native = (nat == "1") if NT.syncNative then NT.syncNative() end
           lookSave()
         end
@@ -1096,6 +1096,52 @@ do
   local function trAlive() return (NT.alive and NT.alive()) and true or false end
   local function toPC(kind, k, v) if NT.push then pcall(NT.push, "D", kind, k or "", v or "") end end
   local function uiVer() cfg().uiv = time() end
+  function NT.chatDualOn() return cfg().dual and true or false end
+  function NT.setDual(v)
+    local cc = cfg()
+    v = v and true or false
+    if (cc.dual and true or false) == v then return end
+    cc.dual = v
+    if NT.syncNative then NT.syncNative() end
+    uiVer() lookSave()
+    pcall(NT.dualPlace, v)
+    toPC("ui", "dual", v and "1" or "0")
+  end
+  function NT.dualPlace(on)
+    local cf = ChatFrame1
+    local cc = cfg()
+    if cc.cfPts and cf then
+      cf:ClearAllPoints()
+      for _, q in ipairs(cc.cfPts) do cf:SetPoint(q[1], _G[q[2]] or UIParent, q[3], q[4], q[5]) end
+      cc.cfPts = nil
+    end
+    if on then
+      if not (cf and cf:IsShown() and cf:GetLeft() and cf:GetTop()) then return end
+      local r = cf:GetEffectiveScale() / P:GetEffectiveScale()
+      local sw, sh = UIParent:GetWidth(), UIParent:GetHeight()
+      if not cc.dualPos then cc.dualPos = { pos = cc.pos and { cc.pos[1], cc.pos[2] } or false, h = cc.h or false, h0 = P:GetHeight() } end
+      if type(cc.dualLay) == "table" and cc.dualLay.pos then
+        cc.pos = { cc.dualLay.pos[1], cc.dualLay.pos[2] } cc.h = cc.dualLay.h or cc.h
+        place()
+        return
+      end
+      local b = cf:GetTop() * r + 34
+      local h = (cc.dualPos.h0 or P:GetHeight()) - 22
+      if b + h > sh - 8 then h = sh - 8 - b end
+      h = math.max(150, h) cc.h = h
+      local w = P:GetWidth()
+      cc.pos = { math.max(0, math.min(sw - w, cf:GetLeft() * r - 4)), math.max(0, math.min(sh - h, b)) }
+      place()
+    else
+      if cc.pos then cc.dualLay = { pos = { cc.pos[1], cc.pos[2] }, h = cc.h } end
+      if not cc.dualPos then return end
+      local d = cc.dualPos
+      cc.pos = d.pos or nil
+      cc.h = d.h or nil
+      cc.dualPos = nil
+      place()
+    end
+  end
   local function makeSettings()
     local s = CreateFrame("Frame", "NangmanTrChatSettings", P)
     s:SetWidth(SXW + 30) s:SetFrameStrata("FULLSCREEN_DIALOG") s:SetToplevel(true) s:EnableMouse(true) s:SetClampedToScreen(true)
@@ -1140,20 +1186,20 @@ do
     end
     local function head(str, badge, warm)
       local o = get("head", function()
-        local f = CreateFrame("Frame", nil, C) f.b = f:CreateTexture(nil, "BACKGROUND") f.b:SetColorTexture(1, 1, 1, 18 / 255) f.b:SetPoint("TOPLEFT", -15, 0) f.b:SetPoint("BOTTOMRIGHT", 15, 0)
-        f.t = fs(f, 12) f.t:SetPoint("LEFT", 0, 0)
+        local f = box(CreateFrame("Frame", nil, C), 6)
+        f.t = fs(f, 12) f.t:SetPoint("LEFT", 12, 0)
         f.bd = CreateFrame("Frame", nil, f) f.bd.pl = pill(f.bd, 16) f.bd.t = fs(f.bd, 10.5) f.bd.t:SetPoint("CENTER", 0, 0)
         return f
       end)
       y = y + 12
-      o:SetPoint("TOPLEFT", C, "TOPLEFT", 0, -y) o:SetSize(SXW, 24) o:SetAlpha(dim or 1)
+      o:SetPoint("TOPLEFT", C, "TOPLEFT", 0, -y) o:SetSize(SXW, 26) o:SetAlpha(dim or 1) o.bg({ 1, 1, 1 }, 18 / 255)
       o.t:SetFont(fontFile(), 12, "") o.t:SetText(str) col(o.t, { 0.902, 0.902, 0.902 })
       if badge then
         o.bd.t:SetFont(fontFile(), 10.5, "") o.bd.t:SetText(badge) col(o.bd.t, warm and SX.gold or SX.sub)
         o.bd.pl.size(math.floor(o.bd.t:GetStringWidth() + 14.5)) o.bd.pl.set(warm and { COPPER[1], COPPER[2], COPPER[3], 46 / 255 } or { 1, 1, 1, 20 / 255 }, nil)
         o.bd:ClearAllPoints() o.bd:SetPoint("LEFT", o.t, "RIGHT", 8, 0) o.bd:Show()
       else o.bd:Hide() end
-      y = y + 24 + 7
+      y = y + 26 + 7
     end
     local function switch(x, w, label, sub, on, f)
       local o = get("sw", function() local b = box(CreateFrame("Button", nil, C), 6) b.l = fs(b, 12.5) b.s = fs(b, 9.5) return b end)
@@ -1240,7 +1286,7 @@ do
       elseif kind == "fade" then c.fade = v applyFade()
       elseif kind == "keep" then c.keep = v
       elseif kind == "native" then c.native = v if NT.syncNative then NT.syncNative() end
-      elseif kind == "dual" then c.dual = v if NT.syncNative then NT.syncNative() end end
+      elseif kind == "dual" then c.dual = v if NT.syncNative then NT.syncNative() end pcall(NT.dualPlace, v) end
       uiVer() lookSave()
       local sv = v
       if type(v) == "boolean" then sv = v and "1" or "0" elseif type(v) == "number" then sv = string.format("%.2f", v) end
@@ -1272,6 +1318,7 @@ do
       if st.vok then sws[#sws + 1] = { "디스코드 음성 번역", st.v and true or false, function() st.v = not st.v toPC("voice", "", st.v and "1" or "0") end, function() return (st.vs or "") .. " · 켜면 일반·파티·공대·귓말만 번역" end } end
       sws[#sws + 1] = { "내 이름 부르면 강조", (st.c ~= false), function() st.c = not (st.c ~= false) toPC("calloff", "", (st.c ~= false) and "1" or "0") end, function(on) return on and "주황색 · 가운데에도 띄움" or "강조 안 함" end }
       sws[#sws + 1] = { "영어 표현 학습", (st.e ~= false), function() st.e = not (st.e ~= false) toPC("engoff", "", (st.e ~= false) and "1" or "0") end, function() return "카드 보기" end, function() toPC("engshow", "", "1") end }
+      sws[#sws + 1] = { "집중 대화창", (NT.feedEnabled and NT.feedEnabled() or false), function() local D = NT.db() D.partyFeedOn = not (D.partyFeedOn == true) if not D.partyFeedOn and NT.feedClear then pcall(NT.feedClear) end feedChanged() end, function() return "인던 · 레이드 · 전장 모드" end }
       for i, it in ipairs(sws) do
         local ci = (i - 1) % 2
         local o = switch(ci * (cw + 8), cw, it[1], it[4](it[2]), it[2], it[3])
@@ -1285,6 +1332,8 @@ do
         if ci == 1 or i == #sws then y = y + 38 + 8 end
       end
       y = y - 8
+      head("대화창 기본설정")
+      seg({ { false, "낭만 대화창" }, { true, "와우 기본 대화창 같이 쓰기", new = true } }, c.dual and true or false, function(v) setUI("dual", v) end)
       head("번역할 대화", "모든 탭 공통", false)
       local tl = {}
       local trv = type(st.tr) == "table" and st.tr or {}
@@ -1299,13 +1348,83 @@ do
         end
       end
       chips(tl)
+      do
+        local dsv = dim dim = nil
+        y = y + 14
+        local fon = NT.feedEnabled and NT.feedEnabled() or false
+        local card = get("card", function()
+          local f = box(CreateFrame("Frame", nil, C), 8)
+          edge(f, 8, { 0.431, 0.353, 0.208, 1 })
+          f.lb = f:CreateTexture(nil, "BORDER") f.lb:SetColorTexture(0.431, 0.353, 0.208, 1) f.lb:SetWidth(2) f.lb:SetPoint("TOPLEFT", 1, -4) f.lb:SetPoint("BOTTOMLEFT", 1, 4)
+          f.hd = CreateFrame("Button", nil, f) f.hd:SetPoint("TOPLEFT", 12, -10) f.hd:SetPoint("TOPRIGHT", -12, -10) f.hd:SetHeight(30)
+          f.t = fs(f.hd, 13.5) f.t:SetPoint("TOPLEFT", 0, 0) f.s = fs(f.hd, 10) f.s:SetPoint("TOPLEFT", f.t, "BOTTOMLEFT", 0, -2)
+          return f
+        end)
+        card.bg({ 0.878, 0.725, 0.353 }, 13 / 255)
+        card:SetPoint("TOPLEFT", C, "TOPLEFT", 0, -y) card:SetWidth(SXW)
+        card.t:SetFont(fontFile(), 13.5, "") card.t:SetText("집중 대화창") col(card.t, SX.gold)
+        card.s:SetFont(fontFile(), 10, "") card.s:SetText(fon and "화면 가운데(캐릭터 머리 위)에 대화와 번역을 크게 · 전장 · 인던 · 레이드에서도 여기서 번역" or "켜 두면 전장 · 인던 · 레이드에서도 이 창으로 번역을 볼 수 있어요") col(card.s, { 0.749, 0.682, 0.525 })
+        local tg = toggle(card.hd, fon) tg:ClearAllPoints() tg:SetPoint("RIGHT", 0, 0)
+        card.hd:SetScript("OnClick", function()
+          local D = NT.db() D.partyFeedOn = not (D.partyFeedOn == true)
+          if not D.partyFeedOn and NT.feedClear then pcall(NT.feedClear) end
+          feedChanged()
+          rebuild()
+        end)
+        local y0 = y
+        y = y + 10 + 30 + 4
+        if fon then
+          local function sub(str, top) y = y + (top or 8) local o = text(str, 10.5, SX.mut, 14) y = y + o:GetHeight() + 4 end
+          local save = SXW
+          SXW = save - 24
+          local cx0 = 12
+          sub("띄울 대화 (모든 탭 공통)", 2)
+          local cl = {}
+          for _, it in ipairs({ { "party", "파티", "aaaaff" }, { "raid", "공격대", "ff7f00" }, { "inst", "인던", "aad4ff" }, { "guild", "길드", "40ff40" }, { "whisper", "귓말", "ff80ff" }, { "say", "일반 · 외침", "ffffff" } }) do
+            cl[#cl + 1] = { label = it[2], color = hxc(it[3]), on = c.center[it[1]] and true or false, f = function() c.center[it[1]] = not c.center[it[1]] end }
+          end
+          if st.vok then cl[#cl + 1] = { label = "디스코드 음성", color = hxc("ffe9b8"), on = (st.vc ~= false), f = function() st.vc = not (st.vc ~= false) toPC("vcen", "", (st.vc ~= false) and "1" or "0") end } end
+          local before = used.chip or 0
+          chips(cl)
+          for i = before + 1, used.chip do local o = pools.chip[i] local p, rel, rp, x0, y1 = o:GetPoint(1) o:ClearAllPoints() o:SetPoint(p, rel, rp, x0 + cx0, y1) end
+          sub("채널")
+          local jl = joinedBases()
+          if #jl == 0 then local o = text("게임에서 채널 목록을 받으면 나와요", 11, SX.mut, 14) y = y + o:GetHeight() + 6
+          else
+            local chl = {}
+            local chOn = c.center.channel and true or false
+            for _, j in ipairs(jl) do chl[#chl + 1] = { label = j.n .. ". " .. j.b, color = hxc("ffc0c0"), on = chOn and centerChOn(j.b) and true or false, f = function() toggleChOff(j.b) end } end
+            before = used.chip or 0
+            chips(chl)
+            for i = before + 1, used.chip do local o = pools.chip[i] local p, rel, rp, x0, y1 = o:GetPoint(1) o:ClearAllPoints() o:SetPoint(p, rel, rp, x0 + cx0, y1) end
+          end
+          SXW = save
+          y = y + 4
+          local ab = get("adj", function()
+            local b = box(CreateFrame("Frame", nil, C), 6) b.l = fs(b, 12.5) b.l:SetPoint("BOTTOMLEFT", b, "LEFT", 12, 1) b.s = fs(b, 9.5) b.s:SetPoint("TOPLEFT", b, "LEFT", 12, -1)
+            b.btn = box(CreateFrame("Button", nil, b), 4) b.btn:SetSize(70, 22) b.btn:SetPoint("RIGHT", -8, 0) b.btn.l = fs(b.btn, 11.5) b.btn.l:SetPoint("CENTER", 0, 0)
+            return b
+          end)
+          ab:SetPoint("TOPLEFT", C, "TOPLEFT", 12, -y) ab:SetSize(SXW - 24, 38) ab.bg({ 1, 1, 1 }, 10 / 255)
+          ab.l:SetFont(fontFile(), 12.5, "") ab.l:SetText("위치 · 크기 · 줄 수 · 글자 · 사라짐") col(ab.l, SX.cream)
+          ab.s:SetFont(fontFile(), 9.5, "") ab.s:SetText("글자 " .. tostring(c.cfont or 13) .. " · 조절하기를 누르면 끌어서 옮기고 크기를 바꿔요") col(ab.s, SX.mut)
+          ab.btn.l:SetFont(fontFile(), 11.5, "") ab.btn.l:SetText("조절하기") col(ab.btn.l, SX.dark) ab.btn.bg({ COPPER[1], COPPER[2], COPPER[3] }, 230 / 255)
+          ab.btn:SetWidth(math.floor(ab.btn.l:GetStringWidth() + 24.5))
+          ab.btn:SetScript("OnClick", function() s:Hide() if NT.feedMove and not (NT.feedMoving and NT.feedMoving()) then pcall(NT.feedMove) end end)
+          y = y + 38 + 12
+        else
+          y = y + 6
+        end
+        card:SetHeight(y - y0)
+        dim = dsv
+      end
       y = y - 6
       head("보내기 번역", "받기는 늘 자체 번역", false)
       do
         local o = rowBox(44)
         local gon = st.g and true or false
         local tg = toggle(o, gon) tg:ClearAllPoints() tg:SetPoint("RIGHT", -12, 0)
-        o.l:SetFont(fontFile(), 12.5, "") o.l:SetText("제미나이 번역") col(o.l, gon and SX.cream or SX.sub) o.l:SetPoint("BOTTOMLEFT", o, "LEFT", 12, 1)
+        o.l:SetFont(fontFile(), 12.5, "") o.l:SetText("제미나이 번역 (선택)") col(o.l, gon and SX.cream or SX.sub) o.l:SetPoint("BOTTOMLEFT", o, "LEFT", 12, 1)
         o.s:SetFont(fontFile(), 9.5, "") o.s:SetText(st.k and "GEMINI API 사용 시 보내는 번역 품질이 향상될 수 있습니다 · 키는 PC 설정에서" or "키 입력은 PC 번역기 설정에서 해 주세요") col(o.s, SX.mut) o.s:SetPoint("TOPLEFT", o, "LEFT", 12, -1)
         local hit = get("gemhit", function() local b = CreateFrame("Button", nil, C) return b end)
         hit:SetPoint("TOPLEFT", o, "TOPLEFT") hit:SetPoint("BOTTOMRIGHT", o, "BOTTOMRIGHT") hit:EnableMouse(not dim)
@@ -1313,7 +1432,7 @@ do
         y = y + 44
       end
       dim = nil
-      head("대화창")
+      head("대화창 세부설정")
       do
         local o = rowBox(38, 10)
         o.l:SetFont(fontFile(), 12.5, "") o.l:SetText("글자") col(o.l, SX.cream) o.l:SetPoint("LEFT", 12, 0)
@@ -1386,76 +1505,6 @@ do
       seg({ { false, "가만히 두면 투명" }, { true, "항상 보이기" } }, c.keep and true or false, function(v) setUI("keep", v) end)
       lbl("번역 끈 동안 대화창")
       seg({ { false, "낭만 대화창" }, { true, "와우 기본 대화창" } }, c.native and true or false, function(v) setUI("native", v) end)
-      lbl("번역 중 입력")
-      seg({ { false, "번역창으로 입력" }, { true, "와우 기본 대화창 같이 쓰기", new = true } }, c.dual and true or false, function(v) setUI("dual", v) end)
-      do
-        y = y + 14
-        local fon = NT.feedEnabled and NT.feedEnabled() or false
-        local card = get("card", function()
-          local f = box(CreateFrame("Frame", nil, C), 8)
-          edge(f, 8, { 0.431, 0.353, 0.208, 1 })
-          f.lb = f:CreateTexture(nil, "BORDER") f.lb:SetColorTexture(0.431, 0.353, 0.208, 1) f.lb:SetWidth(2) f.lb:SetPoint("TOPLEFT", 1, -4) f.lb:SetPoint("BOTTOMLEFT", 1, 4)
-          f.hd = CreateFrame("Button", nil, f) f.hd:SetPoint("TOPLEFT", 12, -10) f.hd:SetPoint("TOPRIGHT", -12, -10) f.hd:SetHeight(30)
-          f.t = fs(f.hd, 13.5) f.t:SetPoint("TOPLEFT", 0, 0) f.s = fs(f.hd, 10) f.s:SetPoint("TOPLEFT", f.t, "BOTTOMLEFT", 0, -2)
-          return f
-        end)
-        card.bg({ 0.878, 0.725, 0.353 }, 13 / 255)
-        card:SetPoint("TOPLEFT", C, "TOPLEFT", 0, -y) card:SetWidth(SXW)
-        card.t:SetFont(fontFile(), 13.5, "") card.t:SetText("집중 대화창") col(card.t, SX.gold)
-        card.s:SetFont(fontFile(), 10, "") card.s:SetText(fon and "화면 가운데(캐릭터 머리 위)에 대화와 번역을 크게 · 전장에서도 여기서 번역" or "켜 두면 전장에서도 이 창으로 번역을 볼 수 있어요") col(card.s, { 0.749, 0.682, 0.525 })
-        local tg = toggle(card.hd, fon) tg:ClearAllPoints() tg:SetPoint("RIGHT", 0, 0)
-        card.hd:SetScript("OnClick", function()
-          local D = NT.db() D.partyFeedOn = not (D.partyFeedOn == true)
-          if not D.partyFeedOn and NT.feedClear then pcall(NT.feedClear) end
-          feedChanged()
-          rebuild()
-        end)
-        local y0 = y
-        y = y + 10 + 30 + 4
-        if fon then
-          local function sub(str, top) y = y + (top or 8) local o = text(str, 10.5, SX.mut, 14) y = y + o:GetHeight() + 4 end
-          local save = SXW
-          SXW = save - 24
-          local cx0 = 12
-          sub("띄울 대화 (모든 탭 공통)", 2)
-          local cl = {}
-          for _, it in ipairs({ { "party", "파티", "aaaaff" }, { "raid", "공격대", "ff7f00" }, { "inst", "인던", "aad4ff" }, { "guild", "길드", "40ff40" }, { "whisper", "귓말", "ff80ff" }, { "say", "일반 · 외침", "ffffff" } }) do
-            cl[#cl + 1] = { label = it[2], color = hxc(it[3]), on = c.center[it[1]] and true or false, f = function() c.center[it[1]] = not c.center[it[1]] end }
-          end
-          if st.vok then cl[#cl + 1] = { label = "디스코드 음성", color = hxc("ffe9b8"), on = (st.vc ~= false), f = function() st.vc = not (st.vc ~= false) toPC("vcen", "", (st.vc ~= false) and "1" or "0") end } end
-          local before = used.chip or 0
-          chips(cl)
-          for i = before + 1, used.chip do local o = pools.chip[i] local p, rel, rp, x0, y1 = o:GetPoint(1) o:ClearAllPoints() o:SetPoint(p, rel, rp, x0 + cx0, y1) end
-          sub("채널")
-          local jl = joinedBases()
-          if #jl == 0 then local o = text("게임에서 채널 목록을 받으면 나와요", 11, SX.mut, 14) y = y + o:GetHeight() + 6
-          else
-            local chl = {}
-            local chOn = c.center.channel and true or false
-            for _, j in ipairs(jl) do chl[#chl + 1] = { label = j.n .. ". " .. j.b, color = hxc("ffc0c0"), on = chOn and centerChOn(j.b) and true or false, f = function() toggleChOff(j.b) end } end
-            before = used.chip or 0
-            chips(chl)
-            for i = before + 1, used.chip do local o = pools.chip[i] local p, rel, rp, x0, y1 = o:GetPoint(1) o:ClearAllPoints() o:SetPoint(p, rel, rp, x0 + cx0, y1) end
-          end
-          SXW = save
-          y = y + 4
-          local ab = get("adj", function()
-            local b = box(CreateFrame("Frame", nil, C), 6) b.l = fs(b, 12.5) b.l:SetPoint("BOTTOMLEFT", b, "LEFT", 12, 1) b.s = fs(b, 9.5) b.s:SetPoint("TOPLEFT", b, "LEFT", 12, -1)
-            b.btn = box(CreateFrame("Button", nil, b), 4) b.btn:SetSize(70, 22) b.btn:SetPoint("RIGHT", -8, 0) b.btn.l = fs(b.btn, 11.5) b.btn.l:SetPoint("CENTER", 0, 0)
-            return b
-          end)
-          ab:SetPoint("TOPLEFT", C, "TOPLEFT", 12, -y) ab:SetSize(SXW - 24, 38) ab.bg({ 1, 1, 1 }, 10 / 255)
-          ab.l:SetFont(fontFile(), 12.5, "") ab.l:SetText("위치 · 크기 · 줄 수 · 글자 · 사라짐") col(ab.l, SX.cream)
-          ab.s:SetFont(fontFile(), 9.5, "") ab.s:SetText("글자 " .. tostring(c.cfont or 13) .. " · 조절하기를 누르면 끌어서 옮기고 크기를 바꿔요") col(ab.s, SX.mut)
-          ab.btn.l:SetFont(fontFile(), 11.5, "") ab.btn.l:SetText("조절하기") col(ab.btn.l, SX.dark) ab.btn.bg({ COPPER[1], COPPER[2], COPPER[3] }, 230 / 255)
-          ab.btn:SetWidth(math.floor(ab.btn.l:GetStringWidth() + 24.5))
-          ab.btn:SetScript("OnClick", function() s:Hide() if NT.feedMove and not (NT.feedMoving and NT.feedMoving()) then pcall(NT.feedMove) end end)
-          y = y + 38 + 12
-        else
-          y = y + 6
-        end
-        card:SetHeight(y - y0)
-      end
       do
         y = y + 10
         local function link(x, str, c0, f)

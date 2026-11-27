@@ -1041,12 +1041,10 @@ do
   bf:RegisterEvent("PLAYER_ENTERING_WORLD") bf:RegisterEvent("ZONE_CHANGED_NEW_AREA")
   local GRP = { CHAT_MSG_SAY = true, CHAT_MSG_YELL = true, CHAT_MSG_PARTY = true, CHAT_MSG_PARTY_LEADER = true, CHAT_MSG_RAID = true, CHAT_MSG_RAID_LEADER = true, CHAT_MSG_RAID_WARNING = true, CHAT_MSG_INSTANCE_CHAT = true, CHAT_MSG_INSTANCE_CHAT_LEADER = true }
   local lockAt = 0
-  local function notice(s) C_Timer.After(2, function() if RaidNotice_AddMessage and RaidWarningFrame then pcall(RaidNotice_AddMessage, RaidWarningFrame, s, { r = 1, g = 0.82, b = 0.4 }, 5) end end) end
-  local function enter(s)
+  local function enter()
     local d = db()
     if not d.on then return false end
     d.bgOff = true setOn(false, true)
-    notice(s)
     return true
   end
   local function leave()
@@ -1054,12 +1052,38 @@ do
     d.bgOff = nil d.lockOff = nil
     if not d.on and not T.userOff then setOn(true, true) end
   end
+  local MODE = { party = "인던", raid = "레이드", pvp = "전장", arena = "투기장", scenario = "인던" }
+  local function auto(typ)
+    local d = db()
+    local nm = MODE[typ]
+    if not (NT.setDual and NT.chatDualOn) then return end
+    if nm then
+      if d.modeNm == nm then return end
+      d.modeNm = nm
+      if not d.autoDual and not NT.chatDualOn() and (d.on or d.bgOff) then
+        d.autoDual = true
+        NT.setDual(true)
+        if NT.dualPlace then pcall(NT.dualPlace, true) C_Timer.After(2, function() if db().autoDual then pcall(NT.dualPlace, true) end end) end
+      end
+      if NT.alive and NT.alive() then push("MD", nm) else NT.say(nm .. " 모드 시작") end
+    elseif d.modeNm or d.autoDual then
+      local was = d.modeNm
+      d.modeNm = nil
+      if d.autoDual then
+        d.autoDual = nil
+        NT.setDual(false)
+      end
+      if was then NT.say(was .. " 모드 끝") end
+    end
+  end
   local function check()
     local _, typ = IsInInstance()
     local d = db()
+    if InCombatLockdown() then C_Timer.After(2, function() pcall(check) end) return end
+    pcall(auto, typ)
     if typ == "pvp" or typ == "arena" then
       d.lockOff = nil
-      enter("전장에 계시는 동안에는 집중 대화창으로 번역을 보실 수 있어요")
+      enter()
     elseif d.bgOff then
       if d.lockOff and typ ~= "none" then return end
       leave()
@@ -1070,7 +1094,7 @@ do
     lockAt = GetTime()
     local d = db()
     if d.bgOff then return end
-    if enter("대화가 잠긴 곳이라 집중 대화창으로 번역을 보여 드려요") then d.lockOff = true end
+    if enter() then d.lockOff = true end
   end
   T.onRead = function(ev)
     if not GRP[ev] then return end
