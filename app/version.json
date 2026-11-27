@@ -1,12 +1,12 @@
 {
- "v": 264,
- "ver": "2.64",
+ "v": 265,
+ "ver": "2.65",
  "date": "2026-11-27",
  "files": [
   {
    "p": "app/NangmanTranslator.ps1",
-   "sha256": "400e02f3be087206873562c707b87c090c5d307ec26684f4b8e79b99106a7df2",
-   "size": 560332
+   "sha256": "3bde868eaa328865fb2125ebd3d50832a0a2e8d6f4d47e20f4023b1683238eee",
+   "size": 560393
   },
   {
    "p": "app/NangmanTranslator.exe",

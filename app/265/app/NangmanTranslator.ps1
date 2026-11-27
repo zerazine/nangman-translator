@@ -4263,6 +4263,7 @@ $script:keyWay = $(if ($S.kw -in @(1, 2)) { [int]$S.kw } else { 0 })
 function K-Tap($w, [byte]$vk, [int]$way) { if ($way -eq 0 -or -not ('FTRK.Way' -as [type])) { [FTR]::Tap($vk) } else { [FTRK.Way]::Tap($way, $w, $vk) } }
 function K-Text($w, [string]$t, [int]$way) { if ($way -eq 2 -and ('FTRK.Way' -as [type])) { return [FTRK.Way]::Chars($w, $t) }; return [FTRK.Uni]::Type($t) }
 function K-Good([int]$way) {
+  $script:keyOk = $true
   if ($way -eq $script:keyWay) { return }
   $script:keyWay = $way; $S.kw = $way; Save-Cfg
   Log ("보내기: " + ($way + 1) + "번 방식으로 들어가서 이 방식을 씀")
@@ -4350,7 +4351,7 @@ function Send-WowCore($lines, [bool]$keepTab = $false, [bool]$raw = $false) {
         if (-not (Wow-Front $w)) { Log '보내기: 와우가 앞으로 안 와서 멈춤 (다른 창에 글이 들어가지 않게)'; break }
         $sqm = [regex]::Match($tx, ' #(\d+)$'); $sq = $(if ($sqm.Success) { $sqm.Groups[1].Value } else { '' })
         $wo = 0
-        for ($try = 0; $try -lt 3; $try++) {
+        for ($try = 0; $try -lt $(if ($script:keyOk) { 1 } else { 3 }); $try++) {
           $way = ($script:keyWay + $wo) % 3
           if ($try -gt 0) {
             $t1 = [Environment]::TickCount; while ((([FTRK.Keys]::GetAsyncKeyState(0x01) -band 0x8000) -ne 0 -or ([FTRK.Keys]::GetAsyncKeyState(0x02) -band 0x8000) -ne 0) -and ([Environment]::TickCount - $t1) -lt 1500) { Pw 30 }
@@ -6063,7 +6064,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 264
+$APPV = 265
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
