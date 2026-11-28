@@ -1,12 +1,12 @@
 {
- "v": 269,
- "ver": "2.69",
+ "v": 270,
+ "ver": "2.70",
  "date": "2026-11-28",
  "files": [
   {
    "p": "app/NangmanTranslator.ps1",
-   "sha256": "4726f6b76a19fae0182a256e54483ee3357f97f7f9db09cfe4e0dda6cfce66ad",
-   "size": 596988
+   "sha256": "d9424a0354eac8124fbb18551e2647a0b2cd40d7b5bca4c2d658722a5fc8b245",
+   "size": 597022
   },
   {
    "p": "app/ModelGet.ps1",

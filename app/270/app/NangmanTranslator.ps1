@@ -6183,7 +6183,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 269
+$APPV = 270
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
@@ -6396,7 +6396,7 @@ function Mdl-Popup {
   if (-not $Mdl.offer) { return }
   if ($Mdl.win) { try { $Mdl.win.Close() } catch {}; $Mdl.win = $null }
   $x = @'
-<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Background="#FF15161A" BorderBrush="#FFC9A24A" BorderThickness="1" CornerRadius="8" Padding="22,20,22,18" Width="470">
+<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Background="#FF15161A" BorderBrush="#FFC9A24A" BorderThickness="1" CornerRadius="8" Padding="22,20,22,18" Width="500">
  <StackPanel>
   <StackPanel Orientation="Horizontal"><TextBlock Name="t0" FontSize="19" FontWeight="Bold" Foreground="#FFFFFFFF" Text="낭만타우렌 AI 젬마 V2"/><Border Background="#FFE9B949" CornerRadius="4" Padding="6,1,6,2" Margin="10,0,0,0" VerticalAlignment="Center"><TextBlock FontSize="11" FontWeight="Bold" Foreground="#FF15161A" Text="NEW"/></Border></StackPanel>
   <TextBlock Margin="0,5,0,14" FontSize="13" TextWrapping="Wrap"><Run Foreground="#FFA9A497" Text="와우 채팅으로 학습한 번역 모델 · "/><Run Foreground="#FFE9C76F" FontWeight="Bold" Text="번역 정확도 95% · 대화 흐름 이해도는 V1의 2배"/></TextBlock>
@@ -6424,7 +6424,7 @@ function Mdl-Popup {
     $d = New-Object System.Windows.Controls.TextBlock; $d.Text = $it[1]; $d.FontSize = 12.5; $d.Foreground = Br '#FFB9B3A4'; $d.TextWrapping = 'Wrap'; $d.Margin = New-Object System.Windows.Thickness(0, 2, 0, 0); [void]$sp.Children.Add($d)
     [void]$dp.Children.Add($sp); [void]$ip.Children.Add($dp)
   }
-  if ($script:CFONT) { $root.SetValue([System.Windows.Documents.TextElement]::FontFamilyProperty, $script:CFONT) }
+  if ($script:CFONT) { $root.SetValue([System.Windows.Documents.TextElement]::FontFamilyProperty, $script:CFONT); try { Font-Tree $root } catch {} }
   $w = New-Object System.Windows.Window
   $w.WindowStyle = 'None'; $w.AllowsTransparency = $true; $w.Background = [System.Windows.Media.Brushes]::Transparent; $w.Topmost = $true; $w.ShowInTaskbar = $false; $w.ResizeMode = 'NoResize'; $w.SizeToContent = 'WidthAndHeight'
   $w.Content = $root
