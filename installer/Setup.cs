@@ -82,7 +82,7 @@ class Setup : Form {
     FormClosing += (s, e) => { if (busy) { e.Cancel = true; MessageBox.Show("지금 작업 중이에요. 끝날 때까지 잠시만 기다려 주세요.", Product); } };
   }
   string TierText() {
-    if (tier == "low") return "Gemini 버전 · Gemini (본인 키) · 그래픽카드 상관없음";
+    if (tier == "low") return "외부 API 버전 · 제미나이·Claude·ChatGPT 등 (본인 키) · 그래픽카드 상관없음";
     return "Gemma 버전 · Gemma 4 E2B (와우 학습판) · 그래픽 메모리 8GB 이상";
   }
   Button MkBtn(string t, Point p, int w, bool primary) {
@@ -490,7 +490,7 @@ class Setup : Form {
     if (tier != "low") {
       bool nv = g.Name.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0;
       string warn = null;
-      if (g.Bytes > 0 && gb < 7.5) warn = "그래픽 메모리가 8GB보다 작아서 와우와 같이 쓰기엔 무거울 수 있어요. Gemini 버전을 권해요.";
+      if (g.Bytes > 0 && gb < 7.5) warn = "그래픽 메모리가 8GB보다 작아서 와우와 같이 쓰기엔 무거울 수 있어요. 외부 API 버전을 권해요.";
       if (warn != null && !Ask(warn + string.Format("\n\n(내 그래픽카드: {0} · {1:0.#}GB)\n\n그래도 계속 설치할까요?", g.Name, gb))) { Step("설치를 멈췄어요"); return; }
       if (warn == null && g.Bytes > 0 && gb < 9.5) Say(string.Format("그래픽 메모리 {0:0}GB 카드예요. Gemma 버전을 그대로 설치해요.\n\n다만 번역 모델이 와우와 그래픽 메모리를 나눠 써서, 게임이 버벅이거나 번역이 늦어질 수 있어요.\n그럴 땐 와우 포에버 그래픽 설정(텍스처 해상도·SSAO·그림자 등)을 조금 낮춰 주세요.\n추천 설정은 설명서의 '그래픽 메모리 8GB라면' 칸에 있어요.", gb), MessageBoxIcon.Information);
     }
@@ -623,7 +623,7 @@ class Setup : Form {
           var ms = ps != null && ps.ContainsKey("models") ? ps["models"] as object[] : null;
           if (ms != null && ms.Length > 0) { var m0 = ms[0] as Dictionary<string, object>; long vr = m0 != null && m0.ContainsKey("size_vram") ? Convert.ToInt64(m0["size_vram"]) : -1; long sz = m0 != null && m0.ContainsKey("size") ? Convert.ToInt64(m0["size"]) : 0;
             Log(string.Format("  그래픽카드 사용: {0:0.0}GB / {1:0.0}GB", vr / 1073741824.0, sz / 1073741824.0));
-            if (vr == 0) gpuNote = "\n\n⚠ 번역 엔진이 그래픽카드를 못 쓰고 CPU로 돌고 있어요. 번역이 많이 느리면 그래픽 드라이버를 최신으로 올리거나 Gemini 버전을 써 주세요."; }
+            if (vr == 0) gpuNote = "\n\n⚠ 번역 엔진이 그래픽카드를 못 쓰고 CPU로 돌고 있어요. 번역이 많이 느리면 그래픽 드라이버를 최신으로 올리거나 외부 API 버전을 써 주세요."; }
         } catch (Exception ex2) { Log("  그래픽카드 사용 확인 실패: " + ex2.Message); }
         Http("POST", "http://127.0.0.1:11434/api/generate", "{\"model\":\"" + ModelName() + "\",\"keep_alive\":0}", 20000);
       } catch (Exception ex) { Log("  시험 번역 실패: " + ex.Message); }
@@ -633,7 +633,7 @@ class Setup : Form {
     if (!SelfTest) try { var sp = new ProcessStartInfo(PsExe, PsArgs) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = InstDir }; sp.EnvironmentVariables["NT_LAUNCH"] = "1"; Process.Start(sp); } catch (Exception ex) { Log("  켜기: " + ex.Message); }
     Log("완료");
     Ui(() => { btnDel.Visible = true; installDone = true; btnMain.Text = "설치 완료 · 닫기"; });
-    Say("✓ 설치 완료!" + (test != null ? "\n\n시험 번역: LF1M tank → " + test : "") + gpuNote + lnkNote + "\n\n번역기가 켜졌어요. 와우를 켜고 채팅창에 /reload 를 입력하세요." + (tier == "low" ? "\n처음 켜면 Gemini 키를 넣는 창이 떠요." : ""), MessageBoxIcon.Information);
+    Say("✓ 설치 완료!" + (test != null ? "\n\n시험 번역: LF1M tank → " + test : "") + gpuNote + lnkNote + "\n\n번역기가 켜졌어요. 와우를 켜고 채팅창에 /reload 를 입력하세요." + (tier == "low" ? "\n처음 켜면 AI 키를 넣는 창이 떠요." : ""), MessageBoxIcon.Information);
   }
 
   public int RunSelfTest() {

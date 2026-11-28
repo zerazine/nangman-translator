@@ -347,23 +347,89 @@ function Save-Cfg { $script:cfgDirty = $true; if (-not $CfgT.IsEnabled) { $CfgT.
 if ($script:tierSw) { Save-Cfg }
 $KEY_ENT = [Text.Encoding]::UTF8.GetBytes('NangmanTranslator.gemini')
 $script:keyPlain = $null; $script:keyEncSeen = $null
-function Key-Save([string]$k) {
-  $k = ([string]$k).Trim()
-  if (-not $k) { $S.keyEnc = ''; $script:keyPlain = ''; $script:keyEncSeen = ''; Save-Cfg; return $true }
+function Key-Save([string]$k, [string]$a = '') {
+  $f = Ext-KeyField $a; $k = ([string]$k).Trim()
+  if (-not $k) { $S[$f] = ''; $script:keyPlain = $null; $script:keyEncSeen = $null; Save-Cfg; return $true }
   try {
     $b = [System.Security.Cryptography.ProtectedData]::Protect([Text.Encoding]::UTF8.GetBytes($k), $KEY_ENT, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
-    $S.keyEnc = [Convert]::ToBase64String($b); $script:keyPlain = $k; $script:keyEncSeen = $S.keyEnc; Save-Cfg; return $true
-  } catch { Log '제미나이 키 저장 실패 (암호화 안 됨)'; return $false }
+    $S[$f] = [Convert]::ToBase64String($b); $script:keyPlain = $null; $script:keyEncSeen = $null; Save-Cfg; return $true
+  } catch { Log ((Ext-Name $a) + ' 키 저장 실패 (암호화 안 됨)'); return $false }
 }
-function Api-Key {
-  $e0 = [string]$S.keyEnc
+function Api-Key([string]$a = '') {
+  $e0 = [string]$S[(Ext-KeyField $a)]
   if (-not $e0) { return '' }
   if ($e0 -eq $script:keyEncSeen -and $null -ne $script:keyPlain) { return [string]$script:keyPlain }
-  $script:keyEncSeen = $e0; $script:keyPlain = ''
-  try { $script:keyPlain = [Text.Encoding]::UTF8.GetString([System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String($e0), $KEY_ENT, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)) } catch { Log '저장된 제미나이 키를 읽을 수 없음 (다시 저장 필요)' }
-  return [string]$script:keyPlain
+  $pl = ''
+  try { $pl = [Text.Encoding]::UTF8.GetString([System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String($e0), $KEY_ENT, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)) } catch { Log ('저장된 ' + (Ext-Name $a) + ' 키를 읽을 수 없음 (다시 저장 필요)') }
+  $script:keyEncSeen = $e0; $script:keyPlain = $pl
+  return [string]$pl
 }
-function Key-Hint { $k = Api-Key; if (-not $k) { return '' }; if ($k.Length -le 8) { return '저장됨' }; return ('저장됨 (…' + $k.Substring($k.Length - 4) + ')') }
+function Key-Hint([string]$a = '') { $k = Api-Key $a; if (-not $k) { return '' }; if ($k.Length -le 8) { return '저장됨' }; return ('저장됨 (…' + $k.Substring($k.Length - 4) + ')') }
+$OAIP = [ordered]@{
+  openai = @{ name = 'ChatGPT'; url = 'https://api.openai.com/v1' }
+  deepseek = @{ name = '딥시크'; url = 'https://api.deepseek.com' }
+  groq = @{ name = '그록'; url = 'https://api.groq.com/openai/v1' }
+  openrouter = @{ name = '오픈라우터'; url = 'https://openrouter.ai/api/v1' }
+}
+$script:EXTCAT = @{
+  gemini = @(@{ id = 'gemini-3.5-flash-lite'; t = 'fast'; n = 'Flash-Lite 3.5'; free = $true }, @{ id = 'gemini-3.5-flash'; t = 'nice'; n = 'Flash 3.5'; c = 4200; free = $true })
+  claude = @(@{ id = 'claude-haiku-5-5'; t = 'fast'; n = 'Haiku 5.5'; c = 280 }, @{ id = 'claude-sonnet-5-5'; t = 'nice'; n = 'Sonnet 5.5'; c = 5600 })
+  openai = @(@{ id = 'gpt-6-luna'; t = 'fast'; c = 280 }, @{ id = 'gpt-6.1-terra'; t = 'nice'; c = 2800 })
+  deepseek = @(@{ id = 'deepseek-flash'; t = 'fast'; c = 420 }, @{ id = 'deepseek-v4-pro'; t = 'nice'; c = 1850 })
+  groq = @(@{ id = 'openai/gpt-oss-20b'; t = 'fast'; c = 210 }, @{ id = 'openai/gpt-oss-120b'; t = 'nice'; c = 420 })
+  openrouter = @(@{ id = 'anthropic/claude-haiku-5.5'; t = 'fast'; n = 'Claude Haiku 5.5'; c = 300 }, @{ id = 'anthropic/claude-haiku-5-5'; t = 'fast'; n = 'Claude Haiku 5.5'; c = 300 }, @{ id = 'openai/gpt-6-luna'; t = 'fast'; c = 300 }, @{ id = 'deepseek/deepseek-flash'; t = 'fast'; c = 450 }, @{ id = 'anthropic/claude-sonnet-5.5'; t = 'nice'; n = 'Claude Sonnet 5.5'; c = 5900 }, @{ id = 'anthropic/claude-sonnet-5-5'; t = 'nice'; n = 'Claude Sonnet 5.5'; c = 5900 })
+}
+$script:extDrop = @{}
+function Ext-Api { $a = [string]$S.extApi; if ($a -eq 'claude' -or $a -eq 'oai') { return $a }; return 'gemini' }
+function Oai-Prov { $p = [string]$S.oaiProv; if ($OAIP.Contains($p) -or $p -eq 'custom') { return $p }; return 'openai' }
+function Oai-Base([string]$p = '') { if (-not $p) { $p = Oai-Prov }; if ($p -eq 'custom') { return ([string]$S.oaiUrl).Trim().TrimEnd('/') }; return [string]$OAIP[$p].url }
+function Cat-Key([string]$a = '') { if (-not $a) { $a = Ext-Api }; if ($a -eq 'oai') { return (Oai-Prov) }; return $a }
+function Cat-Of([string]$k) { $c = $script:EXTCAT[$k]; if ($c) { return @($c) }; return @() }
+function Ext-KeyField([string]$a = '') { if (-not $a) { $a = Ext-Api }; switch ($a) { 'claude' { return 'keyEncC' } 'oai' { return 'keyEncO' } default { return 'keyEnc' } } }
+function Ext-Name([string]$a = '') {
+  if (-not $a) { $a = Ext-Api }
+  if ($a -eq 'claude') { return 'Claude' }
+  if ($a -eq 'oai') { $p = Oai-Prov; if ($p -eq 'custom') { return 'ChatGPT 방식' }; return [string]$OAIP[$p].name }
+  return '제미나이'
+}
+function Oai-Models { if (-not ($S.oaiModels -is [hashtable])) { $S.oaiModels = @{} }; return $S.oaiModels }
+function Ext-Model([string]$a = '') {
+  if (-not $a) { $a = Ext-Api }
+  if ($a -eq 'claude') { if ($S.modelC) { return [string]$S.modelC }; return [string](Cat-Of 'claude')[0].id }
+  if ($a -eq 'oai') { $p = Oai-Prov; $m = [string](Oai-Models)[$p]; if ($m) { return $m }; $c = @(Cat-Of $p); if ($c.Count -gt 0) { return [string]$c[0].id }; return '' }
+  return [string]$S.model
+}
+function Ext-SetModel([string]$a, [string]$p, [string]$m) {
+  if ($a -eq 'claude') { $S.modelC = $m } elseif ($a -eq 'oai') { (Oai-Models)[$p] = $m } else { $S.model = $m }
+  Save-Cfg
+}
+function Cat-Find([string]$k, [string]$id) { foreach ($e in @(Cat-Of $k)) { if ([string]$e.id -eq $id) { return $e } }; foreach ($e in @(Cat-Of $k)) { if ($id -match ('^' + [regex]::Escape([string]$e.id) + '-\d{4,}')) { return $e } }; return $null }
+function Mdl-Label([string]$k, [string]$id) { $e = Cat-Find $k $id; if ($e -and $e.n) { return [string]$e.n }; return $id }
+function Ext-Drop($b, [string]$p) { $l = $script:extDrop[[string]$b.api + '|' + [string]$b.model]; return ($l -and ($l -contains $p)) }
+function Ext-DropAdd($b, [string]$p) { $k = [string]$b.api + '|' + [string]$b.model; if (-not $script:extDrop[$k]) { $script:extDrop[$k] = @() }; $script:extDrop[$k] += $p }
+function Ext-ModelGone($b, [string]$em) {
+  $a = [string]$b.api; $k = $(if ($a -eq 'oai') { Oai-Prov } else { $a }); $cur = [string]$b.model
+  $tried = @($script:extGoneTried); $script:extGoneTried = @($tried + $cur)
+  $ce = Cat-Find $k $cur; $cc = $(if ($ce -and $ce.c) { [int]$ce.c } else { 0 })
+  $f = $null; foreach ($e in @(Cat-Of $k)) { if ([string]$e.t -eq 'fast' -and [string]$e.id -ne $cur -and @($script:extGoneTried) -notcontains [string]$e.id -and ($cc -le 0 -or -not $e.c -or [int]$e.c -le $cc)) { $f = $e; break } }
+  Log ('번역 모델을 쓸 수 없음: ' + $cur + ' · ' + $em)
+  if (-not $f) { $S.extNote = @{ stop = $true; from = $cur; api = $a; k = $k }; Save-Cfg; try { [void](Add-Line @{ kind = 'S'; col = 'ff8a6a'; text = ('[번역] ' + (Mdl-Label $k $cur) + ' 모델을 쓸 수 없어요 · 톱니 → 외부 API 번역에서 모델을 골라 주세요') }) } catch {}; return $null }
+  Ext-SetModel $a $k ([string]$f.id); $b.model = [string]$f.id
+  $S.extNote = @{ from = $cur; to = [string]$f.id; api = $a; k = $k }; Save-Cfg
+  try { [void](Add-Line @{ kind = 'S'; col = 'e0b95a'; text = ('[번역] 쓰던 모델을 쓸 수 없어서 ' + (Mdl-Label $k ([string]$f.id)) + ' 모델로 바꿨어요') }) } catch {}
+  return [string]$f.id
+}
+function Ext-ListReq([string]$a, [string]$p, [string]$key) {
+  if ($a -eq 'claude') { $r = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, 'https://api.anthropic.com/v1/models?limit=1000'); [void]$r.Headers.TryAddWithoutValidation('x-api-key', $key); [void]$r.Headers.TryAddWithoutValidation('anthropic-version', '2023-06-01'); return $r }
+  if ($a -eq 'oai') { $r = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, ((Oai-Base $p) + '/models')); [void]$r.Headers.TryAddWithoutValidation('Authorization', ('Bearer ' + $key)); return $r }
+  $r = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000'); [void]$r.Headers.TryAddWithoutValidation('x-goog-api-key', $key); return $r
+}
+function Ext-ListParse([string]$a, [string]$txt) {
+  $j = $txt | ConvertFrom-Json
+  if ($a -eq 'gemini') { return @(@($j.models) | ForEach-Object { ([string]$_.name) -replace '^models/', '' } | Where-Object { $_ }) }
+  return @(@($j.data) | ForEach-Object { [string]$_.id } | Where-Object { $_ })
+}
+function Ext-Match([string]$id, $ids) { foreach ($x in @($ids)) { if ($x -eq $id) { return $x } }; foreach ($x in @($ids)) { if ([string]$x -match ('^' + [regex]::Escape($id) + '-\d{4,}')) { return $x } }; return $null }
 
 $script:BrC = @{}; $script:BrCv = New-Object System.Windows.Media.BrushConverter
 function Br($hex) { $k = [string]$hex; $b = $script:BrC[$k]; if ($null -ne $b) { return $b }; $b = $script:BrCv.ConvertFromString($k); if ($b -and $b.CanFreeze) { $b.Freeze() }; if ($script:BrC.Count -lt 600) { $script:BrC[$k] = $b }; return $b }
@@ -571,28 +637,45 @@ function Sx-SizeFont {
   }
 }
 function Sx-GemRow {
-  $low = ($Tier -eq 'low'); $on = $low -or ([string]$S.sendEng -eq 'gemini'); $hasK = [bool](Api-Key)
-  $b = New-Object System.Windows.Controls.Border; $b.MinHeight = 44; $b.CornerRadius = New-Object System.Windows.CornerRadius(6); $b.Background = Br '#0AFFFFFF'
-  $d = New-Object System.Windows.Controls.DockPanel; $d.Margin = New-Object System.Windows.Thickness(12, 7, 10, 7); $d.LastChildFill = $true
+  $low = ($Tier -eq 'low'); $on = $low -or ([string]$S.sendEng -eq 'gemini'); $a = Ext-Api; $k = Cat-Key $a; $hasK = [bool](Api-Key)
+  $b = New-Object System.Windows.Controls.Border; $b.CornerRadius = New-Object System.Windows.CornerRadius(6); $b.Background = Br '#0AFFFFFF'
+  $sp = New-Object System.Windows.Controls.StackPanel; $sp.Margin = New-Object System.Windows.Thickness(12, 9, 12, 10)
+  $hd = New-Object System.Windows.Controls.DockPanel; $hd.LastChildFill = $true
   if (-not $low) {
     $tr = New-Object System.Windows.Controls.Grid; $tr.Width = 34; $tr.Height = 18; $tr.VerticalAlignment = 'Center'
     $tk = New-Object System.Windows.Controls.Border; $tk.CornerRadius = New-Object System.Windows.CornerRadius(9); $tk.Background = $(if ($on) { Br '#FFB98E5F' } else { Br '#26FFFFFF' }); [void]$tr.Children.Add($tk)
     $kn = New-Object System.Windows.Shapes.Ellipse; $kn.Width = 14; $kn.Height = 14; $kn.Fill = Br '#FFFFFFFF'; $kn.HorizontalAlignment = $(if ($on) { 'Right' } else { 'Left' }); $kn.Margin = New-Object System.Windows.Thickness(2, 0, 2, 0); [void]$tr.Children.Add($kn)
-    $tr.ToolTip = $(if ($on) { '제미나이로 보내는 중 · 누르면 자체 번역으로' } else { '자체 번역으로 보내는 중 · 누르면 제미나이로' })
+    $tr.ToolTip = $(if ($on) { (Ext-Name) + '로 보내는 중 · 누르면 자체 번역으로' } else { '자체 번역으로 보내는 중 · 누르면 ' + (Ext-Name) + '로' })
     Sx-Click $tr @{ kind = 'sendeng'; v = $(if ($on) { 1 } else { 2 }) }
-    [System.Windows.Controls.DockPanel]::SetDock($tr, 'Right'); [void]$d.Children.Add($tr)
+    [System.Windows.Controls.DockPanel]::SetDock($tr, 'Right'); [void]$hd.Children.Add($tr)
   }
-  $kb = New-Object System.Windows.Controls.Border; $kb.CornerRadius = New-Object System.Windows.CornerRadius(4); $kb.Padding = New-Object System.Windows.Thickness(10, 3, 10, 4); $kb.VerticalAlignment = 'Center'; $kb.Background = Br '#E6B98E5F'
-  $kb.Margin = New-Object System.Windows.Thickness(8, 0, $(if ($low) { 0 } else { 12 }), 0)
-  $kb.Child = (TB $(if ($hasK) { '키 변경' } else { '키 입력' }) 11 (Br '#FF141414')); $kb.ToolTip = $(if ($hasK) { '제미나이 API 키 ' + (Key-Hint) } else { '제미나이 API 키 넣기' })
-  Sx-Click $kb @{ kind = 'key' }; [System.Windows.Controls.DockPanel]::SetDock($kb, 'Right'); [void]$d.Children.Add($kb)
-  $sp = New-Object System.Windows.Controls.StackPanel; $sp.VerticalAlignment = 'Center'
-  $tr0 = New-Object System.Windows.Controls.StackPanel; $tr0.Orientation = 'Horizontal'
-  [void]$tr0.Children.Add((TB $(if ($low) { '제미나이 API 키' } else { '제미나이 번역 (선택)' }) 12.5 $(if ($on) { $CREAM } else { $SUBC })))
-  if ($low) { $o = TB '(필수)' 10.5 $MUTED; $o.Margin = New-Object System.Windows.Thickness(6, 1, 0, 0); $o.VerticalAlignment = 'Center'; [void]$tr0.Children.Add($o) }
-  [void]$sp.Children.Add($tr0)
-  $s2 = TB $(if ($low) { '받기·보내기 번역에 써요' } else { 'GEMINI API 사용 시 보내는 번역 품질이 향상될 수 있습니다' }) 9.5 $MUTED; $s2.TextWrapping = 'Wrap'; [void]$sp.Children.Add($s2)
-  [void]$d.Children.Add($sp); $b.Child = $d; [void]$popS.Children.Add($b)
+  $tt = New-Object System.Windows.Controls.StackPanel; $tt.Orientation = 'Horizontal'; $tt.VerticalAlignment = 'Center'
+  [void]$tt.Children.Add((TB '외부 API 번역' 12.5 $(if ($on) { $CREAM } else { $SUBC })))
+  $o = TB $(if ($low) { '(필수)' } else { '(선택)' }) 10.5 $MUTED; $o.Margin = New-Object System.Windows.Thickness(6, 0, 0, 0); $o.VerticalAlignment = 'Center'; [void]$tt.Children.Add($o)
+  [void]$hd.Children.Add($tt); [void]$sp.Children.Add($hd)
+  $s1 = TB '내 키로 쓰는 AI · 사전·대화 맥락은 어느 AI든 그대로 적용돼요' 9.5 $MUTED; $s1.TextWrapping = 'Wrap'; $s1.Margin = New-Object System.Windows.Thickness(0, 3, 0, 0); [void]$sp.Children.Add($s1)
+  [void]$sp.Children.Add((TB '(낭만타우렌 자체학습 사전데이터 사용)' 9.5 $MUTED))
+  $ug = New-Object System.Windows.Controls.Primitives.UniformGrid; $ug.Columns = 3; $ug.Rows = 1; $ug.Margin = New-Object System.Windows.Thickness(0, 9, -5, 0)
+  foreach ($it in @(@('gemini', '제미나이'), @('claude', 'Claude'), @('oai', 'ChatGPT 방식'))) {
+    $sel = ($it[0] -eq $a)
+    $sb = New-Object System.Windows.Controls.Border; $sb.Height = 30; $sb.CornerRadius = New-Object System.Windows.CornerRadius(6); $sb.Margin = New-Object System.Windows.Thickness(0, 0, 5, 0)
+    $sb.Background = $(if ($sel) { Br '#E6B98E5F' } else { Br '#0DFFFFFF' })
+    $sl = TB $it[1] 11.5 $(if ($sel) { Br '#FF141414' } else { Br '#FFB8B8B8' }); $sl.FontWeight = 'Bold'; $sl.HorizontalAlignment = 'Center'; $sl.VerticalAlignment = 'Center'; $sb.Child = $sl
+    Sx-Click $sb @{ kind = 'extapi'; v = $it[0] }; [void]$ug.Children.Add($sb)
+  }
+  [void]$sp.Children.Add($ug)
+  $st = New-Object System.Windows.Controls.DockPanel; $st.LastChildFill = $true; $st.Margin = New-Object System.Windows.Thickness(0, 9, 0, 0)
+  $kb = New-Object System.Windows.Controls.Border; $kb.CornerRadius = New-Object System.Windows.CornerRadius(4); $kb.Padding = New-Object System.Windows.Thickness(10, 3, 10, 4); $kb.VerticalAlignment = 'Center'; $kb.Background = Br '#E6B98E5F'; $kb.Margin = New-Object System.Windows.Thickness(8, 0, 0, 0)
+  $kb.Child = (TB $(if ($hasK) { '키 변경' } else { '키 입력' }) 11 (Br '#FF141414')); $kb.ToolTip = (Ext-Name) + ' API 키 ' + $(if ($hasK) { Key-Hint } else { '넣기' })
+  Sx-Click $kb @{ kind = 'key' }; [System.Windows.Controls.DockPanel]::SetDock($kb, 'Right'); [void]$st.Children.Add($kb)
+  $sr = New-Object System.Windows.Controls.StackPanel; $sr.Orientation = 'Horizontal'; $sr.VerticalAlignment = 'Center'
+  $dc = $(if ($hasK) { '#FF8FD18F' } else { '#FFFF8A6A' })
+  $dt = New-Object System.Windows.Shapes.Ellipse; $dt.Width = 7; $dt.Height = 7; $dt.Fill = Br $dc; $dt.VerticalAlignment = 'Center'; $dt.Margin = New-Object System.Windows.Thickness(0, 1, 7, 0); [void]$sr.Children.Add($dt)
+  $sx = $(if ($hasK) { (Ext-Name) + ' 키 ' + (Key-Hint) + ' · ' + (Mdl-Label $k (Ext-Model)) } else { '키 없음 · 키를 넣어야 번역이 동작해요' })
+  $stt = TB $sx 11 (Br $dc); $stt.TextTrimming = 'CharacterEllipsis'; [void]$sr.Children.Add($stt)
+  [void]$st.Children.Add($sr); [void]$sp.Children.Add($st)
+  $nt = TB '외부 API는 AI 회사 서버를 거쳐 번역해서, 사용하시는 AI와 모델에 따라 젬마 버전보다 번역 속도가 느리거나 말투가 다를 수 있어요.' 9.5 $MUTED; $nt.TextWrapping = 'Wrap'; $nt.Margin = New-Object System.Windows.Thickness(0, 7, 0, 0); [void]$sp.Children.Add($nt)
+  $b.Child = $sp; [void]$popS.Children.Add($b)
 }
 
 $CREAM = Br '#FFF0F0F0'; $GOLD = Br '#FFE3C39A'; $SUBC = Br '#FFD0D0D0'; $MUTED = Br '#FF8A8A8A'
@@ -1500,6 +1583,7 @@ function Sx-Do($t) {
     'fedit' { $Pop.IsOpen = $false; FEd-Start; return }
     'sendeng' { $S.sendEng = $(if ([int]$t.v -eq 2) { 'gemini' } else { 'local' }); Save-Cfg; if ($S.sendEng -eq 'gemini' -and -not (Api-Key)) { $Pop.IsOpen = $false; Key-Dialog; return } }
     'key' { $Pop.IsOpen = $false; Key-Dialog; return }
+    'extapi' { $S.extApi = [string]$t.v; $S.extNote = $null; $script:gemErr = $null; $script:gemNet = 0; $script:gemQ = 0; Save-Cfg; Eng-Build; try { Paint-Status } catch {}; if (-not (Api-Key)) { $Pop.IsOpen = $false; Key-Dialog; return } }
     'donate' { $script:dnOpen = -not [bool]$script:dnOpen; Build-Menu; if ($script:dnOpen) { try { [void]$popSv.Dispatcher.BeginInvoke([System.Action]{ try { $popSv.ScrollToEnd() } catch {} }, [System.Windows.Threading.DispatcherPriority]::Loaded) } catch {} }; return }
   }
   if (-not $script:fromGame -and [string]$t.kind -in @('origoff', 'voice', 'calloff', 'tr', 'trch', 'sendeng', 'vcen', 'engoff', 'lockcen')) { TrSt-Push $false }
@@ -1738,7 +1822,7 @@ function Build-Menu {
   [void]$fd0.Children.Add($fsp); $fb0.Child = $fd0; Sx-Click $fb0 @{ kind = 'fedit' }
   [void]$popS.Children.Add($fb0)
   }
-  if ($Tier -eq 'low') { Sx-Head '번역 엔진' '받기·보내기 모두 제미나이' '' $false } else { Sx-Head '보내기 번역' '받기는 늘 자체 번역' '' $false }
+  if ($Tier -eq 'low') { Sx-Head '번역 엔진' '받기·보내기 모두 외부 API' '' $false } else { Sx-Head '보내기 번역' '받기는 늘 자체 번역' '' $false }
   Sx-GemRow
   Sx-Head '대화창 세부설정'
   Sx-SizeFont
@@ -2541,6 +2625,7 @@ function TrCfg-Apply($c) {
   $script:SYS_IN = $si; $script:SYS_OUT_T = $so; $script:SYS_VOICE = $sv
   $script:KO_FIX = $kf.ToArray()
   $script:PRE_FIX = $pf.ToArray()
+  try { if ($c.ext_models) { $xc = ConvertTo-Hash $c.ext_models; if ($xc -is [hashtable] -and $xc.Count -gt 0) { foreach ($xk in @($xc.Keys)) { $script:EXTCAT[$xk] = @($xc[$xk]) } } } } catch { Log "외부 API 모델 목록: $_" }
   $po = New-Object System.Collections.ArrayList
   foreach ($e in @($c.pre_out)) { if ($null -eq $e) { continue }; $a = @($e); if ($a.Count -lt 2) { continue }; try { [void]$po.Add(@((New-Object Text.RegularExpressions.Regex([string]$a[0])), [string]$a[1])) } catch {} }
   $script:PRE_OUT = $po.ToArray()
@@ -2849,7 +2934,7 @@ function Eng-Build {
   $old = @{}; foreach ($b in @($script:BE)) { if ($b) { $old[$b.id] = $b } }
   $list = @()
   if ($Tier -ne 'low') { $list += @{ id = 'local'; kind = 'ollama'; host = ([string]$S.localHost).TrimEnd('/'); model = [string]$S.localModel; short = '자체'; wait = 25; keep = '30m'; warm = $true } }
-  $list += @{ id = 'gemini'; kind = 'gemini'; model = [string]$S.model; short = '제미나이'; wait = $(if ($Tier -eq 'low') { 30 } else { 8 }) }
+  $list += @{ id = 'gemini'; kind = 'gemini'; api = (Ext-Api); model = (Ext-Model); short = (Ext-Name); wait = $(if ($Tier -eq 'low') { 30 } else { 8 }) }
   foreach ($b in $list) {
     $b.st = 'unknown'; $b.probe = $null; $b.probeAt = [DateTime]::MinValue; $b.noModel = $false
     $o = $old[$b.id]; if ($o -and $o.host -eq $b.host -and $o.model -eq $b.model) { $b.st = $o.st; $b.probeAt = $o.probeAt }
@@ -2879,6 +2964,25 @@ function Eng-Start($job, $b) {
   if ($b.kind -eq 'ollama') {
     $req = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Post, ($b.host + '/api/chat'))
     $req.Content = New-Object System.Net.Http.StringContent((Ollama-Body $b $job.sys $job.text ([bool]$job.raw)), [Text.Encoding]::UTF8, 'application/json')
+  } elseif ($b.api -eq 'claude' -or $b.api -eq 'oai') {
+    $key = Api-Key $b.api
+    $ub = $(if ($job.raw) { [string]$job.text } else { (Wrap-Src $job.text) })
+    $tp = $(if ($job.raw) { 0.9 } else { 0.2 })
+    if ($b.api -eq 'claude') {
+      $body = [ordered]@{ model = $b.model; max_tokens = 600; system = @(@{ type = 'text'; text = [string]$job.sys; cache_control = @{ type = 'ephemeral' } }); messages = @(@{ role = 'user'; content = $ub }) }
+      if (-not (Ext-Drop $b 'temperature')) { $body.temperature = $tp }
+      $req = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Post, 'https://api.anthropic.com/v1/messages')
+      [void]$req.Headers.TryAddWithoutValidation('x-api-key', $key); [void]$req.Headers.TryAddWithoutValidation('anthropic-version', '2023-06-01')
+    } else {
+      $body = [ordered]@{ model = $b.model; messages = @(@{ role = 'system'; content = [string]$job.sys }, @{ role = 'user'; content = $ub }) }
+      if (-not (Ext-Drop $b 'temperature')) { $body.temperature = $tp }
+      if (-not $job.raw -and -not (Ext-Drop $b 'response_format')) { $body.response_format = @{ type = 'json_object' } }
+      if ((Oai-Prov) -eq 'openai' -and [string]$b.model -match '^(gpt-[5-9]|o\d)' -and -not (Ext-Drop $b 'reasoning_effort')) { $body.reasoning_effort = 'none' }
+      $req = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Post, ((Oai-Base) + '/chat/completions'))
+      [void]$req.Headers.TryAddWithoutValidation('Authorization', ('Bearer ' + $key))
+      if ((Oai-Prov) -eq 'openrouter') { [void]$req.Headers.TryAddWithoutValidation('X-OpenRouter-Title', 'NangmanTranslator') }
+    }
+    $req.Content = New-Object System.Net.Http.StringContent(($body | ConvertTo-Json -Depth 8 -Compress), [Text.Encoding]::UTF8, 'application/json')
   } else {
     $key = Api-Key
     $body = @{ systemInstruction = @{ parts = @(@{ text = $job.sys }) }; contents = @(@{ role = 'user'; parts = @(@{ text = $(if ($job.raw) { $job.text } else { (Wrap-Src $job.text) }) }) }); generationConfig = @{ temperature = $(if ($job.raw) { 0.9 } else { 0.2 }); responseMimeType = 'application/json' } }
@@ -2956,8 +3060,28 @@ function Eng-Read($job) {
     try { Dbg ("{0} 시간 · 읽기 {1}토큰 {2}ms · 쓰기 {3}토큰 {4}ms · 올리기 {5}ms" -f $b.short, [int]$bj.prompt_eval_count, [int]([double]$bj.prompt_eval_duration / 1e6), [int]$bj.eval_count, [int]([double]$bj.eval_duration / 1e6), [int]([double]$bj.load_duration / 1e6)) } catch {}
     try { if (-not $S.usage[$mk]) { $S.usage[$mk] = @{ calls = 0; inT = 0; outT = 0 } }; $um = $S.usage[$mk]; $um.lCalls = [int]$um.lCalls + 1 } catch {}
   } else {
-    if (-not $sc) { $em = ''; if ($bj -and $bj.error) { $em = $bj.error.message }; return @{ err = ("번역 오류 {0} {1}" -f $code, $em) } }
+    if (-not $sc) {
+      $em = ''; if ($bj -and $bj.error) { $em = $(if ($bj.error.message) { [string]$bj.error.message } else { [string]$bj.error }) } elseif ($txt) { $em = ([string]$txt).Substring(0, [Math]::Min(300, ([string]$txt).Length)) }
+      if ($b.api -eq 'claude' -or $b.api -eq 'oai') {
+        if ($code -eq 400) { foreach ($pn in @('temperature', 'response_format', 'reasoning_effort')) { if ($em -match $pn -and -not (Ext-Drop $b $pn)) { Ext-DropAdd $b $pn; Log ($b.short + ' ' + $b.model + ' 이 옵션을 안 받음 → 빼고 다시: ' + $pn); return @{ err = ("번역 오류 {0} {1}" -f $code, $em); again = $true } } } }
+        if ($code -eq 404 -or $em -match '(?i)model_not_found|not_found_error|model[^.]{0,60}(not.?found|does not exist|not exist|not available|no access|unknown|invalid|decommission|deprecat)') { if (Ext-ModelGone $b $em) { return @{ err = ("번역 오류 {0} {1}" -f $code, $em); again = $true } } }
+      }
+      return @{ err = ("번역 오류 {0} {1}" -f $code, $em) }
+    }
     $out = ''
+    if ($b.api -eq 'claude' -or $b.api -eq 'oai') {
+      try { if ($b.api -eq 'claude') { $out = (@($bj.content) | Where-Object { $_.type -eq 'text' } | ForEach-Object { [string]$_.text }) -join '' } else { $out = [string]$bj.choices[0].message.content } } catch {}
+      try {
+        $u = $bj.usage
+        $it = $(if ($b.api -eq 'claude') { [int]$u.input_tokens + [int]$u.cache_read_input_tokens + [int]$u.cache_creation_input_tokens } else { [int]$u.prompt_tokens })
+        $ot = $(if ($b.api -eq 'claude') { [int]$u.output_tokens } else { [int]$u.completion_tokens })
+        $ch = $(if ($b.api -eq 'claude') { [int]$u.cache_read_input_tokens } else { [int]$u.prompt_tokens_details.cached_tokens })
+        if (-not $S.usage[$mk]) { $S.usage[$mk] = @{ calls = 0; inT = 0; outT = 0 } }
+        $S.usage[$mk].calls++; $S.usage[$mk].inT += $it; $S.usage[$mk].outT += $ot
+        Dbg ("{0} {1} · 읽기 {2}토큰 (캐시 {3}) · 쓰기 {4}토큰" -f $b.short, [string]$bj.model, $it, $ch, $ot)
+      } catch {}
+      if ($script:extGoneTried) { $script:extGoneTried = @() }
+    } else {
     try { $out = (@($bj.candidates[0].content.parts) | ForEach-Object { if ($_.text -and -not $_.thought) { $_.text } }) -join '' } catch {}
     try {
       $u = $bj.usageMetadata
@@ -2968,6 +3092,7 @@ function Eng-Read($job) {
         $um.vCalls = [int]$um.vCalls + 1; $um.vInT = [int]$um.vInT + [int]$u.promptTokenCount; $um.vOutT = [int]$um.vOutT + [int]$u.candidatesTokenCount
       }
     } catch {}
+    }
   }
   $j = Parse-Json $out
   if (-not $j -and $out -match '"(ko|text)"\s*:') {
@@ -3018,7 +3143,7 @@ function Eng-Read($job) {
 }
 function Job-Ready($job) {
   if ($job.done) { return $true }
-  if ($job.retryAt) { if ([DateTime]::Now -lt $job.retryAt) { return $false }; $job.retryAt = $null; $job.i = $job.i - 1; if (Eng-Next $job) { return $false }; $job.res = @{ err = '제미나이 다시 보내기 실패' }; $job.done = $true; return $true }
+  if ($job.retryAt) { if ([DateTime]::Now -lt $job.retryAt) { return $false }; $job.retryAt = $null; $job.i = $job.i - 1; if (Eng-Next $job) { return $false }; $job.res = @{ err = ((Ext-Name) + ' 다시 보내기 실패') }; $job.done = $true; return $true }
   $b = $job.be
   if (-not $job.task.IsCompleted) {
     if ($b.kind -eq 'ollama') {
@@ -3029,12 +3154,13 @@ function Job-Ready($job) {
   }
   $r = Eng-Read $job
   if ($r.err) {
+    if ($r.again -and [int]$job.again -lt 3) { $job.again = [int]$job.again + 1; try { Eng-Start $job $b; return $false } catch { Log ("다시 보내기 실패: " + $_) } }
     Dbg ("엔진 실패 · " + $r.err)
     if ($r.down -and $b.kind -eq 'ollama' -and $b.st -ne 'down') { $b.st = 'down'; $b.probeAt = [DateTime]::Now; Log ($r.err + ' → 다음 엔진으로') ; Paint-Status }
-    if ($b.kind -eq 'gemini') { $job.fellBack = [string]$r.err; $ge = [string]$r.err; if ($ge -match '오류 429' -and $ge -match 'free_tier') { $script:gemQ = [int]$script:gemQ + 1; if ($script:gemQ -ge 3) { $script:gemErr = 'quota' } } elseif ($ge -match '오류 (401|403)' -or ($ge -match '오류 400' -and $ge -match 'API.?key')) { $script:gemErr = 'key' } elseif ($ge -match '연결 안 됨|시간 초과|오류 5\d\d') { $script:gemNet = [int]$script:gemNet + 1; if ($script:gemNet -ge 2) { $script:gemErr = 'net' } } }
-    if ($b.kind -eq 'gemini' -and $Tier -eq 'low' -and [int]$job.retry -lt 2 -and [string]$r.err -notmatch '오류 (400|401|403|404)') {
+    if ($b.kind -eq 'gemini') { $job.fellBack = [string]$r.err; $ge = [string]$r.err; if ($ge -match '오류 4\d\d' -and $ge -match '(?i)credit balance') { $script:gemErr = 'quota' } elseif ($ge -match '오류 (429|402)' -and $ge -match '(?i)free_tier|insufficient_quota|quota|credit|balance|billing') { $script:gemQ = [int]$script:gemQ + 1; if ($script:gemQ -ge 3) { $script:gemErr = 'quota' } } elseif ($ge -match '오류 4\d\d' -and $ge -match '(?i)workspace') { $script:gemErr = 'ws' } elseif ($ge -match '오류 (401|403)' -or ($ge -match '오류 400' -and $ge -match 'API.?key')) { $script:gemErr = 'key' } elseif ($ge -match '연결 안 됨|시간 초과|오류 5\d\d') { $script:gemNet = [int]$script:gemNet + 1; if ($script:gemNet -ge 2) { $script:gemErr = 'net' } } }
+    if ($b.kind -eq 'gemini' -and $Tier -eq 'low' -and [int]$job.retry -lt 2 -and [string]$r.err -notmatch '오류 (400|401|402|403|404)' -and -not ($b.api -ne 'gemini' -and [string]$r.err -match '(?i)insufficient_quota|exceeded your current quota|credit balance|balance')) {
       $job.retry = [int]$job.retry + 1; $job.retryAt = [DateTime]::Now.AddSeconds($(if ([string]$r.err -match '429') { 8 * $job.retry } else { 3 }))
-      Dbg ('제미나이 다시 보내기 ' + $job.retry + '번째 · ' + $r.err); return $false
+      Dbg ((Ext-Name) + ' 다시 보내기 ' + $job.retry + '번째 · ' + $r.err); return $false
     }
     if (Eng-Next $job) { return $false }
     if ($job.spare -and [string]$r.err -match '영어가 많이 남은|반복 고장') { $job.res = $job.spare; $job.done = $true; return $true }
@@ -4949,6 +5075,11 @@ function Tip-Segs([int]$n) { if ($n -eq $script:tipSegN) { return }; $script:tip
 $tipX = TB '✕' 12 (Br '#FF8F866F'); $tipX.VerticalAlignment = 'Center'; $tipX.Margin = New-Object System.Windows.Thickness(10, 0, 0, 0); $tipX.Padding = New-Object System.Windows.Thickness(3); $tipX.Background = Br '#01000000'; $tipX.Cursor = [System.Windows.Input.Cursors]::Hand
 $tipX.Add_MouseEnter({ $tipX.Foreground = Br '#FFF3E2B3' }); $tipX.Add_MouseLeave({ $tipX.Foreground = Br '#FF8F866F' })
 $tipX.Add_MouseLeftButtonUp({ param($snd, $e) $e.Handled = $true; Tip-Done })
+$tipOk = New-Object System.Windows.Controls.Border; $tipOk.Background = Br '#FFE0B95A'; $tipOk.CornerRadius = New-Object System.Windows.CornerRadius(4); $tipOk.Padding = New-Object System.Windows.Thickness(14, 3, 14, 4); $tipOk.Margin = New-Object System.Windows.Thickness(12, 0, 0, 0); $tipOk.VerticalAlignment = 'Center'; $tipOk.Cursor = [System.Windows.Input.Cursors]::Hand; $tipOk.Visibility = 'Collapsed'
+$tipOkT = TB '확인' 11.5 (Br '#FF141414'); $tipOkT.FontWeight = 'Bold'; $tipOkT.HorizontalAlignment = 'Center'; $tipOk.Child = $tipOkT
+$tipOk.Add_MouseLeftButtonDown({ param($snd, $e) $e.Handled = $true })
+$tipOk.Add_MouseLeftButtonUp({ param($snd, $e) $e.Handled = $true; Tip-Done })
+[void]$tipSp.Children.Add($tipOk)
 [void]$tipSp.Children.Add($tipX)
 $tipB.Child = $tipSp; [void]$tipG.Children.Add($tipB)
 $tipB.Add_MouseLeftButtonUp({ param($snd, $e) if ($script:tipMode -eq 'mdl') { $e.Handled = $true; try { Mdl-Popup } catch { Log "모델 안내 창: $_" } } elseif ($script:tipMode -eq 'mode') { $e.Handled = $true; $script:modeNote = $null; $script:tipMode = ''; Tip-Hide; try { Show-Menu $TrM.root } catch { Log "설정 열기: $_" } } elseif ($script:tipMode -eq 'rp') { $e.Handled = $true; try { Rp-List } catch { Log "제보 목록: $_" } } elseif ($script:tipMode.StartsWith('sys:') -and $script:sysNote -and $script:sysNote.url) { $e.Handled = $true; try { Start-Process ([string]$script:sysNote.url) } catch { Log "받는 곳 열기: $_" } } elseif ($script:tipMode -eq 'eng') { $e.Handled = $true; try { Eng-Open } catch { Log "영어 카드: $_" } } elseif ($script:tipMode -eq 'engi') { $e.Handled = $true; try { Eng-IntroDone; Tip-Hide; $script:tipMode = ''; Eng-View $false $true } catch { Log "영어 카드: $_" } } })
@@ -4960,7 +5091,7 @@ $tipTr = New-Object System.Windows.Shapes.Polyline; $tipTr.Stroke = Br '#8CE0B95
 $script:tipU = 0
 $script:tipKey = ''
 $script:tipMode = ''
-function Tip-Done { if ($script:tipMode -like 'mdl*') { $Mdl.noteHide = $true; $script:tipMode = ''; Tip-Hide; return }; if ($script:tipMode -eq 'mode') { $script:modeNote = $null; $script:tipMode = ''; Tip-Hide; return }; if ($script:tipMode -eq 'rp') { $script:rpNote = $null; $script:tipMode = ''; Tip-Hide; return }; Tip-Hide; if ($script:tipMode.StartsWith('sys:')) { if ($script:sysNote) { $script:sysHide = [string]$script:sysNote.k }; $script:tipMode = '' } elseif ($script:tipMode.StartsWith('tip:')) { $script:tipCur = $null; $script:tipMode = '' } elseif ($script:tipMode -eq 'eng') { $script:tipMode = ''; try { Eng-Dismiss } catch {} } elseif ($script:tipMode -eq 'engi') { $script:tipMode = ''; try { Eng-IntroDone } catch {} } elseif ($script:tipMode -eq 'dual') { if (-not $S.tipDual) { $S.tipDual = $true; Save-Cfg } } elseif ($script:tipMode -eq 'alt') { if (-not $S.tipAltEnter) { $S.tipAltEnter = $true; Save-Cfg } } elseif (-not $S.tipUndock) { $S.tipUndock = $true; Save-Cfg } }
+function Tip-Done { if ($script:tipMode -like 'mdl*') { $Mdl.noteHide = $true; $script:tipMode = ''; Tip-Hide; return }; if ($script:tipMode -eq 'mode') { $script:modeNote = $null; $script:tipMode = ''; Tip-Hide; return }; if ($script:tipMode -eq 'rp') { $script:rpNote = $null; $script:tipMode = ''; Tip-Hide; return }; Tip-Hide; if ($script:tipMode.StartsWith('sys:')) { if ($script:sysNote) { if ([string]$script:sysNote.k -eq 'extm') { $S.extNote = $null; Save-Cfg } else { $script:sysHide = [string]$script:sysNote.k } }; $script:tipMode = '' } elseif ($script:tipMode.StartsWith('tip:')) { $script:tipCur = $null; $script:tipMode = '' } elseif ($script:tipMode -eq 'eng') { $script:tipMode = ''; try { Eng-Dismiss } catch {} } elseif ($script:tipMode -eq 'engi') { $script:tipMode = ''; try { Eng-IntroDone } catch {} } elseif ($script:tipMode -eq 'dual') { if (-not $S.tipDual) { $S.tipDual = $true; Save-Cfg } } elseif ($script:tipMode -eq 'alt') { if (-not $S.tipAltEnter) { $S.tipAltEnter = $true; Save-Cfg } } elseif (-not $S.tipUndock) { $S.tipUndock = $true; Save-Cfg } }
 $TipBarT = New-Object Windows.Threading.DispatcherTimer; $TipBarT.Interval = [TimeSpan]::FromMilliseconds(250)
 $TipBarT.Add_Tick({ try { $n = [int][math]::Ceiling((15 - ([DateTime]::Now - $script:tipBarAt).TotalSeconds) / 3); $n = [math]::Max(0, [math]::Min(5, $n)); Tip-Segs $n; if ($n -le 0) { $TipBarT.Stop() } } catch { $TipBarT.Stop() } })
 function Tip-Mode([string]$m) {
@@ -4970,6 +5101,7 @@ function Tip-Mode([string]$m) {
   $tipBadge.Visibility = $(if ($isTip -or $isSys) { 'Visible' } else { 'Collapsed' }); $tipTrack.Visibility = $(if ($isTip) { 'Visible' } else { 'Collapsed' })
   $tipT1.Foreground = $(if ($isSys) { Br '#FFFFB36B' } else { Br '#FFF3E2B3' })
   $tipBt.Text = $(if ($isSys) { '안내' } else { 'TIP' }); $tipBt.Foreground = $(if ($isSys) { Br '#FFFFB36B' } else { Br '#FFE0B95A' }); $tipBadge.BorderBrush = $tipBt.Foreground
+  $tipOk.Visibility = 'Collapsed'; $tipX.Visibility = 'Visible'
   $tipB.Cursor = $null; $tipT3.Visibility = 'Collapsed'; $tipT3.Text = '여기를 누르면 받는 곳이 열려요'; $tipT3.Foreground = Br '#FF7FC3FF'
   if ($m -eq 'mdl') { $tipB.Cursor = [System.Windows.Input.Cursors]::Hand; $tipBadge.Visibility = 'Visible'; $tipBt.Text = 'NEW'; $tipT1.Text = '젬마 V2 받을 수 있어요'; $tipT2.Text = '눌러서 설치 · 와우를 즐기는 중에도 백그라운드에서 받아요'; $tipIc.Visibility = 'Collapsed'; return }
   if ($m.StartsWith('mdlp:')) { $tipBadge.Visibility = 'Visible'; $tipBt.Text = 'NEW'; $tipT1.Text = ('젬마 V2 받는 중 ' + $m.Substring(5) + '%'); $tipT2.Text = '받는 동안에도 번역은 그대로 돼요'; $tipIc.Visibility = 'Collapsed'; return }
@@ -4992,6 +5124,7 @@ function Tip-Mode([string]$m) {
     if ($rl.Count -gt 3) { $tipT3.Text = ('외 {0}개 · 눌러서 전부 보기' -f ($rl.Count - 2)); $tipT3.Foreground = Br '#FFE0B95A'; $tipT3.Visibility = 'Visible'; $tipB.Cursor = [System.Windows.Input.Cursors]::Hand }
     return
   }
+  if ($isSys -and $script:sysNote.ok) { $tipOk.Visibility = 'Visible'; $tipX.Visibility = 'Collapsed' }
   if ($isSys) { $tipT1.Text = [string]$script:sysNote.t1; $tipT2.Text = [string]$script:sysNote.t2; $tipIc.Visibility = 'Collapsed'; if ($script:sysNote.url) { $tipT3.Text = '여기를 누르면 받는 곳이 열려요'; $tipT3.Foreground = Br '#FF7FC3FF'; $tipT3.Visibility = 'Visible'; $tipB.Cursor = [System.Windows.Input.Cursors]::Hand }; return }
   if ($isTip) {
     $tipT1.Text = [string]$script:tipCur.t1; $tipT2.Text = [string]$script:tipCur.t2; $tipIc.Visibility = 'Collapsed'
@@ -5077,11 +5210,13 @@ function LC-Note { if ([DateTime]::Now -lt $script:lcPrevUntil) { return $true }
 function Sys-Note {
   if ($S.pause -or $state.test) { return $null }
   if ($script:cfgErrAt -ne [DateTime]::MinValue -and ([DateTime]::Now - $script:cfgErrAt).TotalSeconds -lt 30) { return @{ k = 'cfg'; t1 = '사전 파일에 오류가 있어요'; t2 = '번역은 계속되지만 사전 일부가 빠질 수 있어요' } }
+  if ($S.extNote -is [hashtable]) { $xn = $S.extNote; $xk = $(if ($xn.k) { [string]$xn.k } else { [string]$xn.api }); if ($xn.stop) { return @{ k = 'extm'; ok = $true; t1 = '번역 모델을 쓸 수 없어요'; t2 = ('쓰던 ' + (Mdl-Label $xk ([string]$xn.from)) + ' 모델을 더 이상 쓸 수 없어요' + "`n" + '톱니 → 외부 API 번역에서 모델을 골라 주세요') } }; return @{ k = 'extm'; ok = $true; t1 = '번역 모델이 바뀌었어요'; t2 = ('쓰던 ' + (Mdl-Label $xk ([string]$xn.from)) + ' 모델을 더 이상 쓸 수 없어서' + "`n" + (Mdl-Label $xk ([string]$xn.to)) + ' 모델로 바꿨어요 · 비용은 같거나 더 적어요' + "`n" + '다른 모델은 톱니 → 외부 API 번역에서 고를 수 있어요') } }
   $b0 = $(if ($script:BE.Count -gt 0) { $script:BE[0] } else { $null })
   if ($b0 -and $b0.kind -eq 'gemini' -and $script:gemErr) {
-    if ($script:gemErr -eq 'quota') { return @{ k = 'gquota'; t1 = '제미나이 무료 사용량 한도에 걸렸어요'; t2 = '풀리면 이 안내는 사라져요' } }
-    if ($script:gemErr -eq 'key') { return @{ k = 'gkey'; t1 = '제미나이 API 키를 확인해 주세요'; t2 = '톱니 → 번역 엔진에서 키를 다시 넣어 주세요' } }
-    return @{ k = 'gnet'; t1 = '제미나이 연결이 잠시 안 돼요'; t2 = '연결되면 이 안내는 사라져요' }
+    if ($script:gemErr -eq 'quota') { return @{ k = 'gquota'; t1 = $(if ((Ext-Api) -eq 'gemini') { '제미나이 무료 사용량 한도에 걸렸어요' } else { (Ext-Name) + ' 사용량 한도나 잔액이 부족해요' }); t2 = $(if ((Ext-Api) -eq 'gemini') { '풀리면 이 안내는 사라져요' } else { 'AI 회사 사이트에서 잔액·한도를 확인해 주세요' }) } }
+    if ($script:gemErr -eq 'ws') { return @{ k = 'gws'; t1 = (Ext-Name) + ' 키에 워크스페이스가 정해져 있지 않아요'; t2 = '콘솔에서 키를 만들 때 워크스페이스를 Default로 골라 새 키를 넣어 주세요' } }
+    if ($script:gemErr -eq 'key') { return @{ k = 'gkey'; t1 = (Ext-Name) + ' API 키를 확인해 주세요'; t2 = '톱니 → 외부 API 번역에서 키를 다시 넣어 주세요' } }
+    return @{ k = 'gnet'; t1 = (Ext-Name) + ' 연결이 잠시 안 돼요'; t2 = '연결되면 이 안내는 사라져요' }
   }
   if (-not $b0 -or $b0.kind -ne 'ollama') { return $null }
   $e = ''; try { $e = Eng-Label } catch {}; if ($e -eq $b0.short) { $e = '' }
@@ -5955,7 +6090,7 @@ $script:fbAt = [DateTime]::MinValue
 function Fb-Note([string]$why) {
   if (([DateTime]::Now - $script:fbAt).TotalSeconds -lt 30) { return }
   $script:fbAt = [DateTime]::Now
-  try { $NL = Add-Line @{ kind = 'S'; col = 'ffb36b'; text = '제미나이 번역이 안 돼서 이 글은 자체 번역으로 보냈어요' }; if ($why) { Set-Sub $NL $null $why } } catch {}
+  try { $NL = Add-Line @{ kind = 'S'; col = 'ffb36b'; text = ((Ext-Name) + ' 번역이 안 돼서 이 글은 자체 번역으로 보냈어요') }; if ($why) { Set-Sub $NL $null $why } } catch {}
 }
 
 $COPYRIGHT = '본 북미섭 와우 포에버 전용 번역프로그램의 저작권은 제작자 낭만타우렌 (배틀태그 하르만#31615)에 있으며 어떤 방식으로도 수정과 재배포가 불가합니다.'
@@ -5992,33 +6127,168 @@ function First-Run {
   $script:frWin = $d.win
   [void]$d.win.ShowDialog()
 }
-$script:keyWin = $null; $script:keyPw = $null
+$script:keyWin = $null; $script:keyPw = $null; $script:kd = $null
 function Key-Close { try { if ($script:keyWin) { $script:keyWin.Close() } } catch {}; $script:keyWin = $null; $script:keyPw = $null }
+function Kd-Url { if ($script:kd -and $script:kd.url) { return ([string]$script:kd.url.Text).Trim().TrimEnd('/') }; return '' }
+function Kd-Models {
+  $kd = $script:kd; if (-not $kd) { return }
+  $kd.list.Children.Clear()
+  $kk = $(if ($kd.a -eq 'oai') { $kd.p } else { $kd.a })
+  $isC = ($kd.a -eq 'oai' -and $kd.p -eq 'custom')
+  $kd.custom.Visibility = $(if ($isC) { 'Visible' } else { 'Collapsed' })
+  $kd.list.Visibility = $(if ($isC) { 'Collapsed' } else { 'Visible' })
+  if ($kd.ml) { $kd.ml.Visibility = $(if ($isC) { 'Collapsed' } else { 'Visible' }) }
+  if ($isC) { return }
+  $opts = New-Object System.Collections.ArrayList; $seen = @{}; $cur = [string]$kd.m
+  foreach ($e in @(Cat-Of $kk)) {
+    $real = [string]$e.id
+    if ($null -ne $kd.avail) { $real = Ext-Match ([string]$e.id) $kd.avail; if (-not $real) { continue } }
+    if ($cur -and ($cur -eq [string]$e.id -or $cur -eq $real)) { $cur = $real; $kd.m = $real }
+    if ($seen[$real]) { continue }; $seen[$real] = 1
+    [void]$opts.Add(@{ id = $real; e = $e })
+  }
+  if ($cur -and -not $seen[$cur] -and ($null -eq $kd.avail -or (Ext-Match $cur $kd.avail))) { [void]$opts.Add(@{ id = $cur; e = $null }) }
+  if ($opts.Count -eq 0) { $nn = TB $(if ($null -ne $kd.avail) { '이 키로 쓸 수 있는 추천 모델이 없어요 · 직접 입력을 골라 모델 이름을 넣어 주세요' } else { '추천 모델 목록이 없어요' }) 11 $MUTED; $nn.TextWrapping = 'Wrap'; [void]$kd.list.Children.Add($nn); return }
+  if (-not (@($opts | ForEach-Object { $_.id }) -contains $cur)) { $kd.m = [string]$opts[0].id; $cur = $kd.m }
+  $fastDone = $false
+  foreach ($o in $opts) {
+    $e = $o.e; $sel = ([string]$o.id -eq $cur)
+    $rb = New-Object System.Windows.Controls.Border; $rb.CornerRadius = New-Object System.Windows.CornerRadius(6); $rb.BorderThickness = New-Object System.Windows.Thickness(1); $rb.Padding = New-Object System.Windows.Thickness(10, 7, 10, 8); $rb.Margin = New-Object System.Windows.Thickness(0, 0, 0, 6); $rb.Cursor = [System.Windows.Input.Cursors]::Hand
+    $rb.BorderBrush = $(if ($sel) { Br '#FFE0B95A' } else { Br '#1FFFFFFF' }); $rb.Background = $(if ($sel) { Br '#14E0B95A' } else { Br '#01000000' })
+    $dp = New-Object System.Windows.Controls.DockPanel
+    $rg = New-Object System.Windows.Controls.Grid; $rg.Width = 12; $rg.Height = 12; $rg.VerticalAlignment = 'Top'; $rg.Margin = New-Object System.Windows.Thickness(0, 3, 10, 0)
+    $ro = New-Object System.Windows.Shapes.Ellipse; $ro.StrokeThickness = 1.5; $ro.Stroke = $(if ($sel) { Br '#FFE0B95A' } else { Br '#FF8A8A8A' }); [void]$rg.Children.Add($ro)
+    if ($sel) { $ri = New-Object System.Windows.Shapes.Ellipse; $ri.Width = 6; $ri.Height = 6; $ri.Fill = Br '#FFE0B95A'; [void]$rg.Children.Add($ri) }
+    [System.Windows.Controls.DockPanel]::SetDock($rg, 'Left'); [void]$dp.Children.Add($rg)
+    $tx = New-Object System.Windows.Controls.StackPanel
+    $l1 = New-Object System.Windows.Controls.StackPanel; $l1.Orientation = 'Horizontal'
+    $ttl = $(if (-not $e) { '지금 쓰는 모델' } elseif ([string]$e.t -eq 'fast') { '빠르고 저렴' } else { '더 자연스럽게' })
+    $t1 = TB $ttl 12.5 $CREAM; $t1.VerticalAlignment = 'Center'; [void]$l1.Children.Add($t1)
+    $nm = $(if ($e -and $e.n) { [string]$e.n } else { [string]$o.id })
+    $t2 = TB $nm 10.5 $MUTED; $t2.FontWeight = 'Normal'; $t2.VerticalAlignment = 'Center'; $t2.Margin = New-Object System.Windows.Thickness(6, 1, 0, 0); [void]$l1.Children.Add($t2)
+    if ($e -and [string]$e.t -eq 'fast' -and -not $fastDone) {
+      $fastDone = $true
+      $bg = New-Object System.Windows.Controls.Border; $bg.Background = Br '#FFE0B95A'; $bg.CornerRadius = New-Object System.Windows.CornerRadius(3); $bg.Padding = New-Object System.Windows.Thickness(5, 0, 5, 1); $bg.Margin = New-Object System.Windows.Thickness(6, 1, 0, 0); $bg.VerticalAlignment = 'Center'
+      $bt = TB '추천' 9.5 (Br '#FF141414'); $bt.VerticalAlignment = 'Center'; $bg.Child = $bt; [void]$l1.Children.Add($bg)
+    }
+    [void]$tx.Children.Add($l1)
+    $ds = $(if (-not $e) { '설정에 저장돼 있던 모델이에요' } elseif ([string]$e.t -eq 'fast') { '채팅 번역엔 이걸로 충분해요 · 가장 빨라요' } else { '긴 문장·말투가 조금 더 매끄러워요 · 조금 느려요' })
+    $t3 = TB $ds 11 (Br '#FFB9B3A4'); $t3.FontWeight = 'Normal'; $t3.TextWrapping = 'Wrap'; $t3.Margin = New-Object System.Windows.Thickness(0, 2, 0, 0); [void]$tx.Children.Add($t3)
+    $cs = ''; if ($e -and $e.c) { $cs = '번역 1,000줄에 약 ' + ('{0:N0}' -f [int]$e.c) + '원' }; if ($e -and $e.free) { $cs = $(if ($cs) { $cs + ' · 무료 사용량 안에서는 무료' } else { '무료 사용량 안에서는 무료' }) }
+    if ($cs) { $t4 = TB $cs 11 $GOLD; $t4.FontWeight = 'Normal'; $t4.Margin = New-Object System.Windows.Thickness(0, 1, 0, 0); [void]$tx.Children.Add($t4) }
+    [void]$dp.Children.Add($tx); $rb.Child = $dp; $rb.Tag = [string]$o.id
+    $rb.Add_MouseLeftButtonUp({ param($snd, $ev) $ev.Handled = $true; try { $script:kd.m = [string]$snd.Tag; Kd-Models } catch { Log "모델 고르기: $_" } })
+    [void]$kd.list.Children.Add($rb)
+  }
+}
+function Kd-Chips {
+  $kd = $script:kd; if (-not $kd -or -not $kd.chips) { return }
+  $kd.chips.Children.Clear()
+  foreach ($it in @(@('openai', 'ChatGPT'), @('deepseek', '딥시크'), @('groq', '그록'), @('openrouter', '오픈라우터'), @('custom', '직접 입력'))) {
+    $sel = ($it[0] -eq $kd.p)
+    $cb = New-Object System.Windows.Controls.Border; $cb.CornerRadius = New-Object System.Windows.CornerRadius(10); $cb.BorderThickness = New-Object System.Windows.Thickness(1); $cb.Padding = New-Object System.Windows.Thickness(10, 2, 10, 3); $cb.Margin = New-Object System.Windows.Thickness(0, 0, 6, 6); $cb.Cursor = [System.Windows.Input.Cursors]::Hand
+    $cb.BorderBrush = Br '#59E0B95A'; $cb.Background = $(if ($sel) { Br '#FFE0B95A' } else { Br '#01000000' })
+    $ct = TB $it[1] 10.5 $(if ($sel) { Br '#FF141414' } else { $GOLD }); $ct.VerticalAlignment = 'Center'; $cb.Child = $ct; $cb.Tag = $it[0]
+    $cb.Add_MouseLeftButtonUp({ param($snd, $ev) $ev.Handled = $true; try { $kd2 = $script:kd; $kd2.p = [string]$snd.Tag; $kd2.avail = $null; $kd2.m = [string](Oai-Models)[$kd2.p]; Kd-Chips; Kd-Models; Kd-Check } catch { Log "키 곳 고르기: $_" } })
+    [void]$kd.chips.Children.Add($cb)
+  }
+}
+$KdT = New-Object Windows.Threading.DispatcherTimer; $KdT.Interval = [TimeSpan]::FromMilliseconds(300)
+$KdT.Add_Tick({ try { Kd-Poll } catch { $KdT.Stop(); Log "모델 목록 확인: $_" } })
+function Kd-Check([string]$key = '') {
+  $kd = $script:kd; if (-not $kd) { return }
+  if (-not $key) { $key = $(if ($kd.pw -and $kd.pw.Password) { [string]$kd.pw.Password } else { Api-Key $kd.a }) }
+  $key = $key.Trim(); if (-not $key) { return }
+  if ($kd.a -eq 'oai' -and $kd.p -eq 'custom') { return }
+  try { $kd.task = $DictHttp.SendAsync((Ext-ListReq $kd.a $kd.p $key)); $kd.tp = $kd.p; $kd.st.Text = '이 키로 쓸 수 있는 모델을 확인하는 중…'; $kd.st.Foreground = $MUTED; $KdT.Start() } catch { Log "모델 목록: $_" }
+}
+function Kd-Poll {
+  $kd = $script:kd; if (-not $kd -or -not $kd.task) { $KdT.Stop(); return }
+  if (-not $kd.task.IsCompleted) { return }
+  $KdT.Stop(); $t = $kd.task; $kd.task = $null
+  if ($kd.tp -ne $kd.p) { return }
+  if ($t.Status -ne [System.Threading.Tasks.TaskStatus]::RanToCompletion) { $kd.st.Text = '모델 목록을 못 가져왔어요 · 인터넷 연결을 확인해 주세요'; $kd.st.Foreground = Br '#FFFF8A6A'; return }
+  $r = $t.Result; $code = [int]$r.StatusCode; $txt = ''; try { $txt = $r.Content.ReadAsStringAsync().Result } catch {}; $r.Dispose()
+  if ($code -ge 400 -and $code -lt 500 -and $txt -match '(?i)workspace') { $kd.st.Text = '이 키는 워크스페이스가 정해져 있지 않아요 · 콘솔에서 워크스페이스를 Default로 골라 키를 다시 만들어 주세요'; $kd.st.Foreground = Br '#FFFF8A6A'; return }
+  if ($code -eq 401 -or $code -eq 403 -or ($code -eq 400 -and $txt -match '(?i)api.?key')) { $kd.st.Text = '키가 맞지 않아요 · 다시 확인해 주세요'; $kd.st.Foreground = Br '#FFFF8A6A'; return }
+  if ($code -lt 200 -or $code -ge 300) { $kd.st.Text = ('모델 목록 확인 실패 (' + $code + ') · 저장은 할 수 있어요'); $kd.st.Foreground = Br '#FFFFB36B'; return }
+  $ids = @(); try { $ids = @(Ext-ListParse $kd.a $txt) } catch {}
+  if ($ids.Count -eq 0) { $kd.st.Text = '모델 목록이 비어 있어요 · 저장은 할 수 있어요'; $kd.st.Foreground = Br '#FFFFB36B'; return }
+  $kd.avail = $ids; $kd.st.Text = '키 확인 완료 · 이 키로 쓸 수 있는 모델만 보여요'; $kd.st.Foreground = Br '#FF8FD18F'
+  Kd-Models
+}
 function Key-Commit {
-  $kpw = $script:keyPw; if (-not $kpw) { return }
+  $kd = $script:kd; $kpw = $script:keyPw; if (-not $kd -or -not $kpw) { return }
   $k = [string]$kpw.Password
-  if (-not $k.Trim()) { Key-Close; return }
-  if (Key-Save $k) { $script:gemErr = $null; $script:gemNet = 0; $script:gemQ = 0; [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = '제미나이 API 키를 저장했어요 (보내기 번역에서 제미나이를 고르면 써요)' }) }
-  else { [void](Add-Line @{ kind = 'S'; col = 'ff7a5c'; text = '제미나이 API 키를 저장하지 못했어요' }) }
+  if ($kd.a -eq 'oai') {
+    if ($kd.p -eq 'custom') {
+      $u = Kd-Url; $mm = ([string]$kd.cm.Text).Trim()
+      if ($u -notmatch '^https?://' -or -not $mm) { $kd.st.Text = '주소(https://…)와 모델 이름을 넣어 주세요'; $kd.st.Foreground = Br '#FFFF8A6A'; return }
+      $S.oaiUrl = $u; $kd.m = $mm
+    }
+    $S.oaiProv = $kd.p
+  }
+  if (-not $k.Trim() -and -not (Api-Key $kd.a)) { $kd.st.Text = '키를 붙여 넣어 주세요'; $kd.st.Foreground = Br '#FFFF8A6A'; return }
+  if ($k.Trim()) { if (-not (Key-Save $k $kd.a)) { [void](Add-Line @{ kind = 'S'; col = 'ff7a5c'; text = ((Ext-Name $kd.a) + ' API 키를 저장하지 못했어요') }); Key-Close; return } }
+  if ($kd.m) { Ext-SetModel $kd.a $(if ($kd.a -eq 'oai') { $kd.p } else { $kd.a }) ([string]$kd.m) }
+  $S.extApi = $kd.a; $S.extNote = $null; $script:extGoneTried = @(); $script:gemErr = $null; $script:gemNet = 0; $script:gemQ = 0; Save-Cfg
+  Eng-Build; try { Paint-Status } catch {}
+  $kk = Cat-Key $kd.a
+  [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = ((Ext-Name $kd.a) + ' API 키를 저장했어요 · ' + (Mdl-Label $kk (Ext-Model $kd.a)) + $(if ($Tier -eq 'low') { '로 번역해요' } else { ' · 보내기 번역에서 켜면 써요' })) })
   Key-Close
 }
-function Key-Dialog {
+function Key-Dialog([bool]$pick = $false) {
   Key-Close
-  $d = New-Dlg '제미나이 API 키' 420
-  $t1 = TB 'Google AI Studio에서 받은 키를 붙여 넣고 [저장]을 누르세요. 키는 이 컴퓨터에만 암호화해서 저장돼요.' 11.5 $SUBC; $t1.TextWrapping = 'Wrap'; $t1.LineHeight = 19; [void]$d.body.Children.Add($t1)
-  $kh = Key-Hint
-  if ($kh) { $t2 = TB ('지금 키: ' + $kh) 11 $MUTED; $t2.Margin = New-Object System.Windows.Thickness(0, 6, 0, 0); [void]$d.body.Children.Add($t2) }
-  $pb = New-Object System.Windows.Controls.Border; $pb.Background = Br '#40000000'; $pb.BorderBrush = Br '#40FFFFFF'; $pb.BorderThickness = New-Object System.Windows.Thickness(1); $pb.CornerRadius = New-Object System.Windows.CornerRadius(4); $pb.Margin = New-Object System.Windows.Thickness(0, 12, 0, 0); $pb.Padding = New-Object System.Windows.Thickness(8, 5, 8, 5)
+  $a = Ext-Api
+  $p = $(if ($a -eq 'oai') { Oai-Prov } else { $a })
+  $d = New-Dlg $(if ($a -eq 'oai') { 'ChatGPT 방식 API 키' } else { (Ext-Name $a) + ' API 키' }) 450
+  $script:kd = @{ a = $a; p = $p; m = (Ext-Model $a); avail = $null; task = $null; chips = $null; url = $null; cm = $null }
+  $kd = $script:kd
+  if ($pick) {
+    $pl = TB '어느 AI 키를 쓰세요?' 11 $MUTED; $pl.Margin = New-Object System.Windows.Thickness(0, 0, 0, 6); [void]$d.body.Children.Add($pl)
+    $ug = New-Object System.Windows.Controls.Primitives.UniformGrid; $ug.Columns = 3; $ug.Rows = 1; $ug.Margin = New-Object System.Windows.Thickness(0, 0, -5, 12)
+    foreach ($it in @(@('gemini', '제미나이'), @('claude', 'Claude'), @('oai', 'ChatGPT 방식'))) {
+      $sel = ($it[0] -eq $a)
+      $sb = New-Object System.Windows.Controls.Border; $sb.Height = 30; $sb.CornerRadius = New-Object System.Windows.CornerRadius(6); $sb.Margin = New-Object System.Windows.Thickness(0, 0, 5, 0); $sb.Cursor = [System.Windows.Input.Cursors]::Hand
+      $sb.Background = $(if ($sel) { Br '#E6B98E5F' } else { Br '#14FFFFFF' })
+      $sl = TB $it[1] 11.5 $(if ($sel) { Br '#FF141414' } else { Br '#FFB8B8B8' }); $sl.FontWeight = 'Bold'; $sl.HorizontalAlignment = 'Center'; $sl.VerticalAlignment = 'Center'; $sb.Child = $sl; $sb.Tag = $it[0]
+      $sb.Add_MouseLeftButtonDown({ param($snd, $ev) $ev.Handled = $true })
+      $sb.Add_MouseLeftButtonUp({ param($snd, $ev) $ev.Handled = $true; try { if ([string]$snd.Tag -ne (Ext-Api)) { $S.extApi = [string]$snd.Tag; $S.extNote = $null; Save-Cfg; Eng-Build; try { Paint-Status } catch {}; Key-Dialog $true } } catch { Log "키 창 AI 고르기: $_" } })
+      [void]$ug.Children.Add($sb)
+    }
+    [void]$d.body.Children.Add($ug)
+  }
+  $intro = $(if ($a -eq 'claude') { 'Claude 콘솔(platform.claude.com)에서 받은 키를 붙여 넣고 [저장]을 누르세요. 키를 만들 때 워크스페이스는 Default로 골라 주세요. 키는 이 컴퓨터에만 암호화해서 저장돼요.' } elseif ($a -eq 'oai') { '어디서 받은 키인지 고르고 키를 붙여 넣으세요. 키는 이 컴퓨터에만 암호화해서 저장돼요.' } else { 'Google AI Studio에서 받은 키를 붙여 넣고 [저장]을 누르세요. 키는 이 컴퓨터에만 암호화해서 저장돼요.' })
+  $t1 = TB $intro 11.5 $SUBC; $t1.TextWrapping = 'Wrap'; $t1.LineHeight = 19; [void]$d.body.Children.Add($t1)
+  if ($a -eq 'oai') { $wp = New-Object System.Windows.Controls.WrapPanel; $wp.Margin = New-Object System.Windows.Thickness(0, 10, 0, 0); $kd.chips = $wp; [void]$d.body.Children.Add($wp) }
+  $cust = New-Object System.Windows.Controls.StackPanel; $cust.Visibility = 'Collapsed'; $kd.custom = $cust
+  foreach ($fl in @(@('주소 (예: https://api.example.com/v1)', 'url', [string]$S.oaiUrl), @('모델 이름', 'cm', $(if ($a -eq 'oai' -and $p -eq 'custom') { [string](Oai-Models)['custom'] } else { '' })))) {
+    $lb = TB $fl[0] 11 $MUTED; $lb.Margin = New-Object System.Windows.Thickness(0, 8, 0, 4); [void]$cust.Children.Add($lb)
+    $fb = New-Object System.Windows.Controls.Border; $fb.Background = Br '#40000000'; $fb.BorderBrush = Br '#40FFFFFF'; $fb.BorderThickness = New-Object System.Windows.Thickness(1); $fb.CornerRadius = New-Object System.Windows.CornerRadius(4); $fb.Padding = New-Object System.Windows.Thickness(8, 5, 8, 5)
+    $tb = New-Object System.Windows.Controls.TextBox; $tb.Background = [System.Windows.Media.Brushes]::Transparent; $tb.BorderThickness = New-Object System.Windows.Thickness(0); $tb.Foreground = $CREAM; $tb.CaretBrush = $GOLD; $tb.FontSize = 12.5; $tb.Text = $fl[2]
+    $fb.Child = $tb; [void]$cust.Children.Add($fb); $kd[$fl[1]] = $tb
+  }
+  [void]$d.body.Children.Add($cust)
+  $kh = Key-Hint $a
+  $kl = TB $(if ($kh) { '키 · 지금 ' + $kh + ' (바꿀 때만 붙여 넣기)' } else { '키' }) 11 $MUTED; $kl.Margin = New-Object System.Windows.Thickness(0, 10, 0, 4); [void]$d.body.Children.Add($kl)
+  $pb = New-Object System.Windows.Controls.Border; $pb.Background = Br '#40000000'; $pb.BorderBrush = Br '#40FFFFFF'; $pb.BorderThickness = New-Object System.Windows.Thickness(1); $pb.CornerRadius = New-Object System.Windows.CornerRadius(4); $pb.Padding = New-Object System.Windows.Thickness(8, 6, 8, 6)
   $kpw = New-Object System.Windows.Controls.PasswordBox; $kpw.Background = [System.Windows.Media.Brushes]::Transparent; $kpw.BorderThickness = New-Object System.Windows.Thickness(0); $kpw.Foreground = $CREAM; $kpw.CaretBrush = $GOLD; $kpw.FontSize = 13; $kpw.PasswordChar = [char]0x25CF
-  $pb.Child = $kpw; [void]$d.body.Children.Add($pb)
+  $pb.Child = $kpw; [void]$d.body.Children.Add($pb); $kd.pw = $kpw
   $kpw.Add_KeyDown({ param($snd, $ev) if ($ev.Key -eq 'Return' -or $ev.Key -eq 'Enter') { $ev.Handled = $true; Key-Commit } elseif ($ev.Key -eq 'Escape') { $ev.Handled = $true; Key-Close } })
-  if ($kh) { Dlg-Btn $d '지우기' $false { [void](Key-Save ''); [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = '제미나이 API 키를 지웠어요 (보내기는 자체 번역으로)' }); Key-Close } }
+  $kpw.Add_LostFocus({ try { if ($script:kd -and $script:kd.pw.Password) { Kd-Check } } catch {} })
+  $ml = TB '모델' 11 $MUTED; $ml.Margin = New-Object System.Windows.Thickness(0, 12, 0, 6); $kd.ml = $ml; [void]$d.body.Children.Add($ml)
+  $ls = New-Object System.Windows.Controls.StackPanel; $kd.list = $ls; [void]$d.body.Children.Add($ls)
+  $ft = TB '보통 2~3시간 플레이하면 300~500줄쯤 번역돼요 · 비용은 대략치이고 키 주인이 내요' 9.5 $MUTED; $ft.TextWrapping = 'Wrap'; $ft.Margin = New-Object System.Windows.Thickness(0, 4, 0, 0); [void]$d.body.Children.Add($ft)
+  $st = TB '' 10.5 $MUTED; $st.TextWrapping = 'Wrap'; $st.Margin = New-Object System.Windows.Thickness(0, 6, 0, 0); $kd.st = $st; [void]$d.body.Children.Add($st)
+  Kd-Chips; Kd-Models
+  if ($kh) { Dlg-Btn $d '지우기' $false { $a0 = $script:kd.a; [void](Key-Save '' $a0); Eng-Build; try { Paint-Status } catch {}; [void](Add-Line @{ kind = 'S'; col = 'ffd27a'; text = ((Ext-Name $a0) + ' API 키를 지웠어요') }); Key-Close } }
   Dlg-Btn $d '취소' $false { Key-Close }
   Dlg-Btn $d '저장' $true { Key-Commit }
   $script:keyWin = $d.win; $script:keyPw = $kpw
-  $d.win.Add_Closed({ $script:keyWin = $null; $script:keyPw = $null })
+  $d.win.Add_Closed({ $script:keyWin = $null; $script:keyPw = $null; $script:kd = $null; try { $KdT.Stop() } catch {} })
   $d.win.Add_ContentRendered({ try { $script:keyPw.Focus() | Out-Null; [System.Windows.Input.Keyboard]::Focus($script:keyPw) | Out-Null } catch {} })
   $d.win.Show(); [void]$d.win.Activate()
+  if ($kh) { Kd-Check }
 }
 
 $script:hintWin = $null; $script:hintKind = ''
@@ -7415,7 +7685,7 @@ $StT.Add_Tick({ Dbg ("상태: 신호 {0} · 놓침 {1} · {2} · 입력중 {3} �
 Select-Tab ([string]$S.tab)
 Paint-Status
 $win.Add_Closed({ try { Save-CfgNow } catch {}; if ($VoiceOK) { try { [FTRVoice]::Shutdown() } catch {} }; try { if ($Upd.ready) { Upd-Apply; Upd-Reset } } catch { try { Log ('끌 때 업데이트 실패 (그대로 씀): ' + $_) } catch {} }; [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown() })
-if ($Tier -eq 'low' -and -not (Api-Key)) { try { Key-Dialog } catch { Log "처음 키 넣기: $_" } }
+if ($Tier -eq 'low' -and -not (Api-Key)) { try { Key-Dialog $true } catch { Log "처음 키 넣기: $_" } }
 try { Tip-Room 0 } catch {}
 $win.Show()
 $win.Visibility = 'Hidden'
