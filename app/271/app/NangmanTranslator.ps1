@@ -6183,7 +6183,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 270
+$APPV = 271
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
@@ -6424,7 +6424,7 @@ function Mdl-Popup {
     $d = New-Object System.Windows.Controls.TextBlock; $d.Text = $it[1]; $d.FontSize = 12.5; $d.Foreground = Br '#FFB9B3A4'; $d.TextWrapping = 'Wrap'; $d.Margin = New-Object System.Windows.Thickness(0, 2, 0, 0); [void]$sp.Children.Add($d)
     [void]$dp.Children.Add($sp); [void]$ip.Children.Add($dp)
   }
-  if ($script:CFONT) { $root.SetValue([System.Windows.Documents.TextElement]::FontFamilyProperty, $script:CFONT); try { Font-Tree $root } catch {} }
+  try { $pf = Chat-FontPick 'war'; $root.SetValue([System.Windows.Documents.TextElement]::FontFamilyProperty, $pf); $st = New-Object System.Collections.Stack; $st.Push($root); while ($st.Count -gt 0) { $e = $st.Pop(); if ($e -is [System.Windows.Controls.TextBlock]) { $e.FontFamily = $pf; $e.FontWeight = 'Normal' }; foreach ($c in @([System.Windows.LogicalTreeHelper]::GetChildren($e))) { if ($c -is [System.Windows.DependencyObject]) { $st.Push($c) } } } } catch {}
   $w = New-Object System.Windows.Window
   $w.WindowStyle = 'None'; $w.AllowsTransparency = $true; $w.Background = [System.Windows.Media.Brushes]::Transparent; $w.Topmost = $true; $w.ShowInTaskbar = $false; $w.ResizeMode = 'NoResize'; $w.SizeToContent = 'WidthAndHeight'
   $w.Content = $root
