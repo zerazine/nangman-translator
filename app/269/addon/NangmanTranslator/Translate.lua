@@ -431,6 +431,8 @@ local function geo()
     og = string.format("%d\t%d\t%d\t%d", math.floor(cf:GetLeft() * cs + 0.5), math.floor(sh - cf:GetTop() * cs + 0.5), math.floor(cf:GetWidth() * cs + 0.5), math.floor(cf:GetHeight() * cs + 0.5))
   end
   if og ~= T.lastOG then T.lastOG = og push("GO", og) end
+  local mm = NT.modeNow and NT.modeNow() or ""
+  if mm ~= T.lastMM then T.lastMM = mm push("MM", mm) end
 end
 function NT.geoNow() lastGeo = "" pcall(geo) end
 function NT.pushUG()
@@ -459,7 +461,7 @@ NT.onUpdate(drv, function(_, el)
   if tick > 1 then
     tick = 0
     geo()
-    if now > infoAt then infoAt = now + 12 lastGeo = "" T.lastUG = nil T.lastOG = nil lastEdit = nil lastVis = nil T.lastFeed = nil T.lastKb = nil info() if (T.chanN or 0) <= 0 then T.chanN = 5 lastChan = "" end T.chanN = T.chanN - 1 pcall(chans) end
+    if now > infoAt then infoAt = now + 12 lastGeo = "" T.lastUG = nil T.lastOG = nil T.lastMM = nil lastEdit = nil lastVis = nil T.lastFeed = nil T.lastKb = nil info() if (T.chanN or 0) <= 0 then T.chanN = 5 lastChan = "" end T.chanN = T.chanN - 1 pcall(chans) end
     local fg = NT.feedGeo and NT.feedGeo()
     local fon = (NT.feedEnabled and NT.feedEnabled()) and "1" or "0"
     if fg and (fg .. fon) ~= T.lastFeed then
@@ -1051,6 +1053,7 @@ do
     if not d.on and not T.userOff then setOn(true, true) end
   end
   local MODE = { party = "인던", raid = "레이드", pvp = "전장", arena = "투기장", scenario = "인던" }
+  function NT.modeNow() local d = db() return (d.on or d.bgOff) and d.modeNm or "" end
   local function auto(typ)
     local d = db()
     local nm = MODE[typ]

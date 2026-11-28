@@ -1103,7 +1103,23 @@ do
     pcall(NT.dualPlace, v)
     toPC("ui", "dual", v and "1" or "0")
   end
+  local function udSwap(on)
+    for _, w in ipairs(UD.list()) do
+      if on then
+        if w.fPos == nil then
+          w.fPos = w.pos and { w.pos[1], w.pos[2] } or false w.fW, w.fH = w.w or false, w.h or false
+          if type(w.dPos) == "table" then w.pos = { w.dPos[1], w.dPos[2] } w.w = w.dW or w.w w.h = w.dH or w.h UD.place(w) end
+        end
+      elseif w.fPos ~= nil then
+        w.dPos = w.pos and { w.pos[1], w.pos[2] } or nil w.dW, w.dH = w.w, w.h
+        w.pos = w.fPos and { w.fPos[1], w.fPos[2] } or nil w.w = w.fW or nil w.h = w.fH or nil
+        w.fPos, w.fW, w.fH = nil, nil, nil
+        UD.place(w)
+      end
+    end
+  end
   function NT.dualPlace(on)
+    pcall(udSwap, on)
     local cf = ChatFrame1
     local cc = cfg()
     if cc.cfPts and cf then
