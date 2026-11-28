@@ -1,11 +1,16 @@
 {
+    "v":  2,
     "model":  "nangman-gemma",
-    "source":  "gemma2b-wow-1113-0051-afull:e2b",
+    "source":  "gemma2b-wow-1128-1243-ohalf:e2b",
     "size":  3416114688,
-    "sha256":  "b56907fa8b52e5254eca67d6e39f52bf55dc3ff7f71f4ee90ae8f521e32c25cc",
+    "sha256":  "f17a1eef48832b8ab5040eefb57a147b82509848c62f4faa39756f9888f2ac48",
     "parts":  [
-                  "https://github.com/zerazine/nangman-translator/releases/download/model-v1/nangman-gemma.gguf.part1",
-                  "https://github.com/zerazine/nangman-translator/releases/download/model-v1/nangman-gemma.gguf.part2"
+                  "https://github.com/zerazine/nangman-translator/releases/download/model-v2/nangman-gemma.gguf.part1",
+                  "https://github.com/zerazine/nangman-translator/releases/download/model-v2/nangman-gemma.gguf.part2"
               ],
-    "date":  "2026-11-13"
+    "psize":  [
+                  1992294400,
+                  1423820288
+              ],
+    "date":  "2026-11-28"
 }
