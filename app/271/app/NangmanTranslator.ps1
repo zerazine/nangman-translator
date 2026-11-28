@@ -3292,7 +3292,7 @@ $ENG_STOP = @{}; foreach ($w0 in @('나도', '너도', '그냥', '진짜', '정�
 function Eng-Mean([string]$m) {
   if (-not $m) { return '' }
   $a = ((($m -split '\s*·\s*')[0]) -replace '\s*\([^)]*\)', '').Trim()
-  if ($a.Length -gt 28 -or $a -match '말 것|때만|그대로|바꾸지|옮기|옮겨|쓰지|번역|원문') { return '' }
+  if ($a.Length -gt 28 -or $a -match '말 것|있을 때만|그대로|바꾸지 말|옮기|옮겨|쓰지 말|번역|(?<![가-힣])원문') { return '' }
   return $a
 }
 function Eng-Fit([string]$mn, [string]$ko) {
