@@ -7,7 +7,7 @@
  "offMsg": "",
  "blockIds": [],
  "blockMsg": "",
- "notice": "와우 리테일 (본섭) 이용이 가능합니다 BETA",
- "noticeId": "retail1",
- "noticeMax": 0
+ "notice": "화면 위쪽 가운데에 커뮤니티 글이 노출되던 현상을 수정했습니다. 2.68로 업데이트해 주세요.",
+ "noticeId": "comm268",
+ "noticeMax": 268
 }
