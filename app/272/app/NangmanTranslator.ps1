@@ -5181,7 +5181,7 @@ function Tip-List {
   if (-not $script:tipList -and -not $script:tipReq -and ([DateTime]::Now - $script:appStart).TotalSeconds -gt 20) { try { $script:tipReq = $DictHttp.GetStringAsync('https://zerazine.github.io/nangman-translator/tips.json?t=' + [DateTime]::UtcNow.Ticks) } catch { $script:tipList = $TIPS0 } }
   if ($script:tipReq -and $script:tipReq.IsCompleted) {
     $L = @()
-    try { if ($script:tipReq.Status -eq [System.Threading.Tasks.TaskStatus]::RanToCompletion) { foreach ($x in @(([string]$script:tipReq.Result | ConvertFrom-Json).tips)) { if ($x.id -and $x.t1) { $L += @{ id = [string]$x.id; t1 = [string]$x.t1; t2 = [string]$x.t2; need = [string]$x.need; kind = [string]$x.kind } } } } } catch {}
+    try { if ($script:tipReq.Status -eq [System.Threading.Tasks.TaskStatus]::RanToCompletion) { $tj = [string]$script:tipReq.Result | ConvertFrom-Json; foreach ($x in @(@($tj.tips2) + @($tj.tips))) { if ($x.id -and $x.t1) { $L += @{ id = [string]$x.id; t1 = [string]$x.t1; t2 = [string]$x.t2; need = [string]$x.need; kind = [string]$x.kind; now = [bool]$x.now } } } } } catch {}
     $script:tipList = $(if ($L.Count -gt 0) { $L } else { $TIPS0 }); $script:tipReq = $null
   }
   if ($script:tipList) { return $script:tipList }
@@ -5193,11 +5193,13 @@ function Tip-Daily {
   $list = Tip-List
   if (-not $list -or $script:noticeShown -or $state.combat -or $state.inputOn -or $state.off) { return $null }
   if (($now - $script:appStart).TotalSeconds -lt 90) { return $null }
-  $today = $now.ToString('yyyy-MM-dd'); if ([string]$S.tipDay -eq $today) { return $null }
+  $today = $now.ToString('yyyy-MM-dd'); $dayDone = ([string]$S.tipDay -eq $today)
   $seen = @($S.tipSeen | Where-Object { $_ })
   foreach ($t in $list) {
     if ($seen -contains $t.id) { continue }
+    if ($dayDone -and -not $t.now) { continue }
     if ($t.need -eq 'voice' -and -not $VoiceOK) { continue }
+    if ($t.need -eq 'low' -and $Tier -ne 'low') { continue }
     $script:tipCur = @{ id = $t.id; t1 = $t.t1; t2 = $t.t2; kind = [string]$t.kind; at = $now }
     $S.tipSeen = @($seen + $t.id); $S.tipDay = $today; try { Save-Cfg } catch {}
     return $script:tipCur
@@ -6453,7 +6455,7 @@ $DictT.Add_Tick({
   } catch { Log "사전 확인: $_" }
 })
 $DictT.Start()
-$APPV = 271
+$APPV = 272
 $APPVS = '2.' + $(if ($APPV -eq 200) { '0' } else { '{0:00}' -f ($APPV - 200) })
 $AppBase = 'https://zerazine.github.io/nangman-translator/app/'
 $Upd = @{ task = $null; kind = ''; j = $null; queue = (New-Object System.Collections.ArrayList); cur = $null; got = @{}; ready = $false; checkAt = [DateTime]::Now.AddHours(-3).AddSeconds(5); waitLog = $false }
@@ -6682,7 +6684,7 @@ function Mdl-Popup {
   $root = [System.Windows.Markup.XamlReader]::Parse($x)
   $its = @(
     @('앞 대화 맥락까지 읽고 번역해요', '한 줄만 보고 번역하지 않아요 · 앞 대화 맥락까지 읽고 누구 이야기인지 판단해요'),
-    @('복잡한 영어 문장도 뜻 그대로 정확하게', "can't not · nobody didn't 처럼 부정이 겹친 말도 원래 뜻을 살려서 옮겨요"),
+    @('복잡한 영어 문장도 뜻 그대로 정확하게', "can't help but · hard not to 같은 꼬인 표현도 원래 뜻을 살려서 옮겨요"),
     @('거래·파티 모집글을 더 똑똑하게', 'WTS · WTB · LFM · LFG 줄임말과 팝니다·삽니다·구함을 정확히 구분해요'),
     @('주어 없이 쓴 질문·부탁도 자연스럽게', '탱 가능함? → can you tank? · 도와줄 수 있음 → i can help'))
   $ip = $root.FindName('items')
@@ -6700,7 +6702,6 @@ function Mdl-Popup {
   $w.Content = $root
   $root.FindName('bGo').Add_MouseLeftButtonUp({ try { $Mdl.win.Close() } catch {}; try { Mdl-Start } catch { Log "모델 받기: $_" } })
   $root.FindName('bLater').Add_MouseLeftButtonUp({ try { $S.mdlSnooze = (Get-Date).ToString('yyyy-MM-dd'); Save-Cfg } catch {}; try { $Mdl.win.Close() } catch {} })
-  $w.Add_Deactivated({ try { $Mdl.win.Close() } catch {} })
   $w.Add_Closed({ $Mdl.win = $null })
   $w.Add_Loaded({ param($snd) try { $snd.Left = $win.Left + [math]::Max(0, ($win.ActualWidth - $snd.ActualWidth) / 2); $snd.Top = $win.Top + 40 } catch {} })
   $Mdl.win = $w; $Mdl.popAt = [DateTime]::Now; $w.Show(); try { $w.Activate() | Out-Null } catch {}

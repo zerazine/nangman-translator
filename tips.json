@@ -1,4 +1,14 @@
 {
+ "tips2": [
+  {
+   "id": "extapi272",
+   "t1": "이제 제미나이 API와 더불어 외부 API들 사용이 가능해졌습니다",
+   "t2": "톱니 → 외부 API 번역에서 Claude · ChatGPT 등을 고를 수 있어요 · 쓰시던 제미나이는 그대로 써요",
+   "kind": "news",
+   "need": "low",
+   "now": true
+  }
+ ],
  "tips": [
   {
    "id": "upd257",
